@@ -51,6 +51,7 @@ export default function PaginaReport() {
   const [incassi, setIncassi] = useState<IncassoMese[]>([]);
   const [dipendenti, setDipendenti] = useState<TotaleDipendente[]>([]);
   const [clientiReport, setClientiReport] = useState<ClientiReport | null>(null);
+  const [riepilogo, setRiepilogo] = useState<{ incasso_mensile: number; appuntamenti_oggi: number; ticket_medio: number; clienti_totali: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +76,7 @@ export default function PaginaReport() {
 
       setIncassi(incassiFormattati);
       setDipendenti(data.dipendenti);
+      setRiepilogo(data.overview);
       setClientiReport(data.clienti_report || null);
     } catch (err: any) {
       setError(err.message || 'Errore durante il caricamento del report');
@@ -148,6 +150,26 @@ export default function PaginaReport() {
       </div>
 
       <div className="w-full max-w-[1400px] mx-auto px-4 md:px-6 flex-1">
+
+        {/* Riepilogo del mese */}
+        {riepilogo && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            {[
+              { etichetta: 'Incassato questo mese', valore: `${riepilogo.incasso_mensile.toFixed(2).replace('.', ',')} €`, accento: true },
+              { etichetta: 'Appuntamenti oggi', valore: String(riepilogo.appuntamenti_oggi) },
+              { etichetta: 'Scontrino medio', valore: `${riepilogo.ticket_medio.toFixed(2).replace('.', ',')} €` },
+              { etichetta: 'Clienti in anagrafica', valore: String(riepilogo.clienti_totali) }
+            ].map(t => (
+              <div key={t.etichetta} className="bg-white border border-zinc-200 rounded-xl p-4">
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">{t.etichetta}</div>
+                <div className={`text-2xl font-playfair font-bold tabular-nums ${t.accento ? 'text-fuchsia-600' : 'text-zinc-900'}`}>
+                  {t.valore}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Grafico Incassi Mese */}
@@ -161,25 +183,25 @@ export default function PaginaReport() {
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={incassi} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                 <XAxis 
                   dataKey="meseFormattato" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }} 
+                  tick={{ fill: '#71717a', fontSize: 12 }} 
                   dy={10} 
                 />
                 <YAxis 
                   tickFormatter={(value) => `€${value}`} 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#a1a1aa', fontSize: 12 }}
+                  tick={{ fill: '#71717a', fontSize: 12 }}
                 />
                 <Tooltip 
-                  cursor={{ fill: '#18181b' }}
-                  contentStyle={{ backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #27272a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.5)' }}
+                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                  contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e4e4e7', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.12)' }}
                   formatter={(value: number) => [`€${value.toFixed(2)}`, 'Incassato']}
-                  labelStyle={{ color: '#f4f4f5', fontWeight: 600, marginBottom: '4px' }}
+                  labelStyle={{ color: '#18181b', fontWeight: 600, marginBottom: '4px' }}
                 />
                 <Bar dataKey="totale_incassato" fill="#d946ef" radius={[4, 4, 0, 0]} maxBarSize={50} />
               </BarChart>
@@ -199,7 +221,7 @@ export default function PaginaReport() {
             <table className="w-full text-left font-sans">
               <thead>
                 <tr className="border-b border-zinc-200 text-zinc-500">
-                  <th className="py-3 px-4 font-semibold text-sm">Dipendente</th>
+                  <th className="py-3 px-4 font-semibold text-sm">Operatore</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Appuntamenti</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Totale incassato</th>
                 </tr>
@@ -241,7 +263,7 @@ export default function PaginaReport() {
           <div className="mt-12 border-t border-zinc-200 pt-8 mb-6">
             <h2 className="text-2xl font-playfair text-zinc-900 flex items-center gap-2">
               <Users className="text-fuchsia-500" size={24} />
-              Report Clienti & Canali di Acquisizione
+              Clienti e canali di acquisizione
             </h2>
             <p className="text-zinc-500 mt-1 text-sm font-sans">
               Statistiche di crescita e provenienza dei clienti registrati questo mese ({new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })})

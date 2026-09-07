@@ -11,14 +11,138 @@ const getUserId = () => {
 // REFACTORING: DIRECT FIRESTORE CRUD IN REPLACEMENT OF EXPRESS /API
 // ---------------------------------------------------------
 
+/** Prende una data comunque sia stata salvata: Timestamp, stringa o Date. */
+const aData = (valore: any): Date | null => {
+  if (!valore) return null;
+  if (typeof valore?.toDate === 'function') return valore.toDate();
+  const d = new Date(valore);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const chiaveMese = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
 export const reportApi = {
+  /**
+   * Numeri veri, calcolati sugli appuntamenti completati.
+   * Prima questa funzione restituiva zeri scritti nel codice.
+   */
   getOverview: async () => {
-    // Basic mock implementation for report currently
+    const uid = getUserId();
+
+    const [appSnap, cliSnap, dipSnap] = await Promise.all([
+      getDocs(query(collection(db, 'appuntamenti'), where('userId', '==', uid))),
+      getDocs(query(collection(db, 'clienti'), where('userId', '==', uid))),
+      getDocs(query(collection(db, 'dipendenti'), where('userId', '==', uid)))
+    ]);
+
+    const appuntamenti = appSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    const clienti = cliSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    const dipendenti = dipSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+
+    const completati = appuntamenti.filter(a => a.stato === 'completato');
+    const incassoDi = (a: any) => Number(a.prezzo_finale) || 0;
+
+    // --- incassi degli ultimi 6 mesi ---
+    const adesso = new Date();
+    const mesi: { mese: string; totale_incassato: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(adesso.getFullYear(), adesso.getMonth() - i, 1);
+      mesi.push({ mese: d.toISOString(), totale_incassato: 0 });
+    }
+    const indicePerMese = new Map(mesi.map((m, i) => [chiaveMese(new Date(m.mese)), i]));
+
+    completati.forEach(a => {
+      const d = aData(a.data_ora);
+      if (!d) return;
+      const i = indicePerMese.get(chiaveMese(d));
+      if (i !== undefined) mesi[i].totale_incassato += incassoDi(a);
+    });
+
+    // --- totali per operatore ---
+    const perOperatore = new Map<string, { id: string; nome: string; cognome: string; numero_appuntamenti: number; totale_incassato: number }>();
+    dipendenti.forEach(d => perOperatore.set(d.id, {
+      id: d.id, nome: d.nome || '', cognome: d.cognome || '',
+      numero_appuntamenti: 0, totale_incassato: 0
+    }));
+
+    completati.forEach(a => {
+      const id = a.id_dipendente || a.dipendenti?.id || 'unassigned';
+      if (!perOperatore.has(id)) {
+        perOperatore.set(id, {
+          id,
+          nome: a.dipendenti?.nome || 'Non assegnato',
+          cognome: a.dipendenti?.cognome || '',
+          numero_appuntamenti: 0,
+          totale_incassato: 0
+        });
+      }
+      const riga = perOperatore.get(id)!;
+      riga.numero_appuntamenti += 1;
+      riga.totale_incassato += incassoDi(a);
+    });
+
+    const totaliOperatori = Array.from(perOperatore.values())
+      .filter(r => r.numero_appuntamenti > 0)
+      .sort((a, b) => b.totale_incassato - a.totale_incassato);
+
+    // --- clienti acquisiti questo mese e da dove arrivano ---
+    const meseCorrente = chiaveMese(adesso);
+    const acquisiti = clienti
+      .filter(c => {
+        const d = aData(c.createdAt);
+        return d && chiaveMese(d) === meseCorrente;
+      })
+      .map(c => {
+        const d = aData(c.createdAt);
+        return {
+          id: c.id,
+          nome: c.nome || '',
+          cognome: c.cognome || '',
+          telefono: c.telefono || '',
+          email: c.email || '',
+          canale_acquisizione: c.canale_acquisizione || 'Non indicato',
+          data_acquisizione: d ? d.toISOString() : ''
+        };
+      })
+      .sort((a, b) => b.data_acquisizione.localeCompare(a.data_acquisizione));
+
+    const perCanale = new Map<string, number>();
+    clienti.forEach(c => {
+      const canale = c.canale_acquisizione || 'Non indicato';
+      perCanale.set(canale, (perCanale.get(canale) || 0) + 1);
+    });
+    const conteggioCanali = Array.from(perCanale.entries())
+      .map(([canale, quantita]) => ({ canale, quantita }))
+      .sort((a, b) => b.quantita - a.quantita);
+
+    // --- riepilogo in alto ---
+    const incassoMensile = mesi[0].totale_incassato;
+    const oggi = new Date();
+    const appuntamentiOggi = appuntamenti.filter(a => {
+      const d = aData(a.data_ora);
+      return d && d.toDateString() === oggi.toDateString() && a.stato !== 'annullato';
+    }).length;
+    const completatiMese = completati.filter(a => {
+      const d = aData(a.data_ora);
+      return d && chiaveMese(d) === meseCorrente;
+    });
+    const ticketMedio = completatiMese.length
+      ? completatiMese.reduce((acc, a) => acc + incassoDi(a), 0) / completatiMese.length
+      : 0;
+
     return {
-      overview: { incasso_mensile: 0, appuntamenti_oggi: 0, ticket_medio: 0 },
-      incassi: [],
-      dipendenti: [],
-      clienti_report: null
+      overview: {
+        incasso_mensile: incassoMensile,
+        appuntamenti_oggi: appuntamentiOggi,
+        ticket_medio: ticketMedio,
+        clienti_totali: clienti.length
+      },
+      incassi: mesi,
+      dipendenti: totaliOperatori,
+      clienti_report: {
+        acquisiti_questo_mese: acquisiti,
+        conteggio_per_canale: conteggioCanali
+      }
     };
   },
 };
