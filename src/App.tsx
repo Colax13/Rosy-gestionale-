@@ -9,6 +9,7 @@ import PaginaAgenda from '@/app/(dashboard)/agenda/page';
 import SettingsPage from '@/app/(dashboard)/settings/page';
 import ProdottiPage from '@/app/(dashboard)/prodotti/page';
 import AutomazioniPage from '@/app/(dashboard)/automazioni/page';
+import BuoniSpa from '@/app/(dashboard)/buoni-spa/page';
 import DashboardHub from '@/app/(dashboard)/hub/page';
 import RosieHub from '@/app/(dashboard)/rosie/page';
 import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
@@ -67,21 +68,21 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 flex-col gap-4">
+      <div className="min-h-screen flex items-center justify-center bg-white flex-col gap-4">
         <div className="w-8 h-8 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin"></div>
-        <div className="text-zinc-400 font-medium tracking-tight">Caricamento app...</div>
+        <div className="text-zinc-500 font-medium tracking-tight">Caricamento app...</div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-        <div className="bg-zinc-900 rounded-2xl shadow-xl max-w-sm w-full p-8 text-center border border-zinc-800">
+      <div className="min-h-screen flex items-center justify-center bg-white p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center border border-zinc-200">
           <div className="w-16 h-16 bg-fuchsia-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-lg shadow-fuchsia-900/20">
             <span className="text-3xl font-playfair font-bold text-white">R</span>
           </div>
-          <h1 className="text-2xl font-bold font-sans text-zinc-100 mb-2 tracking-tight">Accedi a Rosy</h1>
+          <h1 className="text-2xl font-bold font-sans text-zinc-900 mb-2 tracking-tight">Accedi a Rosy</h1>
           <p className="text-zinc-500 mb-8 font-sans text-sm">Gestisci il tuo salone, clienti e appuntamenti, sincronizzato sul cloud.</p>
           <button
             onClick={handleLogin}
@@ -114,6 +115,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/prodotti" element={<ProdottiPage />} />
           <Route path="/automazioni" element={<AutomazioniPage />} />
+          <Route path="/buoni-spa" element={<BuoniSpa />} />
         </Routes>
       </Layout>
     </BrowserRouter>

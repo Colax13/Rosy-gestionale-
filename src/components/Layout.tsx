@@ -79,13 +79,13 @@ export default function Layout({ children }: { children: ReactNode }) {
   const SidebarContent = ({ menuRef }: { menuRef: React.RefObject<HTMLDivElement> }) => (
     <>
       <div className="flex-1 overflow-y-auto w-full">
-        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+        <div className="p-6 border-b border-zinc-200 flex justify-between items-center">
           <NavLink to="/" className="flex items-center gap-3 group">
-            <h1 className="text-2xl font-playfair font-bold text-zinc-100 group-hover:text-white transition-colors tracking-tight">Rosy</h1>
+            <h1 className="text-2xl font-playfair font-bold text-zinc-900 group-hover:text-fuchsia-600 transition-colors tracking-tight">Rosy</h1>
           </NavLink>
           {/* Close button for mobile */}
           <button 
-            className="md:hidden text-zinc-400 hover:text-zinc-100"
+            className="md:hidden text-zinc-500 hover:text-zinc-900"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <X size={24} />
@@ -100,7 +100,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   isActive
                     ? 'gradient-brand text-white shadow-[0_0_15px_rgba(212,0,255,0.3)] font-semibold border border-[#FF3EF7]/20'
-                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 w-full border border-transparent'
+                    : 'text-zinc-500 hover:bg-white hover:text-zinc-900 w-full border border-transparent'
                 }`
               }
             >
@@ -112,37 +112,37 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* User Menu Area */}
-      <div className="p-4 border-t border-zinc-800 relative w-full" ref={menuRef}>
+      <div className="p-4 border-t border-zinc-200 relative w-full" ref={menuRef}>
         {isUserMenuOpen && (
-          <div className="absolute bottom-full left-4 mb-2 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-2 z-50">
-            <div className="px-4 py-2 border-b border-zinc-700 mb-1">
-              <p className="text-sm font-medium text-zinc-100">{auth.currentUser?.email || 'admin@salone.it'}</p>
-              <p className="text-xs text-zinc-400">Piano Free</p>
+          <div className="absolute bottom-full left-4 mb-2 w-56 bg-zinc-100 border border-zinc-300 rounded-lg shadow-xl py-2 z-50">
+            <div className="px-4 py-2 border-b border-zinc-300 mb-1">
+              <p className="text-sm font-medium text-zinc-900">{auth.currentUser?.email || 'admin@salone.it'}</p>
+              <p className="text-xs text-zinc-500">Piano Free</p>
             </div>
-            <button onClick={() => { setIsUserMenuOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-2">
+            <button onClick={() => { setIsUserMenuOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
               <Settings size={16} /> Impostazioni</button>
-            <button onClick={() => { setIsUserMenuOpen(false); setIsSubscriptionModalOpen(true); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-2">
+            <button onClick={() => { setIsUserMenuOpen(false); setIsSubscriptionModalOpen(true); }} className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
               <CreditCard size={16} /> Aggiorna il piano
             </button>
-            <button onClick={toggleTheme} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 flex items-center justify-between gap-2">
+            <button onClick={toggleTheme} className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
                 {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
                 {theme === 'dark' ? 'Modalità Scura' : 'Modalità Chiara'}
               </span>
-              <div className={`w-8 h-4 rounded-full transition-colors ${theme === 'dark' ? 'bg-fuchsia-600' : 'bg-zinc-700'} relative`}>
+              <div className={`w-8 h-4 rounded-full transition-colors ${theme === 'dark' ? 'bg-fuchsia-600' : 'bg-zinc-200'} relative`}>
                 <div className={`absolute top-0.5 bottom-0.5 w-3 rounded-full bg-white transition-all ${theme === 'dark' ? 'left-[18px]' : 'left-0.5'}`}></div>
               </div>
             </button>
-            <button className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-2">
+            <button className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
               <Globe size={16} /> Lingua
             </button>
-            <button className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-2">
+            <button className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
               <HelpCircle size={16} /> Aiuto
             </button>
-            <div className="h-px bg-zinc-700 my-1"></div>
+            <div className="h-px bg-zinc-200 my-1"></div>
             <button 
               onClick={handleLogout}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-900 hover:text-red-500 flex items-center gap-2"
+              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white hover:text-red-500 flex items-center gap-2"
             >
               <LogOut size={16} /> Esci
             </button>
@@ -150,13 +150,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         )}
         <button 
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors"
         >
           <div className="w-8 h-8 rounded-full bg-fuchsia-600 text-white flex items-center justify-center font-bold flex-shrink-0">
             {auth.currentUser?.displayName?.charAt(0).toUpperCase() || 'A'}
           </div>
           <div className="flex flex-col items-start truncate overflow-hidden">
-            <span className="text-sm font-medium text-zinc-100 truncate max-w-[120px]">
+            <span className="text-sm font-medium text-zinc-900 truncate max-w-[120px]">
               {auth.currentUser?.displayName || 'Admin'}
             </span>
           </div>
@@ -171,7 +171,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Mobile Drawer Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-zinc-950/60 z-40 md:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -181,7 +181,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <motion.aside 
           initial={{ x: -300 }}
           animate={{ x: 0 }}
-          className={`hidden ${isDesktopSidebarOpen ? 'md:flex' : ''} w-64 bg-zinc-900 border-r border-zinc-800 flex-col justify-between flex-shrink-0`}
+          className={`hidden ${isDesktopSidebarOpen ? 'md:flex' : ''} w-64 bg-white border-r border-zinc-200 flex-col justify-between flex-shrink-0`}
         >
           {SidebarContent({ menuRef: desktopUserMenuRef })}
         </motion.aside>
@@ -189,7 +189,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Mobile Sidebar */}
       {!isMainDashboard && (
-        <aside className={`fixed inset-y-0 left-0 bg-zinc-900 w-72 z-50 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col justify-between border-r border-zinc-800 shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`fixed inset-y-0 left-0 bg-white w-72 z-50 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col justify-between border-r border-zinc-200 shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           {SidebarContent({ menuRef: mobileUserMenuRef })}
         </aside>
       )}
@@ -199,18 +199,18 @@ export default function Layout({ children }: { children: ReactNode }) {
         <motion.header 
           initial={{ y: -100 }}
           animate={{ y: 0 }}
-          className="bg-zinc-900 border-b border-zinc-800 px-4 md:px-6 py-4 flex items-center gap-4 sticky top-0 z-10 w-full"
+          className="bg-white border-b border-zinc-200 px-4 md:px-6 py-4 flex items-center gap-4 sticky top-0 z-10 w-full"
         >
             {!isMainDashboard && (
               <>
                 <button 
-                  className="md:hidden text-zinc-400 hover:text-zinc-100 focus:outline-none"
+                  className="md:hidden text-zinc-500 hover:text-zinc-900 focus:outline-none"
                   onClick={() => setIsMobileMenuOpen(true)}
                 >
                   <Menu size={24} />
                 </button>
                 <button 
-                  className="hidden md:block text-zinc-400 hover:text-zinc-100 focus:outline-none"
+                  className="hidden md:block text-zinc-500 hover:text-zinc-900 focus:outline-none"
                   onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
                 >
                   <Menu size={24} />
@@ -235,13 +235,13 @@ export default function Layout({ children }: { children: ReactNode }) {
                    }
                 }
               }}
-              className="hidden md:flex ml-auto items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-xl text-sm font-medium transition-colors border border-zinc-700 shadow-sm"
+              className="hidden md:flex ml-auto items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 px-4 py-2 rounded-xl text-sm font-medium transition-colors border border-zinc-300 shadow-sm"
             >
               <Globe size={18} className="text-[#D400FF]" />
               <span id="share-btn-text">Condividi Prenotazione</span>
             </motion.button>
           </motion.header>
-        <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 md:p-0 w-full bg-zinc-950 scrollbar-none flex flex-col">
+        <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 md:p-0 w-full bg-white scrollbar-none flex flex-col">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, scale: 0.98 }}
@@ -256,32 +256,32 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Subscription Modal */}
       {isSubscriptionModalOpen && (
-        <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 text-center border-b border-zinc-800 bg-zinc-950/50">
-               <h2 className="text-xl font-bold text-zinc-100 font-playfair">Il tuo Piano</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center border-b border-zinc-200 bg-zinc-50/50">
+               <h2 className="text-xl font-bold text-zinc-900 font-playfair">Il tuo Piano</h2>
             </div>
             <div className="p-6 flex flex-col gap-4">
-               <div className="bg-zinc-950 border border-fuchsia-500/30 rounded-xl p-5 relative overflow-hidden">
+               <div className="bg-white border border-fuchsia-500/30 rounded-xl p-5 relative overflow-hidden">
                  <div className="absolute top-0 right-0 bg-fuchsia-600 text-white text-[10px] font-bold px-2 py-1 select-none pointer-events-none rounded-bl-lg">ATTUALE</div>
-                 <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2 tracking-tight">Piano Free</h3>
-                 <p className="text-sm text-zinc-400 mt-2 mb-4 leading-relaxed">Perfetto per iniziare a gestire i tuoi appuntamenti con funzionalità base.</p>
-                 <div className="text-2xl font-bold text-zinc-100">€0<span className="text-sm font-normal text-zinc-500">/mese</span></div>
+                 <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2 tracking-tight">Piano Free</h3>
+                 <p className="text-sm text-zinc-500 mt-2 mb-4 leading-relaxed">Perfetto per iniziare a gestire i tuoi appuntamenti con funzionalità base.</p>
+                 <div className="text-2xl font-bold text-zinc-900">€0<span className="text-sm font-normal text-zinc-500">/mese</span></div>
                </div>
                
-               <div className="mt-4 pt-4 border-t border-zinc-800">
-                 <h4 className="font-semibold text-zinc-200 mb-2">Funzionalità PRO (Prossimamente)</h4>
-                 <ul className="text-sm text-zinc-400 space-y-2">
+               <div className="mt-4 pt-4 border-t border-zinc-200">
+                 <h4 className="font-semibold text-zinc-800 mb-2">Funzionalità PRO (Prossimamente)</h4>
+                 <ul className="text-sm text-zinc-500 space-y-2">
                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> WhatsApp Reminders</li>
                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> App per i dipendenti</li>
                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> Analisi avanzate</li>
                  </ul>
                </div>
             </div>
-            <div className="p-4 bg-zinc-950/50 border-t border-zinc-800 flex justify-end">
+            <div className="p-4 bg-zinc-50/50 border-t border-zinc-200 flex justify-end">
               <button 
                 onClick={() => setIsSubscriptionModalOpen(false)}
-                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium rounded-lg transition-colors border border-zinc-700"
+                className="px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-medium rounded-lg transition-colors border border-zinc-300"
               >
                 Chiudi
               </button>

@@ -94,7 +94,7 @@ export default function DashboardHub() {
             <h1 className="text-4xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-zinc-300 to-fuchsia-200 tracking-tight drop-shadow-sm mb-4">
               Benvenuto in Rosy
             </h1>
-            <p className="text-zinc-400 font-sans mt-2 max-w-lg mx-auto">
+            <p className="text-zinc-500 font-sans mt-2 max-w-lg mx-auto">
               Il tuo ecosistema di gestione. Scegli un modulo per iniziare.
             </p>
           </motion.div>
@@ -115,7 +115,7 @@ export default function DashboardHub() {
                     boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7)",
                   }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-zinc-800/60 to-zinc-900 border border-zinc-800/80 rounded-[28px] p-6 transition-all hover:border-zinc-700/80 group relative overflow-hidden aspect-square shadow-[0_8px_30px_rgb(0,0,0,0.5)] shadow-black/40"
+                  className="flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-zinc-800/60 to-zinc-900 border border-zinc-200/80 rounded-[28px] p-6 transition-all hover:border-zinc-300/80 group relative overflow-hidden aspect-square shadow-[0_8px_30px_rgb(0,0,0,0.5)] shadow-black/40"
                 >
                   <div className={`absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500 bg-gradient-to-br ${card.bg}`} />
                   
@@ -123,7 +123,7 @@ export default function DashboardHub() {
                     <Icon size={26} className={`${card.color}`} strokeWidth={1.5} />
                   </div>
                   
-                  <span className="font-sans font-semibold text-sm md:text-base text-zinc-100 tracking-wide drop-shadow-sm pointer-events-none">
+                  <span className="font-sans font-semibold text-sm md:text-base text-zinc-900 tracking-wide drop-shadow-sm pointer-events-none">
                     {card.title}
                   </span>
                 </motion.button>

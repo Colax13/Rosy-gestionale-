@@ -7,6 +7,16 @@ import { appuntamentiApi, dipendentiApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
+import {
+  durataTotale,
+  intervalliOccupati,
+  segmentiAppuntamento,
+  sovrappongono,
+  turnoDelGiorno,
+  dentroTurno,
+  descriviTurno,
+  TurnoDelGiorno
+} from '@/lib/servizi';
 
 import { Link } from 'react-router-dom';
 
@@ -53,11 +63,11 @@ function MonthDayCell({
 
   return (
     <div 
-      className="p-3 relative hover:bg-zinc-800/60 transition-colors cursor-pointer group flex flex-col justify-between"
+      className="p-3 relative hover:bg-zinc-100/60 transition-colors cursor-pointer group flex flex-col justify-between"
       onMouseLeave={() => setView('list')}
     >
       <div className="flex justify-between items-start">
-        <span className={`inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full ${isOggi ? 'bg-fuchsia-600 text-white' : 'text-zinc-400 group-hover:text-fuchsia-400 font-semibold'}`}>
+        <span className={`inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full ${isOggi ? 'bg-fuchsia-600 text-white' : 'text-zinc-500 group-hover:text-fuchsia-400 font-semibold'}`}>
           {parseInt(d, 10)}
         </span>
       </div>
@@ -68,16 +78,16 @@ function MonthDayCell({
           <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mt-0.5">Schedulati</div>
         </div>
       ) : (
-        <div className="text-[10px] text-zinc-600 uppercase tracking-wider text-center mt-auto pb-2 font-medium">Libero</div>
+        <div className="text-[10px] text-zinc-400 uppercase tracking-wider text-center mt-auto pb-2 font-medium">Libero</div>
       )}
 
       {apps.length > 0 && (
         <div className="absolute top-0 left-full pl-1 hidden group-hover:block z-[60]">
-          <div className="bg-zinc-950 border border-zinc-800 p-3 rounded-xl shadow-2xl w-64 animate-in fade-in zoom-in-95 duration-100 relative pointer-events-auto cursor-default">
+          <div className="bg-white border border-zinc-200 p-3 rounded-xl shadow-2xl w-64 animate-in fade-in zoom-in-95 duration-100 relative pointer-events-auto cursor-default">
             
             {view === 'list' ? (
               <>
-                <span className="font-bold text-fuchsia-500 uppercase tracking-widest text-[10px] block mb-3 font-mono border-b border-zinc-800/50 pb-2">Organizzazione {parseInt(d, 10)}</span>
+                <span className="font-bold text-fuchsia-500 uppercase tracking-widest text-[10px] block mb-3 font-mono border-b border-zinc-200/50 pb-2">Organizzazione {parseInt(d, 10)}</span>
                 <div className="space-y-1.5 max-h-[88px] overflow-y-auto pr-1">
                   {Object.values(appsPerOperatore).map((op: any, opIdx: number) => (
                     <div 
@@ -87,20 +97,20 @@ function MonthDayCell({
                         setSelectedOp(op);
                         setView('detail');
                       }}
-                      className="group/op relative text-[12px] font-medium text-zinc-300 bg-zinc-900 border border-zinc-700/50 py-2.5 px-3 rounded-lg shadow-sm hover:bg-zinc-800 hover:border-zinc-600 hover:text-white cursor-pointer transition-all flex justify-between items-center"
+                      className="group/op relative text-[12px] font-medium text-zinc-700 bg-white border border-zinc-300/50 py-2.5 px-3 rounded-lg shadow-sm hover:bg-zinc-100 hover:border-zinc-300 hover:text-zinc-900 cursor-pointer transition-all flex justify-between items-center"
                     >
                       <span>{op.nome}</span>
-                      <span className="text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-medium border border-zinc-800 group-hover/op:border-zinc-700">{op.appuntamenti.length} app</span>
+                      <span className="text-zinc-500 bg-white px-2 py-0.5 rounded-full text-[10px] tabular-nums font-medium border border-zinc-200 group-hover/op:border-zinc-300">{op.appuntamenti.length} app</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-zinc-800/50">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-zinc-200/50">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setView('list'); }} 
-                    className="text-zinc-400 hover:text-white p-1 hover:bg-zinc-800 rounded transition-colors"
+                    className="text-zinc-500 hover:text-zinc-900 p-1 hover:bg-zinc-100 rounded transition-colors"
                   >
                     <ChevronLeft size={16} />
                   </button>
@@ -112,21 +122,21 @@ function MonthDayCell({
                 
                 <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 mb-2">
                   {selectedOp?.appuntamenti.map((app: any) => (
-                    <div key={app.id} className="text-xs p-2.5 bg-zinc-900 rounded-lg border border-zinc-800/50 flex flex-col gap-1.5">
-                      <div className="flex justify-between text-zinc-100 font-medium items-center">
-                        <span className="tabular-nums flex items-center gap-1.5 text-zinc-300">
+                    <div key={app.id} className="text-xs p-2.5 bg-white rounded-lg border border-zinc-200/50 flex flex-col gap-1.5">
+                      <div className="flex justify-between text-zinc-900 font-medium items-center">
+                        <span className="tabular-nums flex items-center gap-1.5 text-zinc-700">
                            <Clock size={10} className="text-zinc-500" />
                            {formattaOrario(app.data_ora)}
                         </span>
                         <span className={`px-2 py-0.5 text-[9px] uppercase font-bold rounded-sm border ${getStatoBadge(app.stato)}`}>{app.stato}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-zinc-400 font-medium mt-0.5">
-                        <User size={10} className="text-zinc-600" />
+                      <div className="flex items-center gap-1.5 text-zinc-500 font-medium mt-0.5">
+                        <User size={10} className="text-zinc-400" />
                         <span className="truncate">{app.clienti?.nome} {app.clienti?.cognome}</span>
                       </div>
                       {app.righe_appuntamento && app.righe_appuntamento.length > 0 && (
                         <div className="flex items-start gap-1.5 text-[10px] text-zinc-500">
-                          <Scissors size={10} className="text-zinc-700 mt-0.5 flex-shrink-0" />
+                          <Scissors size={10} className="text-zinc-500 mt-0.5 flex-shrink-0" />
                           <span className="truncate leading-tight">{app.righe_appuntamento?.map((r:any) => r.servizi_catalogo?.nome).join(', ')}</span>
                         </div>
                       )}
@@ -190,6 +200,7 @@ export default function PaginaAgenda() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarDate, setSidebarDate] = useState<Date | undefined>(undefined);
   const [sidebarTime, setSidebarTime] = useState<string | undefined>(undefined);
+  const [sidebarDipendenteId, setSidebarDipendenteId] = useState<string | undefined>(undefined);
   const [sidebarEditApp, setSidebarEditApp] = useState<any>(null);
 
   const [completaAppModal, setCompletaAppModal] = useState<{show: boolean, app: any, data: {importo: string, note: string, colori: string}}>({show: false, app: null, data: {importo: '', note: '', colori: ''}});
@@ -201,6 +212,12 @@ export default function PaginaAgenda() {
   const [selectedOperatorePreview, setSelectedOperatorePreview] = useState<any | null>(null);
   const [alertOrari, setAlertOrari] = useState<{show: boolean, timeStr?: string, date?: Date}>({show: false});
 
+  // Trascinamento appuntamenti
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragOffsetRef = useRef<number>(0);
+  const [avvisoSpostamento, setAvvisoSpostamento] = useState<string | null>(null);
+  const [confermaSpostamento, setConfermaSpostamento] = useState<{ messaggio: string; procedi: () => void } | null>(null);
+
   const getLocalDateString = (d: Date) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -208,9 +225,10 @@ export default function PaginaAgenda() {
     return `${year}-${month}-${day}`;
   };
 
-  const apriAggiungiSidebar = (date?: Date, timeStr?: string) => {
+  const apriAggiungiSidebar = (date?: Date, timeStr?: string, dipendenteId?: string) => {
     setSidebarDate(date || selectedDate || new Date());
     setSidebarTime(timeStr || '10:00');
+    setSidebarDipendenteId(dipendenteId && dipendenteId !== 'unassigned' ? dipendenteId : undefined);
     setSidebarEditApp(null);
     setIsSidebarOpen(true);
   };
@@ -302,10 +320,7 @@ export default function PaginaAgenda() {
     return new Date(dataIso).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
-  const calcolaDurataTotale = (righe: any[]) => {
-    if (!righe || righe.length === 0) return 30; // default 30 min
-    return righe.reduce((acc, riga) => acc + (parseInt(riga.servizi_catalogo?.durata_minuti) || 0), 0) || 30;
-  };
+  const calcolaDurataTotale = (righe: any[]) => durataTotale(righe);
 
   const getStatoBadge = (stato: string) => {
     switch (stato) {
@@ -354,7 +369,7 @@ export default function PaginaAgenda() {
 
   const isAppuntementoDiOperatore = (app: Appuntamento, dipId: string) => {
     if (dipId === 'tutti') return true;
-    const appId = app.dipendenti?.id || app.idDipendente;
+    const appId = (app as any).id_dipendente || app.dipendenti?.id || app.idDipendente;
     if (dipId === 'unassigned') return !appId || appId === 'unassigned';
     return appId === dipId;
   };
@@ -377,15 +392,15 @@ export default function PaginaAgenda() {
     }
 
     return (
-      <div className="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 overflow-hidden mt-6">
-        <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-800/30">
+      <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden mt-6">
+        <div className="grid grid-cols-7 border-b border-zinc-200 bg-zinc-100/30">
           {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(d => (
-            <div key={d} className="py-3 text-center text-sm font-semibold text-zinc-100">{d}</div>
+            <div key={d} className="py-3 text-center text-sm font-semibold text-zinc-900">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[130px] divide-x divide-y border-t-0 border-zinc-800 divide-zinc-800">
+        <div className="grid grid-cols-7 auto-rows-[130px] divide-x divide-y border-t-0 border-zinc-200 divide-zinc-200">
           {days.map((dateStr, i) => {
-            if (!dateStr) return <div key={`empty-${i}`} className="bg-zinc-800/10"></div>;
+            if (!dateStr) return <div key={`empty-${i}`} className="bg-zinc-100/10"></div>;
             
             const [y, m, d] = dateStr.split('-');
             const isOggi = dateStr === getLocalDateString(new Date());
@@ -476,186 +491,382 @@ export default function PaginaAgenda() {
     }
   };
 
-  const renderDayView = () => {
-    const staff = [...dipendenti, { id: 'unassigned', nome: 'Staff', cognome: 'Generico' }];
-    const START_HOUR = 5;
-    const END_HOUR = 23;
-    const PIXELS_PER_MINUTE = 2; // Increased size slightly (from 1.5)
-    const TOTAL_HOURS = END_HOUR - START_HOUR;
-    const GRID_HEIGHT = TOTAL_HOURS * 60 * PIXELS_PER_MINUTE;
+  // Trascinamento: sposta l'appuntamento di orario e/o di operatore.
+  const spostaAppuntamento = async (id: string, dipendente: any, minutiDelGiorno: number, forzato = false) => {
+    const app = appuntamenti.find(a => a.id === id);
+    if (!app) return;
+
+    const nuovaData = new Date(selectedDate);
+    nuovaData.setHours(Math.floor(minutiDelGiorno / 60), minutiDelGiorno % 60, 0, 0);
+
+    const stessoOrario = new Date(app.data_ora).getTime() === nuovaData.getTime();
+    const stessoOperatore = ((app as any).id_dipendente || app.dipendenti?.id || 'unassigned') === dipendente.id;
+    if (stessoOrario && stessoOperatore) return;
+
+    const righe = app.righe_appuntamento || [];
+    const conflitto = appuntamenti.some(altro => {
+      if (altro.id === app.id) return false;
+      if (altro.stato === 'annullato') return false;
+      if (!isAppuntementoDiOperatore(altro, dipendente.id)) return false;
+      return sovrappongono(
+        nuovaData.getTime(), righe,
+        new Date(altro.data_ora).getTime(), altro.righe_appuntamento || []
+      );
+    });
+
+    const turno = turnoDelGiorno(dipendente, nuovaData);
+    const minutiFine = minutiDelGiorno + durataTotale(righe);
+    const fuoriTurno = dipendente.id !== 'unassigned' && (
+      !turno.lavora
+      || !dentroTurno(turno, minutiDelGiorno)
+      || !dentroTurno(turno, Math.max(minutiDelGiorno, minutiFine - 1))
+    );
+
+    if ((conflitto || fuoriTurno) && !forzato) {
+      setConfermaSpostamento({
+        messaggio: conflitto
+          ? `${dipendente.nome} ha già un appuntamento che si accavalla con questo.`
+          : turno.lavora
+            ? `${dipendente.nome} quel giorno è in turno ${descriviTurno(turno)}: l'appuntamento cade fuori.`
+            : `${dipendente.nome} quel giorno non è in turno (${turno.etichetta}).`,
+        procedi: () => {
+          setConfermaSpostamento(null);
+          spostaAppuntamento(id, dipendente, minutiDelGiorno, true);
+        }
+      });
+      return;
+    }
+
+    // Aggiornamento ottimistico: la card si muove subito, poi si salva.
+    const precedenti = appuntamenti;
+    setAppuntamenti(prev => prev.map(a => a.id === app.id
+      ? { ...a, data_ora: nuovaData.toISOString(), id_dipendente: dipendente.id === 'unassigned' ? null : dipendente.id, dipendenti: dipendente.id === 'unassigned' ? null : { id: dipendente.id, nome: dipendente.nome, cognome: dipendente.cognome } } as any
+      : a
+    ));
+
+    try {
+      await appuntamentiApi.update(app.id, {
+        data_ora: nuovaData.toISOString(),
+        stato: app.stato,
+        id_dipendente: dipendente.id === 'unassigned' ? null : dipendente.id,
+        dipendenti: dipendente.id === 'unassigned'
+          ? null
+          : { id: dipendente.id, nome: dipendente.nome, cognome: dipendente.cognome || '' }
+      });
+      caricaAgenda();
+    } catch (err) {
+      setAppuntamenti(precedenti);
+      setAvvisoSpostamento("Non sono riuscito a spostare l'appuntamento. Riprova.");
+    }
+  };
+
+  // Calendario del mese sempre in vista: un clic sul giorno apre quel giorno,
+  // senza dover scorrere avanti uno per uno mentre si è al telefono.
+  const renderCalendarioMese = () => {
+    const anno = selectedDate.getFullYear();
+    const mese = selectedDate.getMonth();
+    const primo = new Date(anno, mese, 1);
+    const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+    const offset = (primo.getDay() || 7) - 1;
+    const oggiStr = getLocalDateString(new Date());
 
     return (
-      <div className="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 mt-6 flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
-        <div className="overflow-auto flex-1 relative scroll-smooth">
-          <div className="min-w-[1000px]">
-            {/* Intestazione Colonne Dipendenti */}
-            <div className="flex border-b border-zinc-800 bg-zinc-900 sticky top-0 z-30 shadow-sm">
-              <div className="w-24 shrink-0 border-r border-zinc-800 flex items-center justify-center text-[11px] uppercase tracking-wider font-semibold text-zinc-500 font-mono sticky left-0 z-40 bg-zinc-900">
-                Orario
+      <div className="bg-white border border-zinc-200 rounded-xl p-3 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => { const d = new Date(selectedDate); d.setDate(1); d.setMonth(d.getMonth() - 1); setSelectedDate(d); }}
+            className="p-1 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-colors"
+            aria-label="Mese precedente"
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span className="text-[13px] font-semibold text-zinc-800 capitalize">
+            {selectedDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+          </span>
+          <button
+            onClick={() => { const d = new Date(selectedDate); d.setDate(1); d.setMonth(d.getMonth() + 1); setSelectedDate(d); }}
+            className="p-1 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-colors"
+            aria-label="Mese successivo"
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-0.5 mb-1">
+          {['L','M','M','G','V','S','D'].map((g, i) => (
+            <div key={i} className="text-center text-[10px] font-semibold text-zinc-500 uppercase">{g}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-0.5">
+          {Array.from({ length: offset }).map((_, i) => <div key={`v-${i}`} />)}
+          {Array.from({ length: giorniNelMese }).map((_, i) => {
+            const giorno = i + 1;
+            const data = new Date(anno, mese, giorno);
+            const dataStr = getLocalDateString(data);
+            const selezionato = dataStr === getLocalDateString(selectedDate);
+            const isOggi = dataStr === oggiStr;
+            const quanti = (appuntamentiRaggruppati[dataStr] || []).length;
+
+            return (
+              <button
+                key={giorno}
+                onClick={() => { setViewMode('giorno'); setSelectedDate(data); }}
+                className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-[12px] font-medium transition-colors ${
+                  selezionato ? 'bg-[#D400FF] text-white shadow-sm' :
+                  isOggi ? 'border border-fuchsia-400 text-fuchsia-600 hover:bg-fuchsia-50' :
+                  'text-zinc-500 hover:bg-zinc-100'
+                }`}
+              >
+                {giorno}
+                {quanti > 0 && (
+                  <span className={`absolute bottom-1 w-1 h-1 rounded-full ${selezionato ? 'bg-white' : 'bg-fuchsia-500'}`}></span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const staff = [...dipendenti, { id: 'unassigned', nome: 'Staff', cognome: 'Generico' }];
+
+    const turniStaff: Record<string, TurnoDelGiorno> = {};
+    staff.forEach(d => { turniStaff[d.id] = turnoDelGiorno(d, selectedDate); });
+
+    // La finestra oraria segue i turni del giorno e gli appuntamenti già
+    // fissati, invece del vecchio 05:00-23:00 fisso che sprecava mezzo schermo.
+    let minMinuti = 9 * 60;
+    let maxMinuti = 19 * 60;
+
+    Object.values(turniStaff).forEach(t => t.fasce.forEach(f => {
+      minMinuti = Math.min(minMinuti, f.inizio);
+      maxMinuti = Math.max(maxMinuti, f.fine);
+    }));
+
+    appuntamenti.forEach(app => {
+      const d = new Date(app.data_ora);
+      const inizio = d.getHours() * 60 + d.getMinutes();
+      minMinuti = Math.min(minMinuti, inizio);
+      maxMinuti = Math.max(maxMinuti, inizio + durataTotale(app.righe_appuntamento || []));
+    });
+
+    const START_HOUR = Math.max(0, Math.floor(minMinuti / 60) - 1);
+    const END_HOUR = Math.min(24, Math.ceil(maxMinuti / 60) + 1);
+    const TOTAL_HOURS = Math.max(2, END_HOUR - START_HOUR);
+    const PIXELS_PER_MINUTE = 2; // più spazio verticale per leggere le fasi
+    const GRID_HEIGHT = TOTAL_HOURS * 60 * PIXELS_PER_MINUTE;
+
+    const orarioDaMinuti = (minuti: number) =>
+      `${String(Math.floor(minuti / 60)).padStart(2, '0')}:${String(minuti % 60).padStart(2, '0')}`;
+
+    const handleDrop = (e: React.DragEvent, dip: any) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/appuntamento') || draggingId;
+      setDraggingId(null);
+      if (!id) return;
+
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const y = e.clientY - rect.top - dragOffsetRef.current;
+      const minutiDalTop = Math.round((y / PIXELS_PER_MINUTE) / 5) * 5;
+      const minuti = Math.max(0, Math.min(minutiDalTop, TOTAL_HOURS * 60 - 5)) + START_HOUR * 60;
+
+      spostaAppuntamento(id, dip, minuti);
+    };
+
+    return (
+      <div
+        className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
+        style={{ height: 'calc(100vh - 168px)' }}
+      >
+        <div className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
+          <div className="w-full">
+
+            {/* Intestazione colonne operatori */}
+            <div className="flex border-b border-zinc-200 bg-white sticky top-0 z-30 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+              <div className="w-14 shrink-0 border-r border-zinc-200 flex items-center justify-center text-[10px] uppercase tracking-wider font-semibold text-zinc-500 font-mono">
+                Ora
               </div>
-              {staff.map((dip, idx) => (
-                <div key={dip.id} className="flex-1 p-3 flex flex-col items-center justify-center border-r-[4px] border-zinc-800 last:border-0 min-w-[240px]">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold mb-1 shadow-sm ${dip.id === 'unassigned' ? 'bg-zinc-600' : getColoreDipendente(dip.id, idx)}`}>
-                    {dip.nome.charAt(0)}{dip.cognome.charAt(0)}
-                  </div>
-                  <span className="text-sm font-semibold text-zinc-100">{dip.nome} {dip.cognome}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Corpo Agenda con Griglia Assoluta */}
-            <div className="flex relative" style={{ height: `${GRID_HEIGHT}px` }}>
-              {/* Colonna orari */}
-              <div className="w-24 shrink-0 border-r border-zinc-800 bg-zinc-900 flex flex-col relative z-20 sticky left-0">
-                {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
-                   <div 
-                     key={i} 
-                     className="w-full flex justify-center border-b border-zinc-800/80 pointer-events-none" 
-                     style={{ height: `${60 * PIXELS_PER_MINUTE}px` }}
-                   >
-                     <span className="text-sm font-bold text-zinc-400 font-mono mt-3">{START_HOUR + i}:00</span>
-                   </div>
-                ))}
-              </div>
-
-              {/* Background Grid Lines (15 minuti e ore intere) */}
-              <div className="absolute inset-0 left-24 pointer-events-none flex flex-col z-0">
-              {Array.from({ length: TOTAL_HOURS * 4 }).map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`w-full ${i % 4 === 0 ? 'border-t border-zinc-800/80' : 'border-t border-dashed border-zinc-800/40'}`} 
-                  style={{ height: `${15 * PIXELS_PER_MINUTE}px` }}
-                ></div>
-              ))}
-            </div>
-
-            {/* Colonne dipendenti */}
-            <div className="flex flex-1 z-10">
               {staff.map((dip, idx) => {
-                const appDipRaw = appuntamenti.filter(a => isAppuntementoDiOperatore(a, dip.id));
-                const sortedApps = [...appDipRaw].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
-                
-                const appsWithPlacement = sortedApps.map(app => {
-                  const date = new Date(app.data_ora);
-                  const durata = calcolaDurataTotale(app.righe_appuntamento || []);
-                  const startTime = date.getTime();
-                  const endTime = startTime + durata * 60000;
-                  return { app, startTime, endTime, durata, colIndex: 0, colTotal: 1 };
-                });
-
-                const groups: typeof appsWithPlacement[] = [];
-                let currentGroup: typeof appsWithPlacement = [];
-                let currentGroupEnd = 0;
-
-                appsWithPlacement.forEach(item => {
-                  if (item.startTime >= currentGroupEnd) {
-                    if (currentGroup.length > 0) groups.push(currentGroup);
-                    currentGroup = [item];
-                    currentGroupEnd = item.endTime;
-                  } else {
-                    currentGroup.push(item);
-                    currentGroupEnd = Math.max(currentGroupEnd, item.endTime);
-                  }
-                });
-                if (currentGroup.length > 0) groups.push(currentGroup);
-
-                groups.forEach(group => {
-                  const columns: (typeof appsWithPlacement[0])[][] = [];
-                  group.forEach(item => {
-                    let placed = false;
-                    for (let i = 0; i < columns.length; i++) {
-                      const col = columns[i];
-                      const lastItemInCol = col[col.length - 1];
-                      if (lastItemInCol.endTime <= item.startTime) {
-                        col.push(item);
-                        item.colIndex = i;
-                        placed = true;
-                        break;
-                      }
-                    }
-                    if (!placed) {
-                      item.colIndex = columns.length;
-                      columns.push([item]);
-                    }
-                  });
-                  group.forEach(item => {
-                    item.colTotal = columns.length;
-                  });
-                });
-                
+                const turno = turniStaff[dip.id];
+                const fuoriTurno = dip.id !== 'unassigned' && !turno.lavora;
                 return (
-                  <div key={dip.id} className="flex-1 border-r-[4px] border-zinc-800 last:border-r-0 min-w-[240px] relative group/col">
-                    {/* Sfondo interattivo per cliccare le celle vuote */}
-                    <div className="absolute inset-0 flex flex-col">
-                        {Array.from({ length: TOTAL_HOURS * 4 }).map((_, i) => {
-                          const h = START_HOUR + Math.floor(i/4);
-                          const mValue = (i % 4) * 15;
-                          const m = mValue === 0 ? '00' : mValue.toString();
-                          const timeStr = `${h.toString().padStart(2, '0')}:${m}`;
-
-                          // Fake scheduling logic assuming default works from 9 to 18
-                          const isWorkingHour = h >= 9 && h <= 18;
-
-                          if (!isWorkingHour && dip.id !== 'unassigned') {
-                            return (
-                              <div 
-                                key={i}
-                                onClick={() => setAlertOrari({show: true, timeStr, date: selectedDate})}
-                                className="w-full bg-zinc-800/40 border-b border-zinc-900/50 cursor-not-allowed group/cell relative"
-                                style={{ height: `${15 * PIXELS_PER_MINUTE}px` }}
-                              >
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <div 
-                              key={i}
-                              onClick={() => apriAggiungiSidebar(selectedDate, timeStr)}
-                              className="w-full hover:bg-zinc-800/30 transition-colors cursor-pointer group/cell"
-                              style={{ height: `${15 * PIXELS_PER_MINUTE}px` }}
-                            >
-                              <button className="opacity-0 group-hover/cell:opacity-100 flex items-center justify-center w-full h-full text-[11px] text-zinc-500 hover:text-fuchsia-400 transition-opacity font-medium">
-                                <Plus size={16} className="mr-1" /> Fissa {timeStr}
-                              </button>
-                            </div>
-                          )
-                        })}
+                  <div
+                    key={dip.id}
+                    className={`flex-1 min-w-0 px-1 py-2 flex flex-col items-center justify-center border-l border-zinc-200 ${fuoriTurno ? 'bg-zinc-100' : ''}`}
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold mb-1 ${dip.id === 'unassigned' ? 'bg-zinc-400' : getColoreDipendente(dip.id, idx)} ${fuoriTurno ? 'opacity-40' : ''}`}>
+                      {dip.nome.charAt(0)}{(dip.cognome || '').charAt(0)}
                     </div>
-
-                    {/* Appuntamenti posizionati in assoluto */}
-                    {appsWithPlacement.map(({app, durata, colIndex, colTotal}, idx) => {
-                      const date = new Date(app.data_ora);
-                      let appMinutes = (date.getHours() * 60 + date.getMinutes()) - (START_HOUR * 60);
-                      
-                      // Fallback visuale se va oltre limiti per mostrare un pezzo quantomeno
-                      if (appMinutes < 0) appMinutes = 0; 
-                      
-                      return (
-                        <MicroAppCard 
-                          key={app.id} 
-                          app={app} 
-                          getStatoBadge={getStatoBadge} 
-                          formattaOrario={formattaOrario} 
-                          durata={durata} 
-                          onDelete={handleElimina} 
-                          onEdit={handleEdit}
-                          onComplete={handleCompleteClick}
-                          isAbsolute={true} 
-                          pixelPerMinute={PIXELS_PER_MINUTE} 
-                          startOffset={appMinutes * PIXELS_PER_MINUTE} 
-                          idx={idx}
-                          colIndex={colIndex}
-                          colTotal={colTotal}
-                        />
-                      );
-                    })}
+                    <span className={`text-[12px] font-semibold truncate max-w-full leading-tight ${fuoriTurno ? 'text-zinc-500' : 'text-zinc-800'}`}>
+                      {dip.nome} {dip.cognome}
+                    </span>
+                    <span className={`text-[9px] font-mono truncate max-w-full ${fuoriTurno ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                      {dip.id === 'unassigned' ? 'sempre disponibile' : descriviTurno(turno)}
+                    </span>
                   </div>
                 );
               })}
             </div>
+
+            {/* Corpo agenda */}
+            <div className="flex relative" style={{ height: `${GRID_HEIGHT}px` }}>
+
+              {/* Colonna orari */}
+              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col relative z-20">
+                {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-full flex justify-center border-b border-zinc-100 pointer-events-none"
+                    style={{ height: `${60 * PIXELS_PER_MINUTE}px` }}
+                  >
+                    <span className="text-[11px] font-semibold text-zinc-500 font-mono mt-1">
+                      {String(START_HOUR + i).padStart(2, '0')}:00
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Righe della griglia */}
+              <div className="absolute inset-0 left-14 pointer-events-none flex flex-col z-0">
+                {Array.from({ length: TOTAL_HOURS * 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-full ${i % 4 === 0 ? 'border-t border-zinc-200' : 'border-t border-dashed border-zinc-100'}`}
+                    style={{ height: `${15 * PIXELS_PER_MINUTE}px` }}
+                  ></div>
+                ))}
+              </div>
+
+              {/* Colonne operatori: larghezza uguale, nessuno scorrimento laterale */}
+              <div className="flex flex-1 z-10 min-w-0">
+                {staff.map((dip) => {
+                  const turno = turniStaff[dip.id];
+                  const appDip = appuntamenti
+                    .filter(a => isAppuntementoDiOperatore(a, dip.id))
+                    .sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+
+                  // Le colonne affiancate si calcolano sui soli tempi di
+                  // lavorazione: durante la posa l'operatore è libero, quindi
+                  // l'appuntamento infilato lì dentro prende tutta la larghezza.
+                  const posizionati = appDip.map(app => {
+                    const inizioMs = new Date(app.data_ora).getTime();
+                    return {
+                      app,
+                      inizioMs,
+                      durata: durataTotale(app.righe_appuntamento || []),
+                      occupati: intervalliOccupati(inizioMs, app.righe_appuntamento || []),
+                      colIndex: 0,
+                      colTotal: 1
+                    };
+                  });
+
+                  const collide = (a: typeof posizionati[0], b: typeof posizionati[0]) =>
+                    a.occupati.some(x => b.occupati.some(y => x.inizio < y.fine && y.inizio < x.fine));
+
+                  const gruppi: (typeof posizionati)[] = [];
+                  posizionati.forEach(item => {
+                    const gruppo = gruppi.find(g => g.some(altro => collide(altro, item)));
+                    if (gruppo) gruppo.push(item);
+                    else gruppi.push([item]);
+                  });
+
+                  gruppi.forEach(gruppo => {
+                    const colonne: (typeof posizionati)[] = [];
+                    gruppo.forEach(item => {
+                      let sistemato = false;
+                      for (let i = 0; i < colonne.length; i++) {
+                        if (!colonne[i].some(altro => collide(altro, item))) {
+                          colonne[i].push(item);
+                          item.colIndex = i;
+                          sistemato = true;
+                          break;
+                        }
+                      }
+                      if (!sistemato) {
+                        item.colIndex = colonne.length;
+                        colonne.push([item]);
+                      }
+                    });
+                    gruppo.forEach(item => { item.colTotal = colonne.length; });
+                  });
+
+                  return (
+                    <div
+                      key={dip.id}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                      onDrop={(e) => handleDrop(e, dip)}
+                      className={`flex-1 min-w-0 border-l border-zinc-200 relative group/col ${draggingId ? 'bg-fuchsia-50/60' : ''}`}
+                    >
+                      {/* Celle cliccabili */}
+                      <div className="absolute inset-0 flex flex-col">
+                        {Array.from({ length: TOTAL_HOURS * 4 }).map((_, i) => {
+                          const minuti = START_HOUR * 60 + i * 15;
+                          const timeStr = orarioDaMinuti(minuti);
+                          const inTurno = dip.id === 'unassigned' || dentroTurno(turno, minuti);
+
+                          // Fuori turno la cella è oscurata ma resta cliccabile:
+                          // capita che l'operatore venga lo stesso.
+                          return (
+                            <div
+                              key={i}
+                              onClick={() => apriAggiungiSidebar(selectedDate, timeStr, dip.id)}
+                              className={`w-full transition-colors cursor-pointer group/cell ${
+                                inTurno
+                                  ? 'hover:bg-fuchsia-50'
+                                  : 'bg-zinc-100/80 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(0,0,0,0.03)_5px,rgba(0,0,0,0.03)_10px)] hover:bg-zinc-200/70'
+                              }`}
+                              style={{ height: `${15 * PIXELS_PER_MINUTE}px` }}
+                              title={inTurno ? `Fissa alle ${timeStr}` : `Fuori turno — puoi comunque fissare alle ${timeStr}`}
+                            >
+                              <button className="opacity-0 group-hover/cell:opacity-100 flex items-center justify-center w-full h-full text-[10px] text-zinc-500 hover:text-fuchsia-600 transition-opacity font-medium">
+                                <Plus size={13} className="mr-0.5" />
+                                <span className="truncate">{timeStr}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Appuntamenti */}
+                      {posizionati.map(({ app, durata, colIndex, colTotal }, idx) => {
+                        const date = new Date(app.data_ora);
+                        let appMinutes = (date.getHours() * 60 + date.getMinutes()) - (START_HOUR * 60);
+                        if (appMinutes < 0) appMinutes = 0;
+
+                        return (
+                          <MicroAppCard
+                            key={app.id}
+                            app={app}
+                            getStatoBadge={getStatoBadge}
+                            formattaOrario={formattaOrario}
+                            durata={durata}
+                            onDelete={handleElimina}
+                            onEdit={handleEdit}
+                            onComplete={handleCompleteClick}
+                            isAbsolute={true}
+                            pixelPerMinute={PIXELS_PER_MINUTE}
+                            startOffset={appMinutes * PIXELS_PER_MINUTE}
+                            idx={idx}
+                            colIndex={colIndex}
+                            colTotal={colTotal}
+                            onDragStartApp={(offsetY: number) => {
+                              dragOffsetRef.current = offsetY;
+                              setDraggingId(app.id);
+                            }}
+                            onDragEndApp={() => setDraggingId(null)}
+                            isDragging={draggingId === app.id}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
         </div>
       </div>
     );
@@ -679,12 +890,12 @@ export default function PaginaAgenda() {
           const isOggi = dateStr === getLocalDateString(new Date());
 
           return (
-            <div key={i} className="flex flex-col h-auto bg-zinc-900 rounded-xl shadow-sm border border-zinc-800">
-              <div className={`p-4 border-b border-zinc-800 text-center ${isOggi ? 'bg-fuchsia-500/20' : 'bg-zinc-800/30'}`}>
-                <div className="text-[10px] uppercase text-zinc-400 font-semibold tracking-wider">{d.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
-                <div className={`text-2xl mt-1 font-playfair ${isOggi ? 'text-fuchsia-500 font-bold' : 'text-zinc-100'}`}>{d.getDate()}</div>
+            <div key={i} className="flex flex-col h-auto bg-white rounded-xl shadow-sm border border-zinc-200">
+              <div className={`p-4 border-b border-zinc-200 text-center ${isOggi ? 'bg-fuchsia-500/20' : 'bg-zinc-100/30'}`}>
+                <div className="text-[10px] uppercase text-zinc-500 font-semibold tracking-wider">{d.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
+                <div className={`text-2xl mt-1 font-playfair ${isOggi ? 'text-fuchsia-500 font-bold' : 'text-zinc-900'}`}>{d.getDate()}</div>
               </div>
-              <div className="p-2 flex-1 space-y-2 bg-zinc-900 divide-y divide-zinc-800/40">
+              <div className="p-2 flex-1 space-y-2 bg-white divide-y divide-zinc-200/40">
                 {WEEK_HOUR_SLOTS.map((hourStr, sIdx) => {
                   const isLastSlot = sIdx === WEEK_HOUR_SLOTS.length - 1;
                   const slotApps = apps.filter(app => matchAppToHourSlot(app, hourStr, isLastSlot));
@@ -698,7 +909,7 @@ export default function PaginaAgenda() {
                       <div 
                         key={hourStr} 
                         onClick={() => setAlertOrari({show: true, timeStr: hourStr, date: d})}
-                        className="pt-2 pb-2 first:pt-0 last:pb-0 relative min-h-[40px] cursor-not-allowed bg-zinc-800/40 border-b border-zinc-900/50"
+                        className="pt-2 pb-2 first:pt-0 last:pb-0 relative min-h-[40px] cursor-not-allowed bg-zinc-100/40 border-b border-zinc-200/50"
                       >
                         <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono mb-1 select-none relative z-10">
                           <span>{hourStr}</span>
@@ -715,7 +926,7 @@ export default function PaginaAgenda() {
                         {slotApps.length === 0 && (
                           <button 
                             onClick={() => apriAggiungiSidebar(d, hourStr)}
-                            className="absolute right-0 opacity-0 group-hover/slot:opacity-100 text-[8px] font-bold uppercase text-fuchsia-400 font-sans cursor-pointer transition-opacity flex items-center gap-0.5 bg-zinc-800/80 px-1 py-0.5 rounded"
+                            className="absolute right-0 opacity-0 group-hover/slot:opacity-100 text-[8px] font-bold uppercase text-fuchsia-400 font-sans cursor-pointer transition-opacity flex items-center gap-0.5 bg-zinc-100/80 px-1 py-0.5 rounded"
                           >
                             <Plus size={10} /> fissa
                           </button>
@@ -732,7 +943,7 @@ export default function PaginaAgenda() {
                         <div className="relative group/empty-popover opacity-20 hover:opacity-100 transition-opacity h-full">
                           <div 
                             onClick={() => apriAggiungiSidebar(d, hourStr)}
-                            className="text-[10px] text-zinc-600 italic hover:text-fuchsia-400 transition-colors cursor-pointer select-none absolute inset-0 flex items-center p-1"
+                            className="text-[10px] text-zinc-400 italic hover:text-fuchsia-400 transition-colors cursor-pointer select-none absolute inset-0 flex items-center p-1"
                           >
                             Libero
                           </div>
@@ -750,40 +961,45 @@ export default function PaginaAgenda() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-[1400px] mx-auto h-full flex flex-col">
+    <div className="p-3 md:p-4 w-full h-full flex flex-col">
       
       {/* Orizzontal layout for Agenda header and KPI / Banner */}
       <div className="flex flex-col mb-4 gap-2">
         {/* Intestazione e Controlli Data */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
           <div>
-            <h1 className="text-2xl font-playfair font-bold text-zinc-100 flex items-center gap-3">
+            <h1 className="text-2xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
               <CalendarIcon className="text-[#D400FF]" size={24} />
               {renderLabelPeriodo()}
             </h1>
+            <p className="text-zinc-500 font-sans mt-1 text-sm flex items-center gap-2">
+              <span>{appuntamenti.length} appuntamenti {viewMode === 'giorno' ? 'oggi' : ''}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200 mx-1"></span>
+              <span className="text-fuchsia-400">
+                {appuntamenti.reduce((acc, app) => acc + (app.righe_appuntamento?.length || 0), 0)} servizi previsti
+              </span>
+            </p>
           </div>
           
           <div className="flex items-center flex-wrap gap-2 xl:gap-4 w-full xl:w-auto pb-2 xl:pb-0">
             
-
-
             {/* Selettore Modalità */}
-            <div className="flex shrink-0 text-sm border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900 shadow-sm">
+            <div className="flex shrink-0 text-sm border border-zinc-200 rounded-lg overflow-hidden bg-white shadow-sm">
               {(['giorno', 'settimana', 'mese'] as const).map(mode => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-3 xl:px-4 py-2 capitalize font-medium transition-colors whitespace-nowrap ${viewMode === mode ? 'bg-fuchsia-500/30 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800'}`}
+                  className={`px-3 xl:px-4 py-2 capitalize font-medium transition-colors whitespace-nowrap ${viewMode === mode ? 'bg-fuchsia-500/30 text-zinc-900' : 'text-zinc-500 hover:bg-zinc-100'}`}
                 >
                   {mode === 'settimana' ? 'sett.' : mode}
                 </button>
               ))}
             </div>
 
-          <div className="flex shrink-0 items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1 shadow-sm relative">
+          <div className="flex shrink-0 items-center bg-white border border-zinc-200 rounded-lg p-1 shadow-sm relative">
             <button 
               onClick={() => cambiaPeriodo(-1)}
-              className="p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 rounded transition-colors"
+              className="p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 rounded transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
@@ -791,22 +1007,22 @@ export default function PaginaAgenda() {
             <div className="relative shrink-0" ref={datePickerRef}>
               <button 
                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                className="cursor-pointer px-2 xl:px-3 font-semibold text-zinc-100 w-[140px] xl:w-[200px] text-center capitalize text-sm flex items-center justify-between hover:text-fuchsia-400 transition-colors gap-1 xl:gap-2 whitespace-nowrap"
+                className="cursor-pointer px-2 xl:px-3 font-semibold text-zinc-900 w-[140px] xl:w-[200px] text-center capitalize text-sm flex items-center justify-between hover:text-fuchsia-400 transition-colors gap-1 xl:gap-2 whitespace-nowrap"
               >
                 <span className="flex-1 truncate">{renderLabelPeriodoBreve()}</span>
                 <ChevronDown size={14} className={`transition-transform duration-200 shrink-0 ${isDatePickerOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isDatePickerOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 min-w-[260px]">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-zinc-200 rounded-xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 min-w-[260px]">
                   
                   {viewMode === 'mese' ? (
                     // --- VISTA SELEZIONE MESE ---
                     <>
                       <div className="flex justify-between items-center mb-4">
-                        <button onClick={() => { const d = new Date(pickerDate); d.setFullYear(d.getFullYear() - 1); setPickerDate(d); }} className="p-1 text-zinc-400 hover:text-zinc-100"><ChevronLeft size={16} /></button>
-                        <span className="text-sm font-semibold text-zinc-100">{pickerDate.getFullYear()}</span>
-                        <button onClick={() => { const d = new Date(pickerDate); d.setFullYear(d.getFullYear() + 1); setPickerDate(d); }} className="p-1 text-zinc-400 hover:text-zinc-100"><ChevronRight size={16} /></button>
+                        <button onClick={() => { const d = new Date(pickerDate); d.setFullYear(d.getFullYear() - 1); setPickerDate(d); }} className="p-1 text-zinc-500 hover:text-zinc-900"><ChevronLeft size={16} /></button>
+                        <span className="text-sm font-semibold text-zinc-900">{pickerDate.getFullYear()}</span>
+                        <button onClick={() => { const d = new Date(pickerDate); d.setFullYear(d.getFullYear() + 1); setPickerDate(d); }} className="p-1 text-zinc-500 hover:text-zinc-900"><ChevronRight size={16} /></button>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         {Array.from({ length: 12 }).map((_, i) => {
@@ -824,8 +1040,8 @@ export default function PaginaAgenda() {
                               }}
                               className={`py-2 text-xs font-medium rounded-lg transition-colors capitalize ${
                                 isSelected ? 'bg-fuchsia-600 text-white shadow-md' :
-                                isCurrentMonth ? 'border border-fuchsia-500/50 text-fuchsia-400 hover:bg-zinc-800' :
-                                'text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'
+                                isCurrentMonth ? 'border border-fuchsia-500/50 text-fuchsia-400 hover:bg-zinc-100' :
+                                'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
                               }`}
                             >
                               {monthDate.toLocaleDateString('it-IT', { month: 'short' })}
@@ -838,11 +1054,11 @@ export default function PaginaAgenda() {
                     // --- VISTA SELEZIONE GIORNO/SETTIMANA ---
                     <>
                       <div className="flex justify-between items-center mb-4">
-                        <button onClick={() => { const d = new Date(pickerDate); d.setDate(1); d.setMonth(d.getMonth() - 1); setPickerDate(d); }} className="p-1 text-zinc-400 hover:text-zinc-100"><ChevronLeft size={16} /></button>
-                        <span className="text-sm font-semibold text-zinc-100 capitalize">
+                        <button onClick={() => { const d = new Date(pickerDate); d.setDate(1); d.setMonth(d.getMonth() - 1); setPickerDate(d); }} className="p-1 text-zinc-500 hover:text-zinc-900"><ChevronLeft size={16} /></button>
+                        <span className="text-sm font-semibold text-zinc-900 capitalize">
                           {pickerDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
                         </span>
-                        <button onClick={() => { const d = new Date(pickerDate); d.setDate(1); d.setMonth(d.getMonth() + 1); setPickerDate(d); }} className="p-1 text-zinc-400 hover:text-zinc-100"><ChevronRight size={16} /></button>
+                        <button onClick={() => { const d = new Date(pickerDate); d.setDate(1); d.setMonth(d.getMonth() + 1); setPickerDate(d); }} className="p-1 text-zinc-500 hover:text-zinc-900"><ChevronRight size={16} /></button>
                       </div>
                       <div className="grid grid-cols-7 gap-1 mb-2">
                         {['L','M','M','G','V','S','D'].map((day, ix) => (
@@ -887,7 +1103,7 @@ export default function PaginaAgenda() {
                                 viewMode === 'settimana' && cellDate.getDay() !== 1 ? 'opacity-30 cursor-not-allowed' :
                                 viewMode === 'settimana' && inWeekBounds && !isSelected ? 'bg-fuchsia-500/20 text-fuchsia-300' :
                                 isSelected ? 'bg-fuchsia-600 text-white font-bold shadow-md' : 
-                                isToday ? 'border border-fuchsia-500/50 text-fuchsia-400 hover:bg-zinc-800' : 'text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'
+                                isToday ? 'border border-fuchsia-500/50 text-fuchsia-400 hover:bg-zinc-100' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
                               }`}
                             >
                               {day}
@@ -903,7 +1119,7 @@ export default function PaginaAgenda() {
             
             <button 
               onClick={() => cambiaPeriodo(1)}
-              className="p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 rounded transition-colors"
+              className="p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 rounded transition-colors"
             >
               <ChevronRight size={18} />
             </button>
@@ -912,7 +1128,7 @@ export default function PaginaAgenda() {
           
           <button 
             onClick={oggi}
-            className="px-4 py-2 shrink-0 whitespace-nowrap text-sm font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors shadow-sm"
+            className="px-4 py-2 shrink-0 whitespace-nowrap text-sm font-medium text-zinc-500 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors shadow-sm"
           >
             Oggi
           </button>
@@ -928,62 +1144,101 @@ export default function PaginaAgenda() {
         </div>
       </div>
 
-        {/* Barra filtri operatori (visibile solo in settimana o mese) */}
-        {viewMode !== 'giorno' && (
-          <div className="flex items-center gap-3 px-2 mt-[-10px] mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-30">
-            <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Filtra:</span>
-            <div className="relative shrink-0">
-               <div 
-                 onClick={() => setIsStaffMenuOpen(!isStaffMenuOpen)}
-                 className="flex items-center gap-2 bg-white/50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800/80 rounded-lg py-1.5 px-3 shadow-sm text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer min-w-[200px] justify-between hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 transition-colors backdrop-blur-sm"
-               >
-                 <div className="flex items-center gap-2">
-                   <User size={14} className="text-fuchsia-500" />
-                   <span className="font-medium truncate">
-                     {selectedDipendenteId === 'tutti' ? 'Tutti gli Operatori' : 
-                      selectedDipendenteId === 'unassigned' ? 'Staff Generico' : 
-                      (dipendenti.find(d => d.id === selectedDipendenteId)?.nome + ' ' + dipendenti.find(d => d.id === selectedDipendenteId)?.cognome) || 'Seleziona...'}
-                   </span>
-                 </div>
-                 <ChevronDown size={14} className="text-zinc-500" />
+      {/* Barra filtri operatori (visibile solo in settimana o mese) */}
+      {viewMode !== 'giorno' && (
+        <div className="flex items-center gap-3 px-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-30">
+          <span className="text-sm font-medium text-zinc-500">Filtra:</span>
+          <div className="relative shrink-0">
+             <div
+               onClick={() => setIsStaffMenuOpen(!isStaffMenuOpen)}
+               className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg py-1.5 px-3 shadow-sm text-sm text-zinc-700 cursor-pointer min-w-[200px] justify-between hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
+             >
+               <div className="flex items-center gap-2">
+                 <User size={14} className="text-fuchsia-500" />
+                 <span className="font-medium truncate">
+                   {selectedDipendenteId === 'tutti' ? 'Tutti gli Operatori' :
+                    selectedDipendenteId === 'unassigned' ? 'Staff Generico' :
+                    (dipendenti.find(d => d.id === selectedDipendenteId)?.nome + ' ' + dipendenti.find(d => d.id === selectedDipendenteId)?.cognome) || 'Seleziona...'}
+                 </span>
                </div>
+               <ChevronDown size={14} className="text-zinc-500" />
+             </div>
 
-               {isStaffMenuOpen && (
-                 <>
-                   <div className="fixed inset-0 z-40" onClick={() => setIsStaffMenuOpen(false)}></div>
-                   <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                     <div className="py-1">
+             {isStaffMenuOpen && (
+               <>
+                 <div className="fixed inset-0 z-40" onClick={() => setIsStaffMenuOpen(false)}></div>
+                 <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-zinc-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                   <div className="py-1">
+                     <button
+                       onClick={() => { setSelectedDipendenteId('tutti'); setIsStaffMenuOpen(false); }}
+                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'tutti' ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                     >
+                       Tutti gli Operatori
+                     </button>
+                     {dipendenti.length > 0 && <div className="h-px bg-zinc-200 my-1 mx-2"></div>}
+                     {dipendenti.map(d => (
                        <button
-                         onClick={() => { setSelectedDipendenteId('tutti'); setIsStaffMenuOpen(false); }}
-                         className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'tutti' ? 'bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 font-semibold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                         key={d.id}
+                         onClick={() => { setSelectedDipendenteId(d.id); setIsStaffMenuOpen(false); }}
+                         className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === d.id ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                        >
-                         Tutti gli Operatori
+                         {d.nome} {d.cognome}
                        </button>
-                       {dipendenti.length > 0 && <div className="h-px bg-zinc-200 dark:bg-zinc-800/50 my-1 mx-2"></div>}
-                       {dipendenti.map(d => (
-                         <button
-                           key={d.id}
-                           onClick={() => { setSelectedDipendenteId(d.id); setIsStaffMenuOpen(false); }}
-                           className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === d.id ? 'bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 font-semibold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                         >
-                           {d.nome} {d.cognome}
-                         </button>
-                       ))}
-                       <div className="h-px bg-zinc-200 dark:bg-zinc-800/50 my-1 mx-2"></div>
-                       <button
-                         onClick={() => { setSelectedDipendenteId('unassigned'); setIsStaffMenuOpen(false); }}
-                         className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'unassigned' ? 'bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 font-semibold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                       >
-                         Staff Generico
-                       </button>
-                     </div>
+                     ))}
+                     <div className="h-px bg-zinc-200 my-1 mx-2"></div>
+                     <button
+                       onClick={() => { setSelectedDipendenteId('unassigned'); setIsStaffMenuOpen(false); }}
+                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'unassigned' ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                     >
+                       Staff Generico
+                     </button>
                    </div>
-                 </>
-               )}
-            </div>
+                 </div>
+               </>
+             )}
           </div>
+        </div>
+      )}
+
+      {/* Area Contenuto: colonna sinistra fissa + agenda a tutta larghezza */}
+      <div className="flex gap-4 flex-1 min-h-0">
+        {viewMode === 'giorno' && (
+          <aside className="hidden xl:flex w-[250px] shrink-0 flex-col gap-3">
+            {renderCalendarioMese()}
+
+            <div className="bg-white border border-zinc-200 rounded-xl p-3 shadow-sm">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500 mb-2">Giornata</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-playfair font-bold text-zinc-900 tabular-nums">{appuntamenti.length}</span>
+                <span className="text-[12px] text-zinc-500">appuntamenti</span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-playfair font-bold text-fuchsia-600 tabular-nums">
+                  {appuntamenti.reduce((acc, app) => acc + (app.righe_appuntamento?.length || 0), 0)}
+                </span>
+                <span className="text-[12px] text-zinc-500">servizi</span>
+              </div>
+            </div>
+
+            <div className="bg-white border border-zinc-200 rounded-xl p-2 shadow-sm flex flex-col">
+              <Link to="/clienti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                <Users size={15} className="text-zinc-500" /> Clienti
+              </Link>
+              <Link to="/prodotti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                <Scissors size={15} className="text-zinc-500" /> Prodotti
+              </Link>
+              <Link to="/prodotti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                <FileText size={15} className="text-zinc-500" /> Buoni
+              </Link>
+              <div className="h-px bg-zinc-100 my-1"></div>
+              <Link to="/" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                <LayoutGrid size={15} className="text-zinc-500" /> Apri la dashboard
+              </Link>
+            </div>
+          </aside>
         )}
-      {/* Area Contenuto */}
+
+        <div className="flex-1 min-w-0">
       {error ? (
         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg mb-6 flex flex-col items-start gap-2">
           <p>{error}</p>
@@ -991,7 +1246,7 @@ export default function PaginaAgenda() {
         </div>
       ) : loading ? (
         <div className="flex justify-center items-center h-[50vh]">
-          <p className="text-zinc-400 font-sans animate-pulse flex items-center gap-2">
+          <p className="text-zinc-500 font-sans animate-pulse flex items-center gap-2">
             <Clock className="animate-spin" size={20} /> Recupero prenotazioni...
           </p>
         </div>
@@ -1016,6 +1271,48 @@ export default function PaginaAgenda() {
         </AnimatePresence>
       )}
 
+        </div>
+      </div>
+
+      {/* Conferma spostamento fuori tempo */}
+      {confermaSpostamento && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2 border border-amber-200">
+              <CalendarIcon size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 font-playfair">Stai andando fuori tempo</h3>
+            <p className="text-zinc-600 text-sm leading-relaxed">{confermaSpostamento.messaggio}</p>
+            <p className="text-zinc-500 text-sm mb-4 leading-relaxed">Vuoi spostare comunque l'appuntamento?</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={confermaSpostamento.procedi}
+                className="w-full px-4 py-2 font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-xl transition-colors shadow-sm"
+              >
+                Sì, sposta comunque
+              </button>
+              <button
+                onClick={() => setConfermaSpostamento(null)}
+                className="w-full px-4 py-2 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
+              >
+                No, lascia dov'era
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Avviso spostamento non riuscito */}
+      {avvisoSpostamento && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-white border border-amber-300 shadow-xl rounded-xl px-4 py-3 flex items-center gap-3 max-w-md animate-in fade-in slide-in-from-bottom-2">
+          <Shield size={18} className="text-amber-500 shrink-0" />
+          <p className="text-[13px] text-zinc-500 flex-1">{avvisoSpostamento}</p>
+          <button onClick={() => setAvvisoSpostamento(null)} className="text-zinc-500 hover:text-zinc-900 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Slide-over side panel for agenda item additions */}
       <AggiungiCalendarioSidebar
         isOpen={isSidebarOpen}
@@ -1025,6 +1322,7 @@ export default function PaginaAgenda() {
         initialTime={sidebarTime}
         appuntamentoEdit={sidebarEditApp}
         appuntamentiEsistenti={appuntamenti}
+        initialDipendenteId={sidebarDipendenteId}
       />
 
       {/* Sidebar Documenti e Autorizzazioni Operatore */}
@@ -1034,22 +1332,22 @@ export default function PaginaAgenda() {
             className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm transition-opacity" 
             onClick={() => setSelectedOperatorePreview(null)}
           ></div>
-          <div className="fixed inset-y-0 right-0 z-[100] w-full max-w-md bg-zinc-950 border-l border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right-full duration-300">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50">
+          <div className="fixed inset-y-0 right-0 z-[100] w-full max-w-md bg-white border-l border-zinc-200 shadow-2xl flex flex-col animate-in slide-in-from-right-full duration-300">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-50/50">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-100 text-xl font-playfair shadow-sm border border-fuchsia-500/30">
+                <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-xl font-playfair shadow-sm border border-fuchsia-500/30">
                   {selectedOperatorePreview.nome?.charAt(0)}{selectedOperatorePreview.cognome?.charAt(0)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-playfair text-zinc-100 font-semibold leading-tight">
+                  <h2 className="text-xl font-playfair text-zinc-900 font-semibold leading-tight">
                     {selectedOperatorePreview.nome} {selectedOperatorePreview.cognome}
                   </h2>
-                  <p className="text-xs text-zinc-400 font-mono mt-0.5">{selectedOperatorePreview.email || 'Email non assegnata'}</p>
+                  <p className="text-xs text-zinc-500 font-mono mt-0.5">{selectedOperatorePreview.email || 'Email non assegnata'}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedOperatorePreview(null)}
-                className="text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors p-2 rounded-full"
+                className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors p-2 rounded-full"
               >
                 <X size={20} />
               </button>
@@ -1064,15 +1362,15 @@ export default function PaginaAgenda() {
                   Autorizzazioni e Accesso
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 flex flex-col gap-1">
+                  <div className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-col gap-1">
                     <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Ruolo di Sistema</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${selectedOperatorePreview.ruolo === 'admin' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}`}>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${selectedOperatorePreview.ruolo === 'admin' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-zinc-100 text-zinc-700 border border-zinc-300'}`}>
                         {selectedOperatorePreview.ruolo || 'Dipendente'}
                       </span>
                     </div>
                   </div>
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 flex flex-col gap-1">
+                  <div className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-col gap-1">
                     <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Stato</span>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full capitalize flex items-center gap-1 ${selectedOperatorePreview.attivo ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
@@ -1098,24 +1396,24 @@ export default function PaginaAgenda() {
                       { nome: 'Contratto_Assunzione.pdf', data: '01/01/2026', tipo: 'Contratto' },
                       { nome: 'Attestato_Sicurezza.pdf', data: '15/05/2026', tipo: 'Formazione' }
                     ].map((doc, i) => (
-                      <div key={i} className="group relative flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors">
+                      <div key={i} className="group relative flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-lg hover:border-zinc-300 transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-fuchsia-400 transition-colors">
+                          <div className="w-8 h-8 rounded bg-white border border-zinc-200 flex items-center justify-center text-zinc-500 group-hover:text-fuchsia-400 transition-colors">
                             <FileText size={14} />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-zinc-200">{doc.nome}</p>
+                            <p className="text-sm font-medium text-zinc-800">{doc.nome}</p>
                             <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">{doc.tipo} • Caricato il {doc.data}</p>
                           </div>
                         </div>
-                        <button className="text-zinc-500 hover:text-fuchsia-400 p-2 bg-zinc-900 rounded-md transition-colors shadow-sm opacity-0 group-hover:opacity-100">
+                        <button className="text-zinc-500 hover:text-fuchsia-400 p-2 bg-white rounded-md transition-colors shadow-sm opacity-0 group-hover:opacity-100">
                           <Download size={14} />
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-6 text-center border border-dashed border-zinc-800 rounded-lg bg-zinc-950/50">
+                  <div className="p-6 text-center border border-dashed border-zinc-200 rounded-lg bg-zinc-50/50">
                     <p className="text-sm text-zinc-500">Nessun documento per lo Staff Generico.</p>
                   </div>
                 )}
@@ -1123,7 +1421,7 @@ export default function PaginaAgenda() {
 
             </div>
             
-            <div className="p-4 border-t border-zinc-800 bg-zinc-900/50 flex justify-end mt-auto">
+            <div className="p-4 border-t border-zinc-200 bg-zinc-50/50 flex justify-end mt-auto">
               <button 
                 onClick={() => setSelectedOperatorePreview(null)}
                 className="px-6 py-2 bg-zinc-100 text-zinc-900 font-semibold rounded-lg hover:bg-white transition-colors text-sm shadow-sm"
@@ -1138,9 +1436,9 @@ export default function PaginaAgenda() {
       {/* Alert Orari Lavoro Notifica */}
       {alertOrari.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
-            <h3 className="text-lg font-bold text-zinc-100">Ora non disponibile</h3>
-            <p className="text-zinc-400 text-sm mb-2 leading-relaxed">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
+            <h3 className="text-lg font-bold text-zinc-900">Ora non disponibile</h3>
+            <p className="text-zinc-500 text-sm mb-2 leading-relaxed">
               L'operatore non lavora in questa fascia oraria.<br />
               Seleziona un orario diverso o modifica gli orari.
             </p>
@@ -1155,13 +1453,13 @@ export default function PaginaAgenda() {
                 apriAggiungiSidebar(alertOrari.date, alertOrari.timeStr);
                 setAlertOrari({show: false});
               }}
-              className="w-full px-4 py-2 font-bold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors shadow-sm"
+              className="w-full px-4 py-2 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
              >
               Inserisci lo stesso
              </button>
              <Link 
               to="/dipendenti"
-              className="w-full px-4 py-2 font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition-colors shadow-sm"
+              className="w-full px-4 py-2 font-bold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors shadow-sm"
              >
               Modifica orario
              </Link>
@@ -1172,22 +1470,22 @@ export default function PaginaAgenda() {
       {/* Complete Appuntamento Modal */}
       {completaAppModal.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-zinc-800/80 bg-zinc-900/50 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-zinc-200/80 bg-zinc-50/50 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
                 <CheckCircle2 className="text-[#10b981]" size={20} />
                 Conferma completamento
               </h3>
               <button 
                 onClick={() => setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } })}
-                className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-full transition-colors"
+                className="p-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900 rounded-full transition-colors"
                >
                 <X size={16} />
                </button>
             </div>
             
             <div className="p-6 flex flex-col gap-5">
-              <p className="text-zinc-400 text-sm">
+              <p className="text-zinc-500 text-sm">
                 Vuoi confermare l'appuntamento con questi dati? C'è qualcosa riguardante il prezzo che vuoi aggiungere o note per appuntamenti futuri?
               </p>
               
@@ -1197,7 +1495,7 @@ export default function PaginaAgenda() {
                   <input 
                     type="number"
                     step="0.01"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-mono"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-mono"
                     placeholder="0.00"
                     value={completaAppModal.data.importo}
                     onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, importo: e.target.value } }))}
@@ -1208,7 +1506,7 @@ export default function PaginaAgenda() {
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Colori utilizzati</label>
                   <input 
                     type="text"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all"
                     placeholder="Es. Biondo cenere, Castano chiaro..."
                     value={completaAppModal.data.colori}
                     onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, colori: e.target.value } }))}
@@ -1218,7 +1516,7 @@ export default function PaginaAgenda() {
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Note per appuntamenti futuri</label>
                   <textarea 
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all min-h-[100px] resize-y"
+                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all min-h-[100px] resize-y"
                     placeholder="Lo storico del cliente, preferenze, sensibilità..."
                     value={completaAppModal.data.note}
                     onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, note: e.target.value } }))}
@@ -1227,10 +1525,10 @@ export default function PaginaAgenda() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/50 flex gap-3">
+            <div className="p-4 border-t border-zinc-200/80 bg-zinc-50/50 flex gap-3">
               <button 
                 onClick={() => setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } })}
-                className="flex-1 px-4 py-3 font-bold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors shadow-sm"
+                className="flex-1 px-4 py-3 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
               >
                 Chiudi appuntamento
               </button>
@@ -1250,7 +1548,7 @@ export default function PaginaAgenda() {
   );
 }
 
-function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, onEdit, onComplete, isAbsolute, pixelPerMinute, startOffset, idx = 0, colIndex = 0, colTotal = 1 }: any) {
+function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, onEdit, onComplete, isAbsolute, pixelPerMinute, startOffset, idx = 0, colIndex = 0, colTotal = 1, onDragStartApp, onDragEndApp, isDragging = false }: any) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -1258,168 +1556,162 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
   const isBlock = app.stato === 'annullato';
   const isCompleted = app.stato === 'completato';
   const isEven = idx % 2 === 0;
-  
+
   const heightPixels = durata * (pixelPerMinute || 2);
   const isCompact = heightPixels < 50;
   const isUltraCompact = heightPixels < 25;
 
   let bgClass = '';
   if (isBlock) {
-    bgClass = 'bg-zinc-800 border-l-4 border-zinc-700/60 text-zinc-500';
+    bgClass = 'bg-zinc-100 border-l-4 border-zinc-300 text-zinc-500';
   } else if (isCompleted) {
-    bgClass = 'bg-zinc-900 border-l-4 border-[#10b981] text-zinc-300';
+    bgClass = 'bg-emerald-50 border-l-4 border-emerald-500 text-zinc-400';
   } else {
-    bgClass = isEven 
-      ? 'bg-zinc-900 border-l-4 border-[#6B5CFF]' 
-      : 'bg-zinc-900 border-l-4 border-[#D400FF]';
+    bgClass = isEven
+      ? 'bg-indigo-50 border-l-4 border-[#6B5CFF]'
+      : 'bg-fuchsia-50 border-l-4 border-[#D400FF]';
   }
+
+  const espanso = isHovered || menuOpen;
 
   const dynamicStyle = isAbsolute ? {
     position: 'absolute' as const,
     top: `${startOffset || 0}px`,
-    left: isHovered || menuOpen ? '2px' : `calc(${(colIndex / colTotal) * 100}% + 2px)`,
-    width: isHovered || menuOpen ? 'calc(100% - 4px)' : `calc(${(1 / colTotal) * 100}% - 4px)`,
-    height: isHovered || menuOpen ? 'auto' : `${heightPixels}px`,
+    left: espanso ? '2px' : `calc(${(colIndex / colTotal) * 100}% + 2px)`,
+    width: espanso ? 'calc(100% - 4px)' : `calc(${(1 / colTotal) * 100}% - 4px)`,
+    height: espanso ? 'auto' : `${heightPixels}px`,
     minHeight: `${heightPixels}px`,
-    zIndex: isHovered || menuOpen ? 9999 : 10 + idx,
+    zIndex: espanso ? 9999 : 10 + idx,
+    opacity: isDragging ? 0.4 : 1
   } : {};
 
-  // Construct visual segments based on services
-  const righe = app.righe_appuntamento || [];
-  let segments: any[] = [];
-  
-  if (righe.length === 0) {
-    segments.push({ type: 'lavorazione', title: 'Servizio base', duration: durata, isFirst: true });
-  } else {
-    righe.forEach((riga: any, i: number) => {
-      const nome = riga.servizi_catalogo?.nome || 'Servizio';
-      const rigaDurata = Number(riga.servizi_catalogo?.durata_minuti) || 30;
-      
-      let posa = Number(riga.servizi_catalogo?.tempo_posa_minuti) || 0;
-      let lavorazioneFinale = Number(riga.servizi_catalogo?.tempo_finitura_minuti) || 0;
-      let lavorazioneIniziale = Number(riga.servizi_catalogo?.tempo_lavorazione_minuti);
-      
-      if (isNaN(lavorazioneIniziale) || lavorazioneIniziale === undefined) {
-        lavorazioneIniziale = rigaDurata - posa - lavorazioneFinale;
-      }
-      
-      if (lavorazioneIniziale > 0) {
-        segments.push({ type: 'lavorazione', title: nome, duration: lavorazioneIniziale, isFirst: i === 0 && segments.length === 0 });
-      }
-      
-      if (posa > 0) {
-        segments.push({ type: 'posa', title: 'Posa', duration: posa, isFirst: false });
-      }
-      
-      if (lavorazioneFinale > 0) {
-        segments.push({ type: 'lavorazione', title: nome + ' (Fine)', duration: lavorazioneFinale, isFirst: false });
-      }
-    });
-  }
+  // I segmenti arrivano dai tempi dichiarati nel catalogo (lavorazione e posa),
+  // non più indovinati dal nome del servizio.
+  const segments = segmentiAppuntamento(app.righe_appuntamento || []);
+  const spanTotale = durata || segments.reduce((acc, s) => acc + s.durata, 0) || 30;
 
-  // To fix floating-point rounding rendering bugs, if the sum doesn't perfectly match `durata`, adjust the last one slightly in theory, but flex-grow will handle it via percentages.
-
-  const cardContainerClasses = `absolute w-full group/mini flex flex-col transition-all duration-200 cursor-pointer ${isAbsolute ? '' : 'relative mb-1'} ${isHovered && !isCompleted ? 'hover:-translate-y-0.5 hover:shadow-[0_4px_24px_rgba(217,70,239,0.2)]' : ''}`;
+  const cardContainerClasses = `w-full group/mini flex flex-col transition-all duration-200 ${isAbsolute ? 'pointer-events-none' : 'relative mb-1'} ${espanso && !isCompleted ? 'drop-shadow-lg' : ''}`;
 
   return (
-    <div 
-      style={dynamicStyle} 
+    <div
+      style={dynamicStyle}
       className={cardContainerClasses}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); if (!menuOpen) setShowConfirmDelete(false); }}
-      onClick={() => { if(onEdit) onEdit(app); }}
     >
-       {/* Actions Menu Trigger */}
-       <button 
+       {/* Menù azioni */}
+       <button
          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setShowConfirmDelete(false); }}
-         className={`absolute top-1 right-1 opacity-0 group-hover/mini:opacity-100 p-1 text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 rounded transition-all z-[9999] ${isUltraCompact && !isHovered ? 'hidden' : ''}`}
+         className={`absolute top-1 right-1 opacity-0 group-hover/mini:opacity-100 p-1 text-zinc-500 hover:text-zinc-900 bg-white/90 hover:bg-zinc-100 rounded border border-zinc-200 transition-all z-[9999] pointer-events-auto ${isUltraCompact && !espanso ? 'hidden' : ''}`}
        >
          <MoreVertical size={12} />
        </button>
 
-       {/* Actions Menù */}
        {menuOpen && (
-         <div className="absolute top-6 right-1 bg-zinc-950 border border-zinc-700 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100"
+         <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto"
               onMouseLeave={() => setMenuOpen(false)}>
             {!showConfirmDelete ? (
               <>
                 {!isCompleted && (
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onComplete) onComplete(app); }}
-                    className="px-2 py-2 text-[10px] text-[#10b981] hover:bg-zinc-800 flex items-center gap-2 transition-colors text-left font-medium"
+                    className="px-2 py-2 text-[10px] text-emerald-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium"
                   >
                     <CheckCircle2 size={10} /> Completato
                   </button>
                 )}
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onEdit) onEdit(app); }}
-                  className={`px-2 py-2 text-[10px] text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition-colors text-left font-medium ${!isCompleted ? 'border-t border-zinc-800' : ''}`}
+                  className={`px-2 py-2 text-[10px] text-zinc-500 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium ${!isCompleted ? 'border-t border-zinc-100' : ''}`}
                 >
                   <Edit2 size={10} /> Modifica
                 </button>
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(true); }}
-                  className="px-2 py-2 text-[10px] text-red-400 hover:bg-red-500/20 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-800"
+                  className="px-2 py-2 text-[10px] text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-100"
                 >
                   <Trash2 size={10} /> Elimina
                 </button>
               </>
             ) : (
-              <div className="p-2 flex flex-col gap-2 bg-red-950/40">
-                <span className="text-[9px] text-zinc-200 font-bold text-center leading-tight">Confermi l'eliminazione?</span>
+              <div className="p-2 flex flex-col gap-2 bg-red-50">
+                <span className="text-[9px] text-zinc-500 font-bold text-center leading-tight">Confermi l'eliminazione?</span>
                 <div className="flex gap-1.5">
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(app.id); setMenuOpen(false); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-[9px] py-1 rounded transition-colors font-bold">Si</button>
-                  <button onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white text-[9px] py-1 rounded transition-colors font-bold">No</button>
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(app.id); setMenuOpen(false); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-[9px] py-1 rounded transition-colors font-bold">Sì</button>
+                  <button onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }} className="flex-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-[9px] py-1 rounded transition-colors font-bold">No</button>
                 </div>
               </div>
             )}
          </div>
        )}
 
-       {/* Visual Segments */}
+       {/* Le tre fasi: lavorazione piena, posa a trattini (libera), finitura piena */}
        <div className="flex flex-col w-full h-full">
          {segments.map((seg, i) => {
-           if (seg.type === 'posa') {
-             return (
-               <div 
-                 key={i} 
-                 style={{ height: isHovered ? 'auto' : `${(seg.duration / durata) * 100}%`, minHeight: isHovered ? '20px' : undefined }} 
-                 className={`w-full flex font-medium items-center justify-start border-l-[4px] border-dashed text-zinc-500 overflow-hidden relative opacity-70 border-zinc-600 group-hover/mini:border-fuchsia-400 group-hover/mini:opacity-100 transition-colors`}
-               >
-                 <div className={`text-[9px] ml-1 opacity-0 group-hover/mini:opacity-100 transition-opacity whitespace-nowrap`}>
-                   {seg.duration}m Posa
-                 </div>
-               </div>
-             )
-           } else {
-             return (
-               <div 
-                 key={i} 
-                 style={{ height: isHovered ? 'auto' : `${(seg.duration / durata) * 100}%`, minHeight: isHovered ? 'auto' : undefined }} 
-                 className={`w-full flex-1 flex flex-col p-1 sm:p-1.5 overflow-hidden ring-1 ring-inset ring-zinc-700/50 rounded-r-md ${bgClass} shadow-sm ${seg.isFirst ? 'rounded-tl-sm' : 'rounded-bl-sm'} ${isCompact && !isHovered ? 'justify-start' : 'justify-between'}`}
-               >
-                 <div className="flex justify-between items-start gap-1">
-                   <div className="flex flex-col text-left">
-                     {seg.isFirst && (
-                       <span className={`font-bold text-[10px] sm:text-xs truncate ${isBlock ? 'text-zinc-500' : 'text-zinc-100'} ${isUltraCompact && !isHovered ? 'text-[9px]' : ''}`}>
-                         {!isUltraCompact || isHovered ? `${formattaOrario(app.data_ora)} - ` : ''}
-                         {app.clienti?.nome} {(app.clienti?.cognome || '').slice(0, 1)}.
-                       </span>
-                     )}
-                      <span className={`text-[9px] sm:text-[10px] truncate leading-tight mt-0.5 ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                        {seg.title}
-                     </span>
-                   </div>
-                 </div>
+           const altezza = espanso ? 'auto' : `${(seg.durata / spanTotale) * 100}%`;
+           const isPrimo = seg.inizio === 0;
 
-                 {seg.isFirst && (!isCompact || isHovered) && app.note && (
-                   <div className="mt-1 text-[9px] text-zinc-300 opacity-80 break-words whitespace-pre-wrap leading-tight line-clamp-1 group-hover/mini:line-clamp-none">
-                     {app.note}
-                   </div>
+           if (seg.tipo === 'posa') {
+             // Posa: l'operatore è libero. La fascia è trasparente, tratteggiata e
+             // non intercetta i clic, così ci si fissa dentro un'altra cliente.
+             return (
+               <div
+                 key={i}
+                 style={{
+                   height: altezza,
+                   minHeight: espanso ? '18px' : undefined,
+                   backgroundImage: 'repeating-linear-gradient(135deg, rgba(161,161,170,0.16) 0px, rgba(161,161,170,0.16) 2px, transparent 2px, transparent 7px)'
+                 }}
+                 className="w-full relative pointer-events-none border-y border-dashed border-zinc-300 flex items-center justify-center overflow-hidden"
+                 title={`Posa ${seg.durata} min — operatore libero, si può fissare un'altra cliente`}
+               >
+                 <span className="text-[9px] uppercase tracking-[0.12em] font-semibold text-zinc-500 bg-white/85 px-1.5 rounded-sm leading-none py-0.5 whitespace-nowrap">
+                   posa {seg.durata}′
+                 </span>
+               </div>
+             );
+           }
+
+           return (
+             <div
+               key={i}
+               draggable={isAbsolute && !isCompleted}
+               onDragStart={(e) => {
+                 e.dataTransfer.setData('text/appuntamento', app.id);
+                 e.dataTransfer.effectAllowed = 'move';
+                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                 if (onDragStartApp) onDragStartApp(e.clientY - rect.top + seg.inizio * (pixelPerMinute || 2));
+               }}
+               onDragEnd={() => { if (onDragEndApp) onDragEndApp(); }}
+               onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(app); }}
+               style={{ height: altezza }}
+               className={`w-full flex flex-col px-1.5 py-1 overflow-hidden ring-1 ring-inset ring-zinc-200 ${bgClass} shadow-sm pointer-events-auto cursor-grab active:cursor-grabbing ${isPrimo ? 'rounded-tr-md' : 'rounded-br-md'} ${isCompact && !espanso ? 'justify-start' : 'justify-between'}`}
+             >
+               <div className="flex flex-col text-left min-w-0">
+                 {isPrimo ? (
+                   <>
+                     <span className={`font-bold text-[10px] sm:text-xs truncate ${isBlock ? 'text-zinc-500' : 'text-zinc-900'}`}>
+                       {!isUltraCompact || espanso ? `${formattaOrario(app.data_ora)} ` : ''}
+                       {app.clienti?.nome} {(app.clienti?.cognome || '').slice(0, 1)}.
+                     </span>
+                     <span className={`text-[9px] sm:text-[10px] truncate leading-tight ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                       {seg.nome} · {seg.durata}′
+                     </span>
+                   </>
+                 ) : (
+                   <span className={`text-[9px] sm:text-[10px] truncate leading-tight font-medium ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-700'}`}>
+                     {seg.nome} · {seg.durata}′
+                   </span>
                  )}
                </div>
-             )
-           }
+
+               {isPrimo && (!isCompact || espanso) && app.note && (
+                 <div className="mt-1 text-[9px] text-zinc-500 break-words whitespace-pre-wrap leading-tight line-clamp-1 group-hover/mini:line-clamp-none">
+                   {app.note}
+                 </div>
+               )}
+             </div>
+           );
          })}
        </div>
     </div>

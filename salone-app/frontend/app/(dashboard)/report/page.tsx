@@ -112,7 +112,7 @@ export default function PaginaReport() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[50vh]">
-        <p className="text-zinc-400 font-sans animate-pulse">Caricamento report in corso...</p>
+        <p className="text-zinc-500 font-sans animate-pulse">Caricamento report in corso...</p>
       </div>
     );
   }
@@ -120,7 +120,7 @@ export default function PaginaReport() {
   if (error) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-playfair text-zinc-100 mb-6">Report Aziendale</h1>
+        <h1 className="text-2xl font-playfair text-zinc-900 mb-6">Report Aziendale</h1>
         <div className="card p-4 border-l-4 border-red-500 bg-red-50 text-red-700">
           <p>{error}</p>
           <button onClick={caricaDati} className="mt-2 text-sm underline font-semibold">Riprova</button>
@@ -140,8 +140,8 @@ export default function PaginaReport() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair text-zinc-100 flex items-center gap-3"><BarChart3 className="text-fuchsia-500" size={28} />Report e Statistiche</h1>
-              <p className="text-zinc-400 mt-1 font-sans text-sm">Panoramica incassi e performance dipendenti</p>
+              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3"><BarChart3 className="text-fuchsia-500" size={28} />Report e Statistiche</h1>
+              <p className="text-zinc-500 mt-1 font-sans text-sm">Panoramica incassi e performance dipendenti</p>
             </div>
           </div>
         </div>
@@ -155,9 +155,9 @@ export default function PaginaReport() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800"
+          className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
         >
-          <h2 className="text-xl font-playfair text-zinc-100 mb-6">Incassi ultimi mesi</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Incassi ultimi mesi</h2>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={incassi} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
@@ -192,34 +192,34 @@ export default function PaginaReport() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800"
+          className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
         >
-          <h2 className="text-xl font-playfair text-zinc-100 mb-6">Totali per Dipendente</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Totali per Dipendente</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans">
               <thead>
-                <tr className="border-b border-zinc-800 text-zinc-400">
+                <tr className="border-b border-zinc-200 text-zinc-500">
                   <th className="py-3 px-4 font-semibold text-sm">Dipendente</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Appuntamenti</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Totale Incassato</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-zinc-200">
                 {dipendenti.length > 0 ? dipendenti.map((d) => (
-                  <tr key={d.id} className="hover:bg-zinc-800 transition-colors">
-                    <td className="py-4 px-4 text-zinc-100 font-medium">
+                  <tr key={d.id} className="hover:bg-zinc-100 transition-colors">
+                    <td className="py-4 px-4 text-zinc-900 font-medium">
                       {d.nome} {d.cognome}
                     </td>
-                    <td className="py-4 px-4 text-right text-zinc-400">
+                    <td className="py-4 px-4 text-right text-zinc-500">
                       {d.numero_appuntamenti}
                     </td>
-                    <td className="py-4 px-4 text-right font-medium text-zinc-100">
+                    <td className="py-4 px-4 text-right font-medium text-zinc-900">
                       €{d.totale_incassato.toFixed(2)}
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={3} className="py-8 text-center text-zinc-400 text-sm">
+                    <td colSpan={3} className="py-8 text-center text-zinc-500 text-sm">
                       Nessun dato disponibile
                     </td>
                   </tr>
@@ -238,12 +238,12 @@ export default function PaginaReport() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           
-          <div className="mt-12 border-t border-zinc-800 pt-8 mb-6">
-            <h2 className="text-2xl font-playfair text-zinc-100 flex items-center gap-2">
+          <div className="mt-12 border-t border-zinc-200 pt-8 mb-6">
+            <h2 className="text-2xl font-playfair text-zinc-900 flex items-center gap-2">
               <Users className="text-fuchsia-500" size={24} />
               Report Clienti & Canali di Acquisizione
             </h2>
-            <p className="text-zinc-400 mt-1 text-sm font-sans">
+            <p className="text-zinc-500 mt-1 text-sm font-sans">
               Statistiche di crescita e provenienza dei clienti registrati questo mese ({new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })})
             </p>
           </div>
@@ -255,11 +255,11 @@ export default function PaginaReport() {
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800"
+              className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-playfair text-zinc-100">Performance Canali</h3>
-                <span className="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
+                <h3 className="text-lg font-playfair text-zinc-900">Performance Canali</h3>
+                <span className="text-xs bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-fuchsia-400" />
                   Totale: {clientiReport.acquisiti_questo_mese.length} nuovi clienti
                 </span>
@@ -271,28 +271,28 @@ export default function PaginaReport() {
                   const percentuale = (c.quantita / (clientiReport.acquisiti_questo_mese.length || 1)) * 100;
                   
                   // Colori associati a ciascun canale per un design super-curato
-                  let barColor = "bg-zinc-700";
-                  let textColor = "text-zinc-400";
+                  let barColor = "bg-zinc-200";
+                  let textColor = "text-zinc-500";
                   if (c.canale === "Instagram") { barColor = "bg-gradient-to-r from-pink-500 to-fuchsia-500"; textColor = "text-pink-400"; }
                   else if (c.canale === "Facebook") { barColor = "bg-gradient-to-r from-blue-600 to-blue-400"; textColor = "text-blue-400"; }
                   else if (c.canale === "Google") { barColor = "bg-gradient-to-r from-emerald-500 to-teal-500"; textColor = "text-emerald-400"; }
                   else if (c.canale === "Passaparola") { barColor = "bg-gradient-to-r from-violet-500 to-indigo-500"; textColor = "text-violet-400"; }
-                  else if (c.canale === "Altro" || c.canale.includes("Altro")) { barColor = "bg-gradient-to-r from-zinc-500 to-zinc-600"; textColor = "text-zinc-400"; }
+                  else if (c.canale === "Altro" || c.canale.includes("Altro")) { barColor = "bg-gradient-to-r from-zinc-500 to-zinc-600"; textColor = "text-zinc-500"; }
 
                   return (
                     <div key={idx} className="space-y-1.5">
                       <div className="flex justify-between text-sm font-medium">
-                        <span className="text-zinc-300 flex items-center gap-2">
+                        <span className="text-zinc-700 flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${barColor}`} />
                           {c.canale}
                         </span>
-                        <span className="text-zinc-400 font-sans">
-                          <strong className="text-zinc-100">{c.quantita}</strong> ({percentuale.toFixed(0)}%)
+                        <span className="text-zinc-500 font-sans">
+                          <strong className="text-zinc-900">{c.quantita}</strong> ({percentuale.toFixed(0)}%)
                         </span>
                       </div>
                       
                       {/* Progress bar */}
-                      <div className="w-full bg-zinc-950 h-2.5 rounded-full overflow-hidden border border-zinc-900">
+                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-zinc-200">
                         <div 
                           className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
                           style={{ width: `${percentuale}%` }}
@@ -309,9 +309,9 @@ export default function PaginaReport() {
                initial={{ x: 20, opacity: 0 }}
                animate={{ x: 0, opacity: 1 }}
                transition={{ duration: 0.5, delay: 0.5 }}
-               className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800"
+               className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
             >
-              <h3 className="text-lg font-playfair text-zinc-100 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-playfair text-zinc-900 mb-6 flex items-center gap-2">
                 <Sparkles size={16} className="text-fuchsia-400" />
                 Ultimi Clienti Acquisiti questo mese
               </h3>
@@ -319,25 +319,25 @@ export default function PaginaReport() {
               <div className="overflow-x-auto font-sans text-sm">
                 <table className="w-full text-left font-sans">
                   <thead>
-                    <tr className="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider">
+                    <tr className="border-b border-zinc-200 text-zinc-500 text-xs font-semibold uppercase tracking-wider">
                       <th className="py-2 pb-3 px-3">Cliente</th>
                       <th className="py-2 pb-3 px-3">Data</th>
                       <th className="py-2 pb-3 px-3">Canale</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/60">
+                  <tbody className="divide-y divide-zinc-200/60">
                     {clientiReport.acquisiti_questo_mese.map((cli) => {
                       const dataFormat = new Date(cli.data_acquisizione).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
                       
-                      let badgeStyle = "bg-zinc-800 text-zinc-300 border-zinc-700";
+                      let badgeStyle = "bg-zinc-100 text-zinc-700 border-zinc-300";
                       if (cli.canale_acquisizione === "Instagram") badgeStyle = "bg-pink-500/10 text-pink-400 border-pink-500/10";
                       else if (cli.canale_acquisizione === "Google") badgeStyle = "bg-emerald-500/10 text-emerald-400 border-emerald-500/10";
                       else if (cli.canale_acquisizione === "Passaparola") badgeStyle = "bg-violet-500/10 text-violet-400 border-violet-500/10";
                       else if (cli.canale_acquisizione === "Facebook") badgeStyle = "bg-blue-500/10 text-blue-400 border-blue-500/10";
 
                       return (
-                        <tr key={cli.id} className="hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-3 px-3 font-medium text-zinc-100">
+                        <tr key={cli.id} className="hover:bg-zinc-100/30 transition-colors">
+                          <td className="py-3 px-3 font-medium text-zinc-900">
                             <div>
                               <span>{cli.nome} {cli.cognome}</span>
                               <div className="flex gap-2 text-[10px] text-zinc-500 font-mono mt-0.5">
@@ -345,7 +345,7 @@ export default function PaginaReport() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-3 text-zinc-400 text-xs shrink-0 whitespace-nowrap">
+                          <td className="py-3 px-3 text-zinc-500 text-xs shrink-0 whitespace-nowrap">
                             {dataFormat}
                           </td>
                           <td className="py-3 px-3">
@@ -369,7 +369,7 @@ export default function PaginaReport() {
       <div className="flex justify-center mt-12 mb-8 relative z-10">
         <button 
           onClick={esportaCSV}
-          className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 hover:border-zinc-500 text-zinc-100 rounded-full px-6 py-3 transition-colors text-sm font-medium shadow-xl"
+          className="flex items-center gap-2 bg-white border border-zinc-300 hover:bg-zinc-100 hover:border-zinc-500 text-zinc-900 rounded-full px-6 py-3 transition-colors text-sm font-medium shadow-xl"
         >
           <Download size={18} />
           Esporta CSV Dipendenti

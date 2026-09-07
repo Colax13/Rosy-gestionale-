@@ -57,12 +57,12 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity">
-      <div className="bg-zinc-900 rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-800/30">
-          <h2 className="text-xl font-playfair text-zinc-100 font-semibold">Nuovo Cliente</h2>
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+        <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
+          <h2 className="text-xl font-playfair text-zinc-900 font-semibold">Nuovo Cliente</h2>
           <button 
             onClick={onChiudi}
-            className="text-zinc-400 hover:text-zinc-100 transition-colors p-1"
+            className="text-zinc-500 hover:text-zinc-900 transition-colors p-1"
             aria-label="Chiudi"
           >
             <X size={20} />
@@ -78,7 +78,7 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label htmlFor="nome" className="block text-sm font-medium text-zinc-400 mb-1">Nome *</label>
+              <label htmlFor="nome" className="block text-sm font-medium text-zinc-500 mb-1">Nome *</label>
               <input
                 id="nome"
                 name="nome"
@@ -86,11 +86,11 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
                 required
                 value={formData.nome}
                 onChange={handleChange}
-                className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
               />
             </div>
             <div>
-              <label htmlFor="cognome" className="block text-sm font-medium text-zinc-400 mb-1">Cognome *</label>
+              <label htmlFor="cognome" className="block text-sm font-medium text-zinc-500 mb-1">Cognome *</label>
               <input
                 id="cognome"
                 name="cognome"
@@ -98,38 +98,38 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
                 required
                 value={formData.cognome}
                 onChange={handleChange}
-                className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label htmlFor="telefono" className="block text-sm font-medium text-zinc-400 mb-1">Telefono</label>
+              <label htmlFor="telefono" className="block text-sm font-medium text-zinc-500 mb-1">Telefono</label>
               <input
                 id="telefono"
                 name="telefono"
                 type="tel"
                 value={formData.telefono}
                 onChange={handleChange}
-                className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
               />
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-zinc-500 mb-1">Email</label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
               />
             </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="canale_acquisizione" className="block text-sm font-medium text-zinc-400 mb-1">Canale di Acquisizione</label>
+            <label htmlFor="canale_acquisizione" className="block text-sm font-medium text-zinc-500 mb-1">Canale di Acquisizione</label>
             <div className="flex gap-2">
               <select
                 id="canale_acquisizione"
@@ -144,7 +144,7 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
                     setFormData(prev => ({ ...prev, canale_acquisizione: '' }));
                   }
                 }}
-                className="w-full p-2 border border-zinc-800 bg-zinc-950 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans text-zinc-100"
+                className="w-full p-2 border border-zinc-200 bg-white rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans text-zinc-900"
               >
                 <option value="Instagram">Instagram</option>
                 <option value="TikTok">TikTok</option>
@@ -159,29 +159,29 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
                <input 
                  type="text" 
                  placeholder="Scrivi nuovo canale..."
-                 className="w-full mt-2 p-2 border border-zinc-800 bg-zinc-950 rounded-md outline-none font-sans text-zinc-100 placeholder-zinc-500 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500" 
+                 className="w-full mt-2 p-2 border border-zinc-200 bg-white rounded-md outline-none font-sans text-zinc-900 placeholder-zinc-500 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500" 
                  onChange={(e) => setFormData(prev => ({ ...prev, canale_acquisizione: e.target.value }))}
                />
             )}
           </div>
 
           <div className="mb-4">
-            <label htmlFor="note" className="block text-sm font-medium text-zinc-400 mb-1">Note (Allergie, preferenze, ecc.)</label>
+            <label htmlFor="note" className="block text-sm font-medium text-zinc-500 mb-1">Note (Allergie, preferenze, ecc.)</label>
             <textarea
               id="note"
               name="note"
               rows={3}
               value={formData.note}
               onChange={handleChange}
-              className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans resize-none"
+              className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans resize-none"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-200">
             <button
               type="button"
               onClick={onChiudi}
-              className="px-4 py-2 text-sm font-medium text-zinc-100 border border-zinc-800 rounded-md hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-zinc-900 border border-zinc-200 rounded-md hover:bg-zinc-100 transition-colors"
               disabled={loading}
             >
               Annulla

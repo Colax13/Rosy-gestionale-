@@ -70,18 +70,18 @@ export default function RicercaGlobale() {
   return (
     <div ref={wrapperRef} className="relative w-full max-w-md">
       <div className="relative flex items-center">
-        <Search className="absolute left-3 text-zinc-400" size={18} />
+        <Search className="absolute left-3 text-zinc-500" size={18} />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Cerca cliente o appuntamento (es. Giulia o Taglio)..."
-          className="w-full pl-10 pr-10 py-2 bg-zinc-800/50 border border-zinc-800 rounded-full focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 text-sm font-sans placeholder-zinc-500/80 shadow-sm transition-all"
+          className="w-full pl-10 pr-10 py-2 bg-zinc-100/50 border border-zinc-200 rounded-full focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 text-sm font-sans placeholder-zinc-500/80 shadow-sm transition-all"
         />
         {query && (
           <button 
             onClick={() => { setQuery(''); setIsOpen(false); }}
-            className="absolute right-3 text-zinc-400 hover:text-zinc-100"
+            className="absolute right-3 text-zinc-500 hover:text-zinc-900"
           >
             <X size={16} />
           </button>
@@ -89,30 +89,30 @@ export default function RicercaGlobale() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-xl shadow-lg overflow-hidden z-50 py-2">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden z-50 py-2">
           {isSearching ? (
-            <div className="p-4 text-center text-sm text-zinc-400 animate-pulse">Ricerca in corso...</div>
+            <div className="p-4 text-center text-sm text-zinc-500 animate-pulse">Ricerca in corso...</div>
           ) : risultati.length > 0 ? (
             <ul className="max-h-64 overflow-y-auto">
               {risultati.map((ris) => (
                 <li key={`${ris.tipo}-${ris.id}`}>
                   <button
                     onClick={() => handleSelect(ris.path)}
-                    className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 flex items-start gap-3 transition-colors border-b border-zinc-800/30 last:border-0"
+                    className="w-full text-left px-4 py-3 hover:bg-zinc-100/50 flex items-start gap-3 transition-colors border-b border-zinc-200/30 last:border-0"
                   >
                     <div className="mt-0.5 text-fuchsia-500 p-1.5 bg-fuchsia-500/20 rounded-full">
                       {ris.tipo === 'cliente' ? <User size={16} /> : <Calendar size={16} />}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-zinc-100">{ris.titolo}</div>
-                      <div className="text-xs text-zinc-400 mt-0.5">{ris.sottotitolo}</div>
+                      <div className="text-sm font-semibold text-zinc-900">{ris.titolo}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">{ris.sottotitolo}</div>
                     </div>
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-             <div className="p-4 text-center text-sm text-zinc-400">Nessun risultato trovato per "{query}"</div>
+             <div className="p-4 text-center text-sm text-zinc-500">Nessun risultato trovato per "{query}"</div>
           )}
         </div>
       )}

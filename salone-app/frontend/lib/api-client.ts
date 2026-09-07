@@ -63,7 +63,18 @@ export const salonApi = {
   },
   updateSettings: async (data: any) => {
     const ref = doc(db, 'salons', getUserId());
-    await setDoc(ref, data, { merge: true });
+    const snap = await getDoc(ref);
+
+    // Alla prima scrittura il documento salone deve nascere completo:
+    // le regole del database pretendono ownerEmail, plan e createdAt.
+    const payload = snap.exists() ? data : {
+      ownerEmail: auth.currentUser?.email || '',
+      plan: 'free',
+      createdAt: serverTimestamp(),
+      ...data
+    };
+
+    await setDoc(ref, payload, { merge: true });
     return { id: getUserId(), ...data };
   }
 };

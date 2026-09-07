@@ -130,7 +130,7 @@ export default function GestioneDipendenti() {
   };
 
   if (loading) {
-    return <div className="p-6 flex justify-center text-zinc-400 min-h-[50vh] items-center animate-pulse">Caricamento dipendenti in corso...</div>;
+    return <div className="p-6 flex justify-center text-zinc-500 min-h-[50vh] items-center animate-pulse">Caricamento dipendenti in corso...</div>;
   }
 
   return (
@@ -141,20 +141,20 @@ export default function GestioneDipendenti() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div className="w-full">
-              <h1 className="text-3xl font-playfair text-zinc-100 flex items-center gap-3 mb-4">
+              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3 mb-4">
                 <User className="text-fuchsia-500" size={28} />
                 Staff e Dipendenti
               </h1>
           <div className="flex gap-6 mt-2">
             <button 
               onClick={() => setActiveTab('elenco')}
-              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'elenco' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}
+              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'elenco' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
             >
               Anagrafiche
             </button>
             <button 
               onClick={() => setActiveTab('turni')}
-              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'turni' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}
+              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'turni' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
             >
               Turni e Orari
             </button>
@@ -176,27 +176,27 @@ export default function GestioneDipendenti() {
           {activeTab === 'elenco' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {dipendenti.map(dip => (
-                <div key={dip.id} className={`card bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 overflow-hidden flex flex-col transition-opacity ${!dip.attivo ? 'opacity-60' : ''}`}>
+                <div key={dip.id} className={`card bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col transition-opacity ${!dip.attivo ? 'opacity-60' : ''}`}>
                   <div className="p-6 flex-1">
                     <div className="flex justify-between items-start mb-4">
                       {dip.fotoUrl ? (
                          <img src={dip.fotoUrl} alt="Profilo" className="w-12 h-12 rounded-full object-cover shadow-sm" referrerPolicy="no-referrer" />
                       ) : (
-                        <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-100 text-xl font-playfair shadow-sm">
+                        <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-xl font-playfair shadow-sm">
                           {dip.nome.charAt(0)}{dip.cognome.charAt(0)}
                         </div>
                       )}
-                      <div className={`px-2 py-1 text-xs font-medium rounded-full ${dip.ruolo === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-800 text-zinc-100'} flex items-center gap-1`}>
+                      <div className={`px-2 py-1 text-xs font-medium rounded-full ${dip.ruolo === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100 text-zinc-900'} flex items-center gap-1`}>
                         {dip.ruolo === 'admin' && <Shield size={12} />}
                         <span className="capitalize">{dip.ruolo}</span>
                       </div>
                     </div>
                     
-                    <h3 className="text-xl font-semibold text-zinc-100">{dip.nome} {dip.cognome}</h3>
-                    <p className="text-sm text-zinc-400 mt-1 truncate">{dip.email}</p>
+                    <h3 className="text-xl font-semibold text-zinc-900">{dip.nome} {dip.cognome}</h3>
+                    <p className="text-sm text-zinc-500 mt-1 truncate">{dip.email}</p>
                   </div>
 
-                  <div className="bg-zinc-800/30 px-6 py-4 flex justify-between items-center border-t border-zinc-800">
+                  <div className="bg-zinc-100/30 px-6 py-4 flex justify-between items-center border-t border-zinc-200">
                     <button
                       onClick={() => setProfileView(dip)}
                       className="flex items-center gap-2 text-sm font-medium text-fuchsia-400 hover:text-fuchsia-300 transition-colors"
@@ -208,7 +208,7 @@ export default function GestioneDipendenti() {
                 </div>
               ))}
               {dipendenti.length === 0 && (
-                <div className="col-span-full text-center py-16 text-zinc-400 bg-zinc-900 rounded-xl border border-dashed border-zinc-800">
+                <div className="col-span-full text-center py-16 text-zinc-500 bg-white rounded-xl border border-dashed border-zinc-200">
                   Nessun dipendente trovato.
                 </div>
               )}
@@ -224,14 +224,14 @@ export default function GestioneDipendenti() {
       {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity">
-          <div className="bg-zinc-900 rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-800/30">
-              <h2 className="text-xl font-playfair text-zinc-100 font-semibold">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
+              <h2 className="text-xl font-playfair text-zinc-900 font-semibold">
                 {editingData ? 'Modifica Dipendente' : 'Nuovo Dipendente'}
               </h2>
               <button 
                 onClick={handleCloseModal}
-                className="text-zinc-400 hover:text-zinc-100 transition-colors p-1"
+                className="text-zinc-500 hover:text-zinc-900 transition-colors p-1"
               >
                 <X size={20} />
               </button>
@@ -247,62 +247,62 @@ export default function GestioneDipendenti() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">URL Foto Profilo</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">URL Foto Profilo</label>
                   <input
                     name="fotoUrl"
                     type="url"
                     placeholder="https://example.com/foto.jpg"
                     value={formData.fotoUrl || ''}
                     onChange={handleChange}
-                    className="w-full p-2 border border-zinc-800 bg-zinc-900 text-zinc-100 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                    className="w-full p-2 border border-zinc-200 bg-white text-zinc-900 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-400 mb-1">Nome *</label>
+                    <label className="block text-sm font-medium text-zinc-500 mb-1">Nome *</label>
                     <input
                       name="nome"
                       type="text"
                       required
                       value={formData.nome}
                       onChange={handleChange}
-                      className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                      className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-400 mb-1">Cognome *</label>
+                    <label className="block text-sm font-medium text-zinc-500 mb-1">Cognome *</label>
                     <input
                       name="cognome"
                       type="text"
                       required
                       value={formData.cognome}
                       onChange={handleChange}
-                      className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                      className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Email *</label>
                   <input
                     name="email"
                     type="email"
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
+                    className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
                     placeholder="nome.cognome@email.com"
                   />
-                  <p className="text-xs text-zinc-400 mt-1">Questa email sarà usata per il login su Supabase Auth.</p>
+                  <p className="text-xs text-zinc-500 mt-1">Questa email sarà usata per il login su Supabase Auth.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Ruolo Sistema *</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Ruolo Sistema *</label>
                   <select
                     name="ruolo"
                     value={formData.ruolo}
                     onChange={handleChange}
-                    className="w-full p-2 border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans bg-zinc-900"
+                    className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans bg-white"
                   >
                     <option value="dipendente">Dipendente (Vede solo i propri appuntamenti)</option>
                     <option value="admin">Amministratore (Accesso completo e Report)</option>
@@ -316,21 +316,21 @@ export default function GestioneDipendenti() {
                       type="checkbox"
                       checked={formData.attivo}
                       onChange={handleChange}
-                      className="w-4 h-4 text-fuchsia-500 focus:ring-fuchsia-500 border-zinc-800 rounded cursor-pointer"
+                      className="w-4 h-4 text-fuchsia-500 focus:ring-fuchsia-500 border-zinc-200 rounded cursor-pointer"
                     />
-                    <span className="text-sm font-medium text-zinc-100">Accesso Abilitato</span>
+                    <span className="text-sm font-medium text-zinc-900">Accesso Abilitato</span>
                   </label>
-                  <p className="text-xs text-zinc-400 mt-1 ml-6">
+                  <p className="text-xs text-zinc-500 mt-1 ml-6">
                     Se disattivato, il dipendente non potrà più accedere al gestionale o prendere appuntamenti.
                   </p>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-zinc-200">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-4 py-2 text-sm font-medium text-zinc-100 border border-zinc-800 rounded-md hover:bg-zinc-800 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-zinc-900 border border-zinc-200 rounded-md hover:bg-zinc-100 transition-colors"
                   disabled={formSaving}
                 >
                   Annulla
@@ -355,15 +355,15 @@ export default function GestioneDipendenti() {
       {/* Confirm Toggle Status Modal */}
       {confirmToggleStatus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-100 mb-2">Conferma Operazione</h3>
-            <p className="text-zinc-400 text-sm mb-6">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Operazione</h3>
+            <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero {confirmToggleStatus.attivo ? 'disattivare' : 'attivare'} l'accesso per {confirmToggleStatus.nome}?
             </p>
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={() => setConfirmToggleStatus(null)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
                >
                 Annulla
                </button>
@@ -384,15 +384,15 @@ export default function GestioneDipendenti() {
       {/* Confirm Delete Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-100 mb-2">Conferma Eliminazione</h3>
-            <p className="text-zinc-400 text-sm mb-6">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Eliminazione</h3>
+            <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il dipendente {confirmDelete.nome} {confirmDelete.cognome}? Questa operazione non può essere annullata.
             </p>
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
                >
                 Annulla
                </button>
@@ -413,45 +413,45 @@ export default function GestioneDipendenti() {
       {/* Profilo Operatore Modal */}
       {profileView && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-950/50">
+          <div className="bg-white border border-zinc-200 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-50/50">
               <div className="flex items-center gap-4">
                 {profileView.fotoUrl ? (
                   <img src={profileView.fotoUrl} alt="Profilo" className="w-14 h-14 rounded-full object-cover border border-fuchsia-500/30" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-14 h-14 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-100 text-2xl font-playfair shadow-sm border border-fuchsia-500/30">
+                  <div className="w-14 h-14 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-2xl font-playfair shadow-sm border border-fuchsia-500/30">
                     {profileView.nome.charAt(0)}{profileView.cognome.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h2 className="text-2xl font-playfair text-zinc-100 font-semibold leading-tight">
+                  <h2 className="text-2xl font-playfair text-zinc-900 font-semibold leading-tight">
                     {profileView.nome} {profileView.cognome}
                   </h2>
-                  <p className="text-sm text-zinc-400 capitalize">{profileView.ruolo} • {profileView.email}</p>
+                  <p className="text-sm text-zinc-500 capitalize">{profileView.ruolo} • {profileView.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => { setProfileView(null); handleOpenModal(profileView); }}
-                  className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl transition-colors shadow-sm border border-zinc-700" 
+                  className="p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl transition-colors shadow-sm border border-zinc-300" 
                   title="Modifica Anagrafica"
                 >
                   <Edit2 size={18} />
                 </button>
                 <button 
                   onClick={() => setProfileView(null)}
-                  className="p-2.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 rounded-xl transition-colors"
+                  className="p-2.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 rounded-xl transition-colors"
                 >
                   <X size={24} />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 scrollbar-none space-y-8 bg-zinc-950/30">
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-none space-y-8 bg-zinc-50/30">
               {/* Documenti Operatore */}
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-zinc-900 flex items-center gap-2">
                     <FileText size={20} className="text-fuchsia-500" /> Documenti
                   </h3>
                   <button className="text-sm font-medium text-fuchsia-400 hover:text-fuchsia-300 transition-colors flex items-center gap-1">
@@ -462,52 +462,52 @@ export default function GestioneDipendenti() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   
                   {/* Doc template: Identità */}
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-700">
+                  <div className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-300">
                      <div className="flex items-start justify-between">
                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg shrink-0">
                          <FileText size={20} />
                        </div>
-                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 px-2 py-1 rounded text-zinc-400">PDF</span>
+                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-100 px-2 py-1 rounded text-zinc-500">PDF</span>
                      </div>
                      <div className="flex-1">
-                       <h4 className="font-medium text-zinc-200 text-sm mb-1 line-clamp-1">Documento d'identità</h4>
+                       <h4 className="font-medium text-zinc-800 text-sm mb-1 line-clamp-1">Documento d'identità</h4>
                        <p className="text-xs text-zinc-500">Aggiunto il 10/10/2023</p>
                      </div>
-                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-800/80">
-                        <button className="flex-1 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
+                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-200/80">
+                        <button className="flex-1 text-xs font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
                           <Eye size={14} /> Visualizza
                         </button>
-                        <button className="p-1.5 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded transition-colors">
+                        <button className="p-1.5 text-zinc-500 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded transition-colors">
                           <Download size={14} />
                         </button>
                      </div>
                   </div>
 
                   {/* Doc template: Contratto */}
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-700">
+                  <div className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-300">
                      <div className="flex items-start justify-between">
                        <div className="p-2 bg-green-500/10 text-green-400 rounded-lg shrink-0">
                          <FileText size={20} />
                        </div>
-                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 px-2 py-1 rounded text-zinc-400">PDF</span>
+                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-100 px-2 py-1 rounded text-zinc-500">PDF</span>
                      </div>
                      <div className="flex-1">
-                       <h4 className="font-medium text-zinc-200 text-sm mb-1 line-clamp-1">Contratto di assunzione</h4>
+                       <h4 className="font-medium text-zinc-800 text-sm mb-1 line-clamp-1">Contratto di assunzione</h4>
                        <p className="text-xs text-zinc-500">Aggiunto il 15/10/2023</p>
                      </div>
-                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-800/80">
-                        <button className="flex-1 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
+                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-200/80">
+                        <button className="flex-1 text-xs font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
                           <Eye size={14} /> Visualizza
                         </button>
-                        <button className="p-1.5 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded transition-colors">
+                        <button className="p-1.5 text-zinc-500 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded transition-colors">
                           <Download size={14} />
                         </button>
                      </div>
                   </div>
 
                   {/* Empty Slot */}
-                  <button className="bg-zinc-900/50 border border-dashed border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors h-[140px]">
-                    <div className="p-2 bg-zinc-800 rounded-full">
+                  <button className="bg-zinc-50/50 border border-dashed border-zinc-200 hover:border-zinc-300 hover:bg-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-700 transition-colors h-[140px]">
+                    <div className="p-2 bg-zinc-100 rounded-full">
                        <Plus size={20} />
                     </div>
                     <span className="text-sm font-medium">Aggiungi Attestato di sicurezza</span>
@@ -518,13 +518,13 @@ export default function GestioneDipendenti() {
 
               {/* Impostazioni Accesso Rapide */}
               <section>
-                <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-zinc-900 flex items-center gap-2 mb-4">
                   <Shield size={20} className="text-fuchsia-500" /> Sicurezza e Accesso
                 </h3>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden divide-y divide-zinc-800">
-                  <div className="flex items-center justify-between p-4 bg-zinc-900/50">
+                <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-200">
+                  <div className="flex items-center justify-between p-4 bg-zinc-50/50">
                     <div>
-                      <h4 className="font-medium text-zinc-200 text-sm">Stato Account</h4>
+                      <h4 className="font-medium text-zinc-800 text-sm">Stato Account</h4>
                       <p className="text-xs text-zinc-500 mt-1">Sospendi temporaneamente l'accesso al sistema</p>
                     </div>
                     <button
@@ -534,14 +534,14 @@ export default function GestioneDipendenti() {
                       {profileView.attivo ? 'Disattiva Accesso' : 'Attiva Accesso'}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-zinc-900/50">
+                  <div className="flex items-center justify-between p-4 bg-zinc-50/50">
                     <div>
-                      <h4 className="font-medium text-zinc-200 text-sm">Elimina Dipendente</h4>
+                      <h4 className="font-medium text-zinc-800 text-sm">Elimina Dipendente</h4>
                       <p className="text-xs text-zinc-500 mt-1">Rimuovi definifivamente questo dipendente</p>
                     </div>
                     <button
                       onClick={() => setConfirmDelete(profileView)}
-                      className="p-2 bg-zinc-800 text-zinc-400 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
+                      className="p-2 bg-zinc-100 text-zinc-500 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>

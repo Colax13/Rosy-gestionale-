@@ -98,8 +98,8 @@ export default function Settings() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair font-bold text-zinc-100 flex items-center gap-3 mb-1"><SettingsIcon className="text-fuchsia-500" size={28} />Impostazioni</h1>
-              <p className="text-zinc-400 text-sm">Personalizza i dettagli, gli orari e l'aspetto del tuo salone.</p>
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3 mb-1"><SettingsIcon className="text-fuchsia-500" size={28} />Impostazioni</h1>
+              <p className="text-zinc-500 text-sm">Personalizza i dettagli, gli orari e l'aspetto del tuo salone.</p>
             </div>
             {!isEditing ? (
                <button onClick={() => setIsEditing(true)} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-lg font-medium transition-colors">
@@ -107,7 +107,7 @@ export default function Settings() {
                </button>
             ) : isEditing ? (
                <div className="flex items-center gap-3">
-                 <button onClick={handleCancel} disabled={isSaving} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50">
+                 <button onClick={handleCancel} disabled={isSaving} className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50">
                    Annulla
                  </button>
                  <button onClick={handleSave} disabled={isSaving} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50">
@@ -122,28 +122,28 @@ export default function Settings() {
 
       <div className="w-full max-w-[1400px] mx-auto px-4 md:px-6 flex flex-col gap-6 flex-1 pt-4">
 
-      <div className="flex items-center gap-2 border-b border-zinc-800 overflow-x-auto pb-1 mb-2">
+      <div className="flex items-center gap-2 border-b border-zinc-200 overflow-x-auto pb-1 mb-2">
         <button 
           onClick={() => setActiveTab('generale')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'generale' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'generale' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <Store size={18} /> Generali
         </button>
         <button 
           onClick={() => setActiveTab('orari')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'orari' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'orari' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <Clock size={18} /> Orari
         </button>
         <button 
           onClick={() => setActiveTab('foto')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'foto' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'foto' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <ImageIcon size={18} /> Foto & Sede
         </button>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-xl relative min-h-[400px]">
+      <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl relative min-h-[400px]">
         
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
@@ -154,17 +154,17 @@ export default function Settings() {
           <>
             {activeTab === 'generale' && (
               <div className="space-y-6">
-            <h3 className="text-xl font-bold text-zinc-100">Informazioni Salone</h3>
+            <h3 className="text-xl font-bold text-zinc-900">Informazioni Salone</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 overflow-hidden w-full">
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Link Pubblico di Prenotazione</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800 w-full overflow-hidden">
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Link Pubblico di Prenotazione</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-zinc-200 w-full overflow-hidden">
                   <div className="flex items-center gap-3 w-full sm:w-auto min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-lg bg-fuchsia-600/10 text-fuchsia-500 flex items-center justify-center shrink-0">
                       <LinkIcon size={20} />
                     </div>
                     <div className="flex flex-col overflow-hidden w-full">
-                      <p className="text-sm font-medium text-zinc-100 truncate w-full">
+                      <p className="text-sm font-medium text-zinc-900 truncate w-full">
                         {window.location.origin}/{auth.currentUser?.uid || 'ID_SALONE'}/prenota
                       </p>
                       <p className="text-xs text-zinc-500 pt-0.5 mt-1 truncate">Condividi sui social.</p>
@@ -176,64 +176,64 @@ export default function Settings() {
                       navigator.clipboard.writeText(link);
                       alert('Link copiato!');
                     }}
-                    className="shrink-0 w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium transition-colors border border-zinc-700 mt-2 sm:mt-0"
+                    className="shrink-0 w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-sm font-medium transition-colors border border-zinc-300 mt-2 sm:mt-0"
                   >
                     <Copy size={16} /> <span>Copia Link</span>
                   </button>
                 </div>
-                <div className="h-px bg-zinc-800 my-6"></div>
+                <div className="h-px bg-zinc-100 my-6"></div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Nome Salone</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Nome Salone</label>
                 {isEditing ? (
-                  <input type="text" value={dettagli.nomeSalone} onChange={e => setDettagli({...dettagli, nomeSalone: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500" />
+                  <input type="text" value={dettagli.nomeSalone} onChange={e => setDettagli({...dettagli, nomeSalone: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
-                  <div className="bg-zinc-950 px-4 py-2.5 rounded-lg border border-zinc-800 text-zinc-300">{dettagli.nomeSalone || '-'}</div>
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.nomeSalone || '-'}</div>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Indirizzo Sede Principale</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Indirizzo Sede Principale</label>
                 {isEditing ? (
-                  <input type="text" value={dettagli.indirizzo} onChange={e => setDettagli({...dettagli, indirizzo: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500" />
+                  <input type="text" value={dettagli.indirizzo} onChange={e => setDettagli({...dettagli, indirizzo: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
-                  <div className="bg-zinc-950 px-4 py-2.5 rounded-lg border border-zinc-800 text-zinc-300">{dettagli.indirizzo || '-'}</div>
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.indirizzo || '-'}</div>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Telefono Principale</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Telefono Principale</label>
                 {isEditing ? (
-                  <input type="text" value={dettagli.telefono} onChange={e => setDettagli({...dettagli, telefono: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500" />
+                  <input type="text" value={dettagli.telefono} onChange={e => setDettagli({...dettagli, telefono: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
-                  <div className="bg-zinc-950 px-4 py-2.5 rounded-lg border border-zinc-800 text-zinc-300">{dettagli.telefono || '-'}</div>
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.telefono || '-'}</div>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Email Pubblica</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Email Pubblica</label>
                 {isEditing ? (
-                  <input type="email" value={dettagli.email} onChange={e => setDettagli({...dettagli, email: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500" />
+                  <input type="email" value={dettagli.email} onChange={e => setDettagli({...dettagli, email: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
-                  <div className="bg-zinc-950 px-4 py-2.5 rounded-lg border border-zinc-800 text-zinc-300">{dettagli.email || '-'}</div>
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.email || '-'}</div>
                 )}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Descrizione Salone (Visibile ai clienti)</label>
+              <label className="block text-sm font-medium text-zinc-500 mb-2">Descrizione Salone (Visibile ai clienti)</label>
               {isEditing ? (
-                <textarea rows={4} value={dettagli.descrizioneGenerale} onChange={e => setDettagli({...dettagli, descrizioneGenerale: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500 resize-none" />
+                <textarea rows={4} value={dettagli.descrizioneGenerale} onChange={e => setDettagli({...dettagli, descrizioneGenerale: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500 resize-none" />
               ) : (
-                <div className="bg-zinc-950 px-4 py-2.5 rounded-lg border border-zinc-800 text-zinc-300 min-h-[100px]">{dettagli.descrizioneGenerale || '-'}</div>
+                <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700 min-h-[100px]">{dettagli.descrizioneGenerale || '-'}</div>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">URL Logo Salone (Opzionale)</label>
+              <label className="block text-sm font-medium text-zinc-500 mb-2">URL Logo Salone (Opzionale)</label>
               {isEditing ? (
-                <input type="text" placeholder="https://..." value={dettagli.logoUrl || ''} onChange={e => setDettagli({...dettagli, logoUrl: e.target.value})} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500" />
+                <input type="text" placeholder="https://..." value={dettagli.logoUrl || ''} onChange={e => setDettagli({...dettagli, logoUrl: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
               ) : (
                 <div className="flex items-center gap-4">
                   {dettagli.logoUrl ? (
-                    <img src={dettagli.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-cover border border-zinc-800" />
+                    <img src={dettagli.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-cover border border-zinc-200" />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-500">
+                    <div className="w-12 h-12 rounded-lg bg-white border border-zinc-200 flex items-center justify-center text-zinc-500">
                        <Store size={20} />
                     </div>
                   )}
@@ -246,22 +246,22 @@ export default function Settings() {
 
         {activeTab === 'orari' && (
           <div className="space-y-6">
-             <h3 className="text-xl font-bold text-zinc-100 mb-1">Orari di Apertura</h3>
-             <p className="text-sm text-zinc-400 mb-6">Specifica gli orari standard. Potrai aggiungere eccezioni e festività prossimamente.</p>
+             <h3 className="text-xl font-bold text-zinc-900 mb-1">Orari di Apertura</h3>
+             <p className="text-sm text-zinc-500 mb-6">Specifica gli orari standard. Potrai aggiungere eccezioni e festività prossimamente.</p>
              
              <div className="space-y-3">
                {Object.entries(orari).map(([giorno, orario]) => (
-                 <div key={giorno} className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 rounded-lg max-w-lg">
-                    <span className="capitalize font-medium text-zinc-300 w-24">{giorno}</span>
+                 <div key={giorno} className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-lg max-w-lg">
+                    <span className="capitalize font-medium text-zinc-700 w-24">{giorno}</span>
                     {isEditing ? (
                       <input 
                         type="text" 
                         value={orario} 
                         onChange={(e) => setOrari({...orari, [giorno]: e.target.value})}
-                        className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-zinc-100 text-sm focus:outline-none focus:border-fuchsia-500 w-48" 
+                        className="bg-white border border-zinc-300 rounded-md px-3 py-1.5 text-zinc-900 text-sm focus:outline-none focus:border-fuchsia-500 w-48" 
                       />
                     ) : (
-                      <span className={`text-sm ${orario === 'Chiuso' ? 'text-zinc-500' : 'text-zinc-100'}`}>{orario}</span>
+                      <span className={`text-sm ${orario === 'Chiuso' ? 'text-zinc-500' : 'text-zinc-900'}`}>{orario}</span>
                     )}
                  </div>
                ))}
@@ -271,9 +271,9 @@ export default function Settings() {
 
         {activeTab === 'foto' && (
           <div className="space-y-6 text-center py-8">
-             <Store size={48} className="mx-auto text-zinc-700 mb-4" />
-             <h3 className="text-xl font-bold text-zinc-100">Gestione Foto Sede</h3>
-             <p className="text-zinc-400 text-sm max-w-sm mx-auto">
+             <Store size={48} className="mx-auto text-zinc-500 mb-4" />
+             <h3 className="text-xl font-bold text-zinc-900">Gestione Foto Sede</h3>
+             <p className="text-zinc-500 text-sm max-w-sm mx-auto">
                Questa funzionalità verrà attivata a breve. Potrai caricare le foto del tuo salone che i clienti vedranno durante la prenotazione.
              </p>
           </div>
@@ -283,23 +283,23 @@ export default function Settings() {
 
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-xl w-full">
-        <h3 className="text-xl font-bold text-zinc-100 mb-2">Account Salone</h3>
-        <p className="text-zinc-400 mb-6 text-sm">Gestisci l'accesso, il piano e le impostazioni dell'account proprietario.</p>
+      <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
+        <h3 className="text-xl font-bold text-zinc-900 mb-2">Account Salone</h3>
+        <p className="text-zinc-500 mb-6 text-sm">Gestisci l'accesso, il piano e le impostazioni dell'account proprietario.</p>
         
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-zinc-950 border border-zinc-800 rounded-lg">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-white border border-zinc-200 rounded-lg">
           <div>
-            <p className="text-sm font-medium text-zinc-200">Email Proprietario</p>
+            <p className="text-sm font-medium text-zinc-800">Email Proprietario</p>
             <p className="text-sm text-zinc-500">{auth.currentUser?.email || 'admin@salone.it'}</p>
           </div>
-          <button className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg transition-colors">
+          <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-sm font-medium rounded-lg transition-colors">
             Modifica Credenziali
           </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-zinc-950 border border-zinc-800 rounded-lg mt-4">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-white border border-zinc-200 rounded-lg mt-4">
           <div>
-            <p className="text-sm font-medium text-zinc-200">Piano Attuale</p>
+            <p className="text-sm font-medium text-zinc-800">Piano Attuale</p>
             <p className="text-sm text-zinc-500">Piano Base Gratuito</p>
           </div>
           <button className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-medium rounded-lg transition-colors">

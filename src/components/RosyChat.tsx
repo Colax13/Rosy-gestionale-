@@ -68,7 +68,7 @@ export default function RosyChat() {
              onChange={e => setInput(e.target.value)}
              onKeyDown={e => e.key === 'Enter' && handleSend()}
              placeholder="Chiedi a Rosy (Es: 'Sposta l'appuntamento...')" 
-             className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 rounded-xl pl-4 pr-12 py-3.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none transition-colors shadow-inner"
+             className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 rounded-xl pl-4 pr-12 py-3.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 outline-none transition-colors shadow-inner"
            />
            <button 
              onClick={handleSend}

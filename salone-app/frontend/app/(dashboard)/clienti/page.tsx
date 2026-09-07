@@ -103,11 +103,11 @@ export default function GestioneClienti() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair text-zinc-100 flex items-center gap-3">
+              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3">
                 <Users className="text-fuchsia-500" size={28} />
                 Clienti
               </h1>
-              <p className="text-zinc-400 font-sans mt-1 text-sm">Gestione e anagrafica clienti del salone.</p>
+              <p className="text-zinc-500 font-sans mt-1 text-sm">Gestione e anagrafica clienti del salone.</p>
             </div>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function GestioneClienti() {
            value={search}
            onChange={e => setSearch(e.target.value)}
            placeholder="Cerca cliente per nome, cognome, telefono o email..."
-           className="w-full pl-10 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors"
+           className="w-full pl-10 pr-4 py-2 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors"
          />
       </div>
 
@@ -134,31 +134,31 @@ export default function GestioneClienti() {
       ) : loading ? (
          <div className="text-center py-12 text-zinc-500">Caricamento clienti...</div>
       ) : (
-        <div className="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-800/40 border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider">
+              <tr className="bg-zinc-100/40 border-b border-zinc-200 text-zinc-500 text-xs font-semibold uppercase tracking-wider">
                 <th className="py-3 px-6">Cliente</th>
                 <th className="py-3 px-6">Contatti</th>
                 <th className="py-3 px-6">Note</th>
                 <th className="py-3 px-6 text-right">Dettagli</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800">
+            <tbody className="divide-y divide-zinc-200">
               {filteredClienti.map(cliente => (
-                <tr key={cliente.id} className="hover:bg-zinc-800/20 transition-colors">
+                <tr key={cliente.id} className="hover:bg-zinc-100/20 transition-colors">
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 font-medium">
+                      <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-700 font-medium">
                         {cliente.nome.charAt(0)}{cliente.cognome.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-zinc-100 font-medium">{cliente.nome} {cliente.cognome}</div>
+                        <div className="text-zinc-900 font-medium">{cliente.nome} {cliente.cognome}</div>
                       </div>
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="flex flex-col gap-1 text-sm text-zinc-400">
+                    <div className="flex flex-col gap-1 text-sm text-zinc-500">
                       {cliente.telefono && (
                         <div className="flex items-center gap-2">
                           <Phone size={14} className="text-zinc-500" /> {cliente.telefono}
@@ -170,24 +170,24 @@ export default function GestioneClienti() {
                         </div>
                       )}
                       {!cliente.telefono && !cliente.email && (
-                         <span className="italic text-zinc-600">Nessun contatto</span>
+                         <span className="italic text-zinc-400">Nessun contatto</span>
                       )}
                     </div>
                   </td>
                   <td className="py-4 px-6">
                     {cliente.note ? (
-                      <div className="flex items-start gap-2 text-sm text-zinc-400 max-w-xs truncate">
+                      <div className="flex items-start gap-2 text-sm text-zinc-500 max-w-xs truncate">
                         <FileText size={14} className="shrink-0 mt-0.5" />
                         <span className="truncate">{cliente.note}</span>
                       </div>
                     ) : (
-                      <span className="text-sm text-zinc-600 italic">Nessuna nota</span>
+                      <span className="text-sm text-zinc-400 italic">Nessuna nota</span>
                     )}
                   </td>
                   <td className="py-4 px-6 text-right">
                     <Link 
                       to={`/clienti/${cliente.id}`} 
-                      className="inline-flex items-center justify-center p-2 text-zinc-400 hover:text-fuchsia-500 hover:bg-fuchsia-500/10 rounded-lg transition-colors"
+                      className="inline-flex items-center justify-center p-2 text-zinc-500 hover:text-fuchsia-500 hover:bg-fuchsia-500/10 rounded-lg transition-colors"
                     >
                       <ChevronRight size={18} />
                     </Link>
@@ -218,7 +218,7 @@ export default function GestioneClienti() {
 
       {/* Floating Action Bar */}
       <FloatingActionBar>
-        <label className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-full px-5 py-2.5 transition-colors cursor-pointer text-sm font-medium">
+        <label className="flex items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-full px-5 py-2.5 transition-colors cursor-pointer text-sm font-medium">
           <FileText size={16} />
           {isImporting ? 'Elaborazione IA...' : 'Importa (PDF/XLS)'}
           <input 

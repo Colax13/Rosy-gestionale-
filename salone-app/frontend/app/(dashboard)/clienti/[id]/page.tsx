@@ -119,7 +119,7 @@ export default function SchedaCliente() {
   };
 
   if (loading) {
-    return <div className="p-6 flex justify-center text-zinc-400 animate-pulse">Caricamento scheda cliente...</div>;
+    return <div className="p-6 flex justify-center text-zinc-500 animate-pulse">Caricamento scheda cliente...</div>;
   }
 
   if (!cliente) return null;
@@ -137,11 +137,11 @@ export default function SchedaCliente() {
         
         {/* COLONNA SINISTRA: Dettagli Cliente */}
         <div className="lg:col-span-1">
-          <div className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800 relative">
+          <div className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200 relative">
             
             {/* Header / Azioni */}
             <div className="flex justify-between items-start mb-6">
-              <div className="w-16 h-16 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-100 text-2xl font-playfair shadow-sm">
+              <div className="w-16 h-16 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-2xl font-playfair shadow-sm">
                 {cliente.nome.charAt(0)}{cliente.cognome.charAt(0)}
               </div>
               
@@ -149,14 +149,14 @@ export default function SchedaCliente() {
                 <div className="flex gap-2">
                   <button 
                     onClick={handleEditClick}
-                    className="text-zinc-400 hover:text-zinc-100 p-2 transition-colors rounded-full hover:bg-zinc-800"
+                    className="text-zinc-500 hover:text-zinc-900 p-2 transition-colors rounded-full hover:bg-zinc-100"
                     title="Modifica cliente"
                   >
                     <Edit2 size={18} />
                   </button>
                   <button 
                     onClick={() => setConfirmDelete(true)}
-                    className="text-zinc-500 hover:text-red-500 p-2 transition-colors rounded-full hover:bg-zinc-800"
+                    className="text-zinc-500 hover:text-red-500 p-2 transition-colors rounded-full hover:bg-zinc-100"
                     title="Elimina cliente"
                   >
                     <Trash2 size={18} />
@@ -166,7 +166,7 @@ export default function SchedaCliente() {
                 <div className="flex gap-2">
                   <button 
                     onClick={handleAnnullaEdit}
-                    className="p-2 text-zinc-400 hover:text-red-600 transition-colors rounded-full hover:bg-red-50"
+                    className="p-2 text-zinc-500 hover:text-red-600 transition-colors rounded-full hover:bg-red-50"
                     title="Annulla"
                     disabled={isSaving}
                   >
@@ -174,7 +174,7 @@ export default function SchedaCliente() {
                   </button>
                   <button 
                     onClick={handleSalva}
-                    className="p-2 text-zinc-100 hover:text-green-700 transition-colors rounded-full hover:bg-green-50"
+                    className="p-2 text-zinc-900 hover:text-green-700 transition-colors rounded-full hover:bg-green-50"
                     title="Salva modifiche"
                     disabled={isSaving}
                   >
@@ -188,65 +188,65 @@ export default function SchedaCliente() {
             <div className="space-y-4">
               {!isEditing ? (
                 <div>
-                  <h1 className="text-2xl font-playfair text-zinc-100 leading-tight">
+                  <h1 className="text-2xl font-playfair text-zinc-900 leading-tight">
                     {cliente.nome} {cliente.cognome}
                   </h1>
-                  <p className="text-sm text-zinc-400 mt-1">
+                  <p className="text-sm text-zinc-500 mt-1">
                     Cliente dal {new Date(cliente.created_at).toLocaleDateString('it-IT', { year: 'numeric', month: 'long' })}
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-zinc-400">Nome</label>
+                    <label className="text-xs text-zinc-500">Nome</label>
                     <input 
                       name="nome" value={formData.nome || ''} onChange={handleChange} 
-                      className="w-full border-b border-zinc-800 focus:border-fuchsia-500 outline-none py-1 font-medium bg-transparent" 
+                      className="w-full border-b border-zinc-200 focus:border-fuchsia-500 outline-none py-1 font-medium bg-transparent" 
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400">Cognome</label>
+                    <label className="text-xs text-zinc-500">Cognome</label>
                     <input 
                       name="cognome" value={formData.cognome || ''} onChange={handleChange} 
-                      className="w-full border-b border-zinc-800 focus:border-fuchsia-500 outline-none py-1 font-medium bg-transparent" 
+                      className="w-full border-b border-zinc-200 focus:border-fuchsia-500 outline-none py-1 font-medium bg-transparent" 
                     />
                   </div>
                 </div>
               )}
 
               {/* Contatti */}
-              <div className="pt-4 border-t border-zinc-800 space-y-3 font-sans text-sm">
+              <div className="pt-4 border-t border-zinc-200 space-y-3 font-sans text-sm">
                 <div className="flex items-center gap-3">
-                  <Phone size={16} className="text-zinc-400" />
+                  <Phone size={16} className="text-zinc-500" />
                   {!isEditing ? (
-                    <span className="text-zinc-100">{cliente.telefono || <span className="italic text-zinc-400/50">Nessun telefono</span>}</span>
+                    <span className="text-zinc-900">{cliente.telefono || <span className="italic text-zinc-500/50">Nessun telefono</span>}</span>
                   ) : (
                     <input 
                       name="telefono" value={formData.telefono || ''} onChange={handleChange} 
                       placeholder="Telefono"
-                      className="w-full border-b border-zinc-800 focus:border-fuchsia-500 outline-none py-1 bg-transparent" 
+                      className="w-full border-b border-zinc-200 focus:border-fuchsia-500 outline-none py-1 bg-transparent" 
                     />
                   )}
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <Mail size={16} className="text-zinc-400" />
+                  <Mail size={16} className="text-zinc-500" />
                   {!isEditing ? (
-                    <span className="text-zinc-100">{cliente.email || <span className="italic text-zinc-400/50">Nessuna email</span>}</span>
+                    <span className="text-zinc-900">{cliente.email || <span className="italic text-zinc-500/50">Nessuna email</span>}</span>
                   ) : (
                     <input 
                       name="email" value={formData.email || ''} onChange={handleChange} 
                       placeholder="Email"
-                      className="w-full border-b border-zinc-800 focus:border-fuchsia-500 outline-none py-1 bg-transparent" 
+                      className="w-full border-b border-zinc-200 focus:border-fuchsia-500 outline-none py-1 bg-transparent" 
                     />
                   )}
                 </div>
 
                 <div className="flex items-center gap-3 pt-1">
                   <span className="w-4 h-4 rounded-full bg-fuchsia-500/20 text-fuchsia-400 font-bold text-[9px] flex items-center justify-center">C</span>
-                  <span className="text-xs text-zinc-550 uppercase font-bold tracking-wide">Canale:</span>
+                  <span className="text-xs text-zinc-500 uppercase font-bold tracking-wide">Canale:</span>
                   {!isEditing ? (
-                    <span className="text-zinc-200 font-semibold font-sans text-xs bg-zinc-850 px-2 py-0.5 rounded border border-zinc-800 shadow-sm">
+                    <span className="text-zinc-800 font-semibold font-sans text-xs bg-zinc-850 px-2 py-0.5 rounded border border-zinc-200 shadow-sm">
                       {cliente.canale_acquisizione || 'Altro'}
                     </span>
                   ) : (
@@ -254,7 +254,7 @@ export default function SchedaCliente() {
                       name="canale_acquisizione"
                       value={formData.canale_acquisizione || ''}
                       onChange={handleChange}
-                      className="text-xs bg-zinc-950 border border-zinc-800 rounded px-2 py-1 outline-none focus:border-fuchsia-500 text-zinc-200"
+                      className="text-xs bg-white border border-zinc-200 rounded px-2 py-1 outline-none focus:border-fuchsia-500 text-zinc-800"
                     >
                       <option value="Instagram">Instagram</option>
                       <option value="Facebook">Facebook</option>
@@ -267,21 +267,21 @@ export default function SchedaCliente() {
               </div>
 
               {/* Note */}
-              <div className="pt-4 border-t border-zinc-800">
+              <div className="pt-4 border-t border-zinc-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText size={16} className="text-zinc-400" />
-                  <span className="text-sm font-semibold text-zinc-100">Note & Preferenze</span>
+                  <FileText size={16} className="text-zinc-500" />
+                  <span className="text-sm font-semibold text-zinc-900">Note & Preferenze</span>
                 </div>
                 {!isEditing ? (
-                  <p className="text-sm text-zinc-400 leading-relaxed">
-                    {cliente.note || <span className="italic text-zinc-400/50">Nessuna nota aggiuntiva.</span>}
+                  <p className="text-sm text-zinc-500 leading-relaxed">
+                    {cliente.note || <span className="italic text-zinc-500/50">Nessuna nota aggiuntiva.</span>}
                   </p>
                 ) : (
                   <textarea 
                     name="note" value={formData.note || ''} onChange={handleChange} 
                     rows={4}
                     placeholder="Aggiungi una nota..."
-                    className="w-full p-2 text-sm border border-zinc-800 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none resize-none bg-zinc-800" 
+                    className="w-full p-2 text-sm border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none resize-none bg-zinc-100" 
                   />
                 )}
               </div>
@@ -292,14 +292,14 @@ export default function SchedaCliente() {
 
         {/* COLONNA DESTRA: Storico Appuntamenti */}
         <div className="lg:col-span-2">
-          <div className="card bg-zinc-900 p-6 rounded-xl shadow-sm border border-zinc-800 min-h-full">
-            <h2 className="text-xl font-playfair text-zinc-100 mb-6 flex items-center gap-2">
+          <div className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200 min-h-full">
+            <h2 className="text-xl font-playfair text-zinc-900 mb-6 flex items-center gap-2">
               <Calendar size={20} className="text-fuchsia-500" />
               Storico Appuntamenti
             </h2>
 
             {storico.length === 0 ? (
-              <div className="text-center py-12 text-zinc-400 bg-zinc-800 rounded-lg border border-dashed border-zinc-800">
+              <div className="text-center py-12 text-zinc-500 bg-zinc-100 rounded-lg border border-dashed border-zinc-200">
                 <p>Nessun appuntamento passato.</p>
               </div>
             ) : (
@@ -307,13 +307,13 @@ export default function SchedaCliente() {
                 {storico.map((appuntamento) => {
                   const data = new Date(appuntamento.data_ora);
                   return (
-                    <div key={appuntamento.id} className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors border border-zinc-800/50">
+                    <div key={appuntamento.id} className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-zinc-100/30 hover:bg-zinc-100/50 transition-colors border border-zinc-200/50">
                       
                       <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:gap-0 min-w-[120px]">
-                        <span className="font-semibold text-zinc-100">
+                        <span className="font-semibold text-zinc-900">
                           {data.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
-                        <span className="text-sm text-zinc-400 flex items-center gap-1">
+                        <span className="text-sm text-zinc-500 flex items-center gap-1">
                           <Clock size={14} /> 
                           {data.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -322,7 +322,7 @@ export default function SchedaCliente() {
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           {appuntamento.servizi.map((servizio: string, i: number) => (
-                            <span key={i} className="px-2 py-1 text-xs font-medium rounded-full bg-fuchsia-500/30 text-zinc-100 border border-fuchsia-500/30">
+                            <span key={i} className="px-2 py-1 text-xs font-medium rounded-full bg-fuchsia-500/30 text-zinc-900 border border-fuchsia-500/30">
                               {servizio}
                             </span>
                           ))}
@@ -334,8 +334,8 @@ export default function SchedaCliente() {
                                 Colori Utilizzati
                               </span>
                               {/* Hover Tooltip/Popup */}
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 md:w-96 bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm rounded-xl p-5 shadow-2xl opacity-0 scale-90 translate-y-1 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-30 font-sans leading-relaxed border-t-4 border-t-indigo-500 text-left">
-                                <div className="flex items-center gap-2 font-bold text-zinc-100 pb-2 mb-2 border-b border-zinc-800 text-base">
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 md:w-96 bg-white border border-zinc-300 text-zinc-800 text-sm rounded-xl p-5 shadow-2xl opacity-0 scale-90 translate-y-1 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-30 font-sans leading-relaxed border-t-4 border-t-indigo-500 text-left">
+                                <div className="flex items-center gap-2 font-bold text-zinc-900 pb-2 mb-2 border-b border-zinc-200 text-base">
                                   <Paintbrush size={16} className="text-indigo-400" />
                                   <span>Dettagli Colori / Miscela:</span>
                                 </div>
@@ -346,10 +346,10 @@ export default function SchedaCliente() {
                             </div>
                           )}
                         </div>
-                        <p className="text-sm text-zinc-400 mb-1">Stato: <span className="capitalize">{appuntamento.stato}</span></p>
+                        <p className="text-sm text-zinc-500 mb-1">Stato: <span className="capitalize">{appuntamento.stato}</span></p>
                         
                         {appuntamento.note && (
-                          <div className="mt-2 text-sm text-zinc-400 bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
+                          <div className="mt-2 text-sm text-zinc-500 bg-zinc-50/50 p-3 rounded-lg border border-zinc-200/50">
                             <div className="flex items-center gap-1.5 mb-1 text-zinc-500 font-semibold text-xs tracking-wider uppercase">
                               <FileText size={12} />
                               <span>Nota Appuntamento</span>
@@ -359,7 +359,7 @@ export default function SchedaCliente() {
                         )}
                       </div>
 
-                      <div className="sm:text-right font-medium text-zinc-100 text-lg self-end sm:self-center">
+                      <div className="sm:text-right font-medium text-zinc-900 text-lg self-end sm:self-center">
                         €{appuntamento.importo?.toFixed(2)}
                       </div>
 
@@ -377,15 +377,15 @@ export default function SchedaCliente() {
       {/* Confirm Delete Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-100 mb-2">Conferma Eliminazione</h3>
-            <p className="text-zinc-400 text-sm mb-6">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Eliminazione</h3>
+            <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il cliente {cliente.nome} {cliente.cognome}? L'operazione rimuoverà anche lo storico appuntamenti e non potrà essere annullata.
             </p>
             <div className="flex gap-3 mt-6">
               <button 
                 onClick={() => setConfirmDelete(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
                >
                 Annulla
                </button>

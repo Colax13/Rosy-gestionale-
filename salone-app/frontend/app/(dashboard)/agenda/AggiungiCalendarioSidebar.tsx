@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw } from 'lucide-react';
 import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
+import { sovrappongono, tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno } from '@/lib/servizi';
 
 interface Client {
   id: string;
@@ -18,6 +19,9 @@ interface Service {
   nome: string;
   prezzo_base: number;
   durata_minuti: number;
+  tempo_lavorazione_minuti?: number;
+  tempo_posa_minuti?: number;
+  tempo_finitura_minuti?: number;
   categoria: string;
   attivo: boolean;
 }
@@ -50,6 +54,7 @@ interface AggiungiCalendarioSidebarProps {
   initialTime?: string;
   appuntamentoEdit?: AppuntamentoEdit | null;
   appuntamentiEsistenti?: any[];
+  initialDipendenteId?: string;
 }
 
 export default function AggiungiCalendarioSidebar({
@@ -59,10 +64,12 @@ export default function AggiungiCalendarioSidebar({
   initialDate,
   initialTime,
   appuntamentoEdit,
-  appuntamentiEsistenti = []
+  appuntamentiEsistenti = [],
+  initialDipendenteId
 }: AggiungiCalendarioSidebarProps) {
   const [activeTab, setActiveTab] = useState<'appuntamento' | 'blocca'>('appuntamento');
   const [overlapPendingPayload, setOverlapPendingPayload] = useState<any>(null);
+  const [motivoConflitto, setMotivoConflitto] = useState<string>('');
 
   // --- GENERAL APP WINDOW STATE ---
   const [data, setData] = useState('');
@@ -164,6 +171,9 @@ export default function AggiungiCalendarioSidebar({
                 id: Math.random().toString(), // fake ID for edit mode
                 nome: riga.servizi_catalogo.nome,
                 durata_minuti: riga.servizi_catalogo.durata_minuti,
+                tempo_lavorazione_minuti: riga.servizi_catalogo.tempo_lavorazione_minuti,
+                tempo_posa_minuti: riga.servizi_catalogo.tempo_posa_minuti,
+                tempo_finitura_minuti: riga.servizi_catalogo.tempo_finitura_minuti,
                 prezzo_base: 0,
                 categoria: 'Varie',
                 attivo: true
@@ -179,6 +189,9 @@ export default function AggiungiCalendarioSidebar({
          setActiveTab('appuntamento');
       }
     } else {
+      // Colonna da cui si è cliccato: l'operatore arriva già selezionato.
+      if (initialDipendenteId) setSelectedDipendenteId(initialDipendenteId);
+
       if (initialDate) {
         const year = initialDate.getFullYear();
         const month = String(initialDate.getMonth() + 1).padStart(2, '0');
@@ -201,7 +214,7 @@ export default function AggiungiCalendarioSidebar({
         setBlockTimeFine(`${endH}:${endM}`);
       }
     }
-  }, [initialDate, initialTime, appuntamentoEdit]);
+  }, [initialDate, initialTime, appuntamentoEdit, initialDipendenteId]);
 
   const toggleServiceSelection = (service: Service) => {
     if (selectedServices.find(s => s.id === service.id)) {
@@ -288,12 +301,20 @@ export default function AggiungiCalendarioSidebar({
 
       const chosenStaff = dipendenti.find(dip => dip.id === selectedDipendenteId);
 
-      const righe = selectedServices.map(s => ({
-        servizi_catalogo: {
-          nome: s.nome,
-          durata_minuti: s.durata_minuti
-        }
-      }));
+      // I tempi di lavorazione e di posa viaggiano con l'appuntamento: sono
+      // quelli che permettono all'agenda di lasciare il buco durante la posa.
+      const righe = selectedServices.map(s => {
+        const tempi = tempiServizio(s);
+        return {
+          servizi_catalogo: {
+            nome: s.nome,
+            durata_minuti: tempi.totale,
+            tempo_lavorazione_minuti: tempi.lavorazione,
+            tempo_posa_minuti: tempi.posa,
+            tempo_finitura_minuti: tempi.finitura
+          }
+        };
+      });
 
       let finalNote = noteText;
       if (ripeti) {
@@ -321,22 +342,34 @@ export default function AggiungiCalendarioSidebar({
         righe_appuntamento: righe
       };
 
-      const myDurata = righe.reduce((acc, riga) => acc + (parseInt(riga.servizi_catalogo.durata_minuti as any) || 0), 0) || 30;
+      // Il confronto guarda solo i tempi di lavorazione: durante la posa di un
+      // altro appuntamento l'operatore è libero e la fascia è prenotabile.
       const myStartMs = apptDate.getTime();
-      const myEndMs = myStartMs + (myDurata * 60000);
 
       const hasOverlap = appuntamentiEsistenti.some(es => {
-        if (es.id_dipendente !== selectedDipendenteId) return false;
+        if ((es.id_dipendente || es.dipendenti?.id) !== selectedDipendenteId) return false;
         if (appuntamentoEdit && es.id === appuntamentoEdit.id) return false;
-        
-        const esDurata = es.righe_appuntamento?.reduce((acc:any, riga:any) => acc + (parseInt(riga.servizi_catalogo?.durata_minuti) || 0), 0) || 30;
-        const esStartMs = new Date(es.data_ora).getTime();
-        const esEndMs = esStartMs + (esDurata * 60000);
-
-        return (myStartMs < esEndMs && myEndMs > esStartMs);
+        return sovrappongono(myStartMs, righe, new Date(es.data_ora).getTime(), es.righe_appuntamento || []);
       });
 
-      if (hasOverlap) {
+      // Fuori turno: l'appuntamento comincia o finisce fuori dalle fasce di
+      // lavoro dell'operatore in quel giorno.
+      const turno = turnoDelGiorno(chosenStaff, apptDate);
+      const minutiInizio = apptDate.getHours() * 60 + apptDate.getMinutes();
+      const minutiFine = minutiInizio + durataTotale(righe);
+      const fuoriTurno = !turno.lavora
+        || !dentroTurno(turno, minutiInizio)
+        || !dentroTurno(turno, Math.max(minutiInizio, minutiFine - 1));
+
+      if (hasOverlap || fuoriTurno) {
+        const nomeOperatore = chosenStaff?.nome || "L'operatore";
+        setMotivoConflitto(
+          hasOverlap
+            ? `${nomeOperatore} ha già un appuntamento che si accavalla con questo.`
+            : turno.lavora
+              ? `${nomeOperatore} quel giorno è in turno ${descriviTurno(turno)}: l'appuntamento cade fuori.`
+              : `${nomeOperatore} quel giorno non è in turno (${turno.etichetta}).`
+        );
         setOverlapPendingPayload(payload);
         return;
       }
@@ -390,20 +423,18 @@ export default function AggiungiCalendarioSidebar({
       };
 
       const myStartMs = apptDate.getTime();
-      const myEndMs = myStartMs + (blockDuration * 60000);
 
       const hasOverlap = appuntamentiEsistenti.some(es => {
-        if (es.id_dipendente !== selectedDipendenteId) return false;
+        if ((es.id_dipendente || es.dipendenti?.id) !== selectedDipendenteId) return false;
         if (appuntamentoEdit && es.id === appuntamentoEdit.id) return false;
-        
-        const esDurata = es.righe_appuntamento?.reduce((acc:any, riga:any) => acc + (parseInt(riga.servizi_catalogo?.durata_minuti) || 0), 0) || 30;
-        const esStartMs = new Date(es.data_ora).getTime();
-        const esEndMs = esStartMs + (esDurata * 60000);
-
-        return (myStartMs < esEndMs && myEndMs > esStartMs);
+        return sovrappongono(
+          myStartMs, payload.righe_appuntamento,
+          new Date(es.data_ora).getTime(), es.righe_appuntamento || []
+        );
       });
 
       if (hasOverlap) {
+        setMotivoConflitto('In quella fascia c\'è già qualcosa in agenda.');
         setOverlapPendingPayload(payload);
         return;
       }
@@ -456,54 +487,57 @@ export default function AggiungiCalendarioSidebar({
       
       {overlapPendingPayload && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
             <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-2 border border-amber-500/30">
               <Calendar size={24} />
             </div>
-            <h3 className="text-lg font-bold text-zinc-100 font-playfair">Conflitto di Orario</h3>
-            <p className="text-zinc-400 text-sm mb-4 leading-relaxed">
-              Attenzione hai già un'appuntamento fissato per quell'ora.
+            <h3 className="text-lg font-bold text-zinc-900 font-playfair">Stai andando fuori tempo</h3>
+            <p className="text-zinc-600 text-sm leading-relaxed">
+              {motivoConflitto}
+            </p>
+            <p className="text-zinc-500 text-sm mb-4 leading-relaxed">
+              Vuoi inserire comunque l'appuntamento?
             </p>
             <div className="flex flex-col gap-2">
               <button 
                 onClick={() => eseguiSalvataggio(overlapPendingPayload)} 
                 className="w-full px-4 py-2 font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-xl transition-colors shadow-sm"
               >
-                Procedi lo stesso
+                Sì, inserisci comunque
               </button>
               <button 
                 onClick={() => setOverlapPendingPayload(null)} 
-                className="w-full px-4 py-2 font-bold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors shadow-sm"
+                className="w-full px-4 py-2 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
               >
-                Cambia appuntamento
+                No, cambio orario
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="fixed inset-y-0 right-0 w-full sm:w-[700px] bg-zinc-950 border-l border-zinc-800 z-50 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300">
+      <div className="fixed inset-y-0 right-0 w-full sm:w-[700px] bg-white border-l border-zinc-200 z-50 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300">
         
         {/* VIEW 1: SELECT CODES / CHANNELS OR APPOINTMENT DETAILS */}
         {!isAddingServiceView ? (
           <>
             {/* Header */}
             <div>
-              <div className="p-6 pb-2 flex justify-between items-center border-b border-zinc-900">
-                <h2 className="text-xl font-bold font-playfair text-zinc-100">{appuntamentoEdit ? 'Modifica appuntamento' : 'Aggiungi al calendario'}</h2>
-                <button onClick={onClose} className="p-1 px-2 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-850 transition-colors">
+              <div className="p-6 pb-2 flex justify-between items-center border-b border-zinc-200">
+                <h2 className="text-xl font-bold font-playfair text-zinc-900">{appuntamentoEdit ? 'Modifica appuntamento' : 'Aggiungi al calendario'}</h2>
+                <button onClick={onClose} className="p-1 px-2 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-850 transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
               {/* TABS */}
-              <div className="px-6 flex border-b border-zinc-900 bg-zinc-950/20">
+              <div className="px-6 flex border-b border-zinc-200 bg-zinc-50/20">
                 <button
                   onClick={() => setActiveTab('appuntamento')}
                   className={`py-3 px-4 font-sans text-sm font-semibold border-b-2 transition-all transition-colors ${
                     activeTab === 'appuntamento'
                       ? 'border-fuchsia-500 text-fuchsia-400'
-                      : 'border-transparent text-zinc-450 hover:text-zinc-250'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-250'
                   }`}
                 >
                   Appuntamento
@@ -513,7 +547,7 @@ export default function AggiungiCalendarioSidebar({
                   className={`py-3 px-4 font-sans text-sm font-semibold border-b-2 transition-all transition-colors ${
                     activeTab === 'blocca'
                       ? 'border-fuchsia-500 text-fuchsia-400'
-                      : 'border-transparent text-zinc-450 hover:text-zinc-250'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-250'
                   }`}
                 >
                   Blocca
@@ -529,7 +563,7 @@ export default function AggiungiCalendarioSidebar({
                 <>
                   {/* QUANDO SECTION */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Quando</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Quando</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
                       {/* Data */}
@@ -540,7 +574,7 @@ export default function AggiungiCalendarioSidebar({
                             type="date"
                             value={data}
                             onChange={(e) => setData(e.target.value)}
-                            className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-sm text-zinc-100 outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                            className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors font-mono"
                           />
                         </div>
                       </div>
@@ -551,10 +585,10 @@ export default function AggiungiCalendarioSidebar({
                         <select
                           value={oraInizio}
                           onChange={(e) => setOraInizio(e.target.value)}
-                          className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-sm text-zinc-100 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
-                            <option key={time} value={time} className="bg-zinc-900 text-zinc-100">{time}</option>
+                            <option key={time} value={time} className="bg-white text-zinc-900">{time}</option>
                           ))}
                         </select>
                       </div>
@@ -566,10 +600,10 @@ export default function AggiungiCalendarioSidebar({
                       <select
                         value={selectedDipendenteId}
                         onChange={(e) => setSelectedDipendenteId(e.target.value)}
-                        className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-sm text-zinc-100 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer"
+                        className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer"
                       >
                         {dipendenti.map(emp => (
-                          <option key={emp.id} value={emp.id} className="bg-zinc-900 text-zinc-100">
+                          <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
                             {emp.nome} {emp.cognome}
                           </option>
                         ))}
@@ -577,45 +611,45 @@ export default function AggiungiCalendarioSidebar({
                     </div>
 
                     {/* Repeating Appt Toggle */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 border border-zinc-800/40 select-none">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50/30 border border-zinc-200/40 select-none">
                       <span className="text-xs text-zinc-350 font-sans">Ripeti questo appuntamento</span>
                       <button
                         onClick={() => setRipeti(!ripeti)}
-                        className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-800 justify-start'}`}
+                        className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-100 justify-start'}`}
                       >
                         <div className="w-4 h-4 rounded-full bg-white shadow-md" />
                       </button>
                     </div>
 
                     {ripeti && (
-                      <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-4 animate-in fade-in duration-200">
+                      <div className="p-4 rounded-xl bg-zinc-50/40 border border-zinc-200 space-y-4 animate-in fade-in duration-200">
                         <div className="grid grid-cols-2 gap-4">
                           {/* Si ripete ogni */}
                           <div>
                             <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Si ripete ogni</label>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden h-9">
+                              <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
                                   type="button"
                                   onClick={() => setOgniSettimane(prev => Math.max(1, prev - 1))}
-                                  className="px-2.5 h-full text-zinc-450 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   -
                                 </button>
-                                <div className="border-l border-zinc-800 h-4" />
-                                <span className="w-10 text-center font-mono text-zinc-200 text-sm font-semibold select-none">
+                                <div className="border-l border-zinc-200 h-4" />
+                                <span className="w-10 text-center font-mono text-zinc-800 text-sm font-semibold select-none">
                                   {ogniSettimane}
                                 </span>
-                                <div className="border-r border-zinc-800 h-4" />
+                                <div className="border-r border-zinc-200 h-4" />
                                 <button
                                   type="button"
                                   onClick={() => setOgniSettimane(prev => prev + 1)}
-                                  className="px-2.5 h-full text-zinc-450 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   +
                                 </button>
                               </div>
-                              <span className="text-xs text-zinc-400">settimana/e</span>
+                              <span className="text-xs text-zinc-500">settimana/e</span>
                             </div>
                           </div>
 
@@ -623,34 +657,34 @@ export default function AggiungiCalendarioSidebar({
                           <div>
                             <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Termina dopo</label>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden h-9">
+                              <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
                                   type="button"
                                   onClick={() => setTerminaDopoVolte(prev => Math.max(1, prev - 1))}
-                                  className="px-2.5 h-full text-zinc-455 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   -
                                 </button>
-                                <div className="border-l border-zinc-800 h-4" />
-                                <span className="w-10 text-center font-mono text-zinc-200 text-sm font-semibold select-none">
+                                <div className="border-l border-zinc-200 h-4" />
+                                <span className="w-10 text-center font-mono text-zinc-800 text-sm font-semibold select-none">
                                   {terminaDopoVolte}
                                 </span>
-                                <div className="border-r border-zinc-800 h-4" />
+                                <div className="border-r border-zinc-200 h-4" />
                                 <button
                                   type="button"
                                   onClick={() => setTerminaDopoVolte(prev => prev + 1)}
-                                  className="px-2.5 h-full text-zinc-455 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   +
                                 </button>
                               </div>
-                              <span className="text-xs text-zinc-400">volte</span>
+                              <span className="text-xs text-zinc-500">volte</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Calculated repetition date preview */}
-                        <div className="flex items-center gap-2 bg-zinc-950/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-300 font-sans select-none shadow-sm">
+                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
                           <RotateCw size={13} className="text-fuchsia-400 animate-spin" style={{ animationDuration: '3s' }} />
                           <span>Si ripete fino a <span className="text-fuchsia-400 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
                         </div>
@@ -660,7 +694,7 @@ export default function AggiungiCalendarioSidebar({
 
                   {/* CLIENT SECTION */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Cliente</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Cliente</h3>
 
                     {/* Client display or search */}
                     {selectedClient ? (
@@ -671,17 +705,17 @@ export default function AggiungiCalendarioSidebar({
                               {selectedClient.nome.charAt(0)}{selectedClient.cognome.charAt(0)}
                             </div>
                           <div>
-                            <p className="text-sm font-semibold text-zinc-200">
+                            <p className="text-sm font-semibold text-zinc-800">
                               {selectedClient.nome} {selectedClient.cognome}
                             </p>
                             {selectedClient.telefono && (
-                              <p className="text-[11px] text-zinc-450 font-mono italic">{selectedClient.telefono}</p>
+                              <p className="text-[11px] text-zinc-500 font-mono italic">{selectedClient.telefono}</p>
                             )}
                           </div>
                         </div>
                         <button
                           onClick={() => setSelectedClient(null)}
-                          className="px-2 py-1 text-xs font-semibold text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 rounded transition-all shrink-0"
+                          className="px-2 py-1 text-xs font-semibold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/40 rounded transition-all shrink-0"
                         >
                           Rimuovi
                         </button>
@@ -691,20 +725,20 @@ export default function AggiungiCalendarioSidebar({
                           <FileText size={16} className="text-fuchsia-400 shrink-0 mt-0.5" />
                           <div>
                             <p className="text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-0.5 font-mono">Nota Cliente</p>
-                            <p className="text-sm text-zinc-300 leading-relaxed italic pr-2">{selectedClient.note}</p>
+                            <p className="text-sm text-zinc-700 leading-relaxed italic pr-2">{selectedClient.note}</p>
                           </div>
                         </div>
                       )}
                     </>
                     ) : isCreatingClient ? (
                       /* Create customer directly in menu! */
-                      <form onSubmit={handleCreateClient} className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3 animate-in fade-in duration-150">
+                      <form onSubmit={handleCreateClient} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/40 space-y-3 animate-in fade-in duration-150">
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-fuchsia-400 font-bold font-sans uppercase">Nuovo Cliente</span>
                           <button
                             type="button"
                             onClick={() => setIsCreatingClient(false)}
-                            className="text-[10px] text-zinc-550 hover:text-zinc-300 uppercase"
+                            className="text-[10px] text-zinc-500 hover:text-zinc-700 uppercase"
                           >
                             Annulla
                           </button>
@@ -715,7 +749,7 @@ export default function AggiungiCalendarioSidebar({
                             placeholder="Nome *"
                             value={newClientNome}
                             onChange={(e) => setNewClientNome(e.target.value)}
-                            className="bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500"
+                            className="bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
                             required
                           />
                           <input
@@ -723,7 +757,7 @@ export default function AggiungiCalendarioSidebar({
                             placeholder="Cognome *"
                             value={newClientCognome}
                             onChange={(e) => setNewClientCognome(e.target.value)}
-                            className="bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500"
+                            className="bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
                             required
                           />
                         </div>
@@ -732,14 +766,14 @@ export default function AggiungiCalendarioSidebar({
                           placeholder="Filtro Telefono"
                           value={newClientTelefono}
                           onChange={(e) => setNewClientTelefono(e.target.value)}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500 font-mono"
+                          className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 font-mono"
                         />
                         <input
                           type="email"
                           placeholder="Email (opzionale)"
                           value={newClientEmail}
                           onChange={(e) => setNewClientEmail(e.target.value)}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500 font-mono mt-1"
+                          className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 font-mono mt-1"
                         />
                         <div className="flex items-center gap-2 py-1">
                           <input
@@ -747,9 +781,9 @@ export default function AggiungiCalendarioSidebar({
                             id="marketing-consent"
                             checked={newClientConsensoMarketing}
                             onChange={(e) => setNewClientConsensoMarketing(e.target.checked)}
-                            className="bg-zinc-950 border-zinc-800 rounded w-4 h-4 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-zinc-900 cursor-pointer"
+                            className="bg-white border-zinc-200 rounded w-4 h-4 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-zinc-900 cursor-pointer"
                           />
-                          <label htmlFor="marketing-consent" className="text-[11px] text-zinc-400 cursor-pointer select-none">
+                          <label htmlFor="marketing-consent" className="text-[11px] text-zinc-500 cursor-pointer select-none">
                             Acconsento all'invio di comunicazioni marketing
                           </label>
                         </div>
@@ -758,7 +792,7 @@ export default function AggiungiCalendarioSidebar({
                           <select
                             value={newClientCanale}
                             onChange={(e) => setNewClientCanale(e.target.value)}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500"
+                            className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
                           >
                             <option value="Instagram">Instagram</option>
                             <option value="Facebook">Facebook</option>
@@ -788,7 +822,7 @@ export default function AggiungiCalendarioSidebar({
                               setIsClientDropdownOpen(true);
                             }}
                             onFocus={() => setIsClientDropdownOpen(true)}
-                            className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2.5 pl-9 pr-4 text-sm text-zinc-100 outline-none focus:border-fuchsia-500 transition-colors"
+                            className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2.5 pl-9 pr-4 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors"
                           />
                         </div>
 
@@ -796,7 +830,7 @@ export default function AggiungiCalendarioSidebar({
                         {isClientDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsClientDropdownOpen(false)} />
-                            <div className="absolute z-20 left-0 right-0 mt-1.5 border border-zinc-800 bg-zinc-950 rounded-xl max-h-56 overflow-y-auto shadow-2xl divide-y divide-zinc-900/80">
+                            <div className="absolute z-20 left-0 right-0 mt-1.5 border border-zinc-200 bg-white rounded-xl max-h-56 overflow-y-auto shadow-2xl divide-y divide-zinc-200/80">
                             
                             {/* Create Client Option */}
                             <button
@@ -804,7 +838,7 @@ export default function AggiungiCalendarioSidebar({
                                 setIsCreatingClient(true);
                                 setIsClientDropdownOpen(false);
                               }}
-                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-fuchsia-400 hover:bg-zinc-900 text-xs font-semibold font-sans transition-colors"
+                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-fuchsia-400 hover:bg-white text-xs font-semibold font-sans transition-colors"
                             >
                               <UserPlus size={14} />
                               + Crea un nuovo cliente
@@ -822,7 +856,7 @@ export default function AggiungiCalendarioSidebar({
                                 setIsClientDropdownOpen(false);
                                 setSearchClientQuery('');
                               }}
-                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-zinc-350 hover:bg-zinc-900 text-xs font-medium font-sans transition-colors"
+                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-zinc-350 hover:bg-white text-xs font-medium font-sans transition-colors"
                             >
                               <User size={14} />
                               Cliente occasionale (senza appuntamento)
@@ -838,10 +872,10 @@ export default function AggiungiCalendarioSidebar({
                                     setIsClientDropdownOpen(false);
                                     setSearchClientQuery('');
                                   }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-900 transition-colors flex justify-between items-center"
+                                  className="w-full text-left px-4 py-2.5 hover:bg-white transition-colors flex justify-between items-center"
                                 >
                                   <div>
-                                    <p className="text-xs font-medium text-zinc-200">{cli.nome} {cli.cognome}</p>
+                                    <p className="text-xs font-medium text-zinc-800">{cli.nome} {cli.cognome}</p>
                                     {cli.telefono && (
                                       <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cli.telefono}</p>
                                     )}
@@ -862,17 +896,17 @@ export default function AggiungiCalendarioSidebar({
 
                   {/* SERVICES SECTION */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Servizi</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Servizi</h3>
 
                     {/* List selected services */}
                     {selectedServices.length > 0 && (
                       <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                         {selectedServices.map(ser => (
-                          <div key={ser.id} className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex justify-between items-center hover:border-zinc-700 transition-all">
+                          <div key={ser.id} className="p-3 bg-zinc-50/60 border border-zinc-200/80 rounded-xl flex justify-between items-center hover:border-zinc-300 transition-all">
                             <div>
-                              <p className="text-xs font-semibold text-zinc-200">{ser.nome}</p>
+                              <p className="text-xs font-semibold text-zinc-800">{ser.nome}</p>
                               <p className="text-[10.5px] text-fuchsia-400 font-semibold mt-0.5">
-                                {ser.prezzo_base} € <span className="text-zinc-500 font-normal ml-1 border-l border-zinc-800 pl-1.5">{ser.durata_minuti} min</span>
+                                {ser.prezzo_base} € <span className="text-zinc-500 font-normal ml-1 border-l border-zinc-200 pl-1.5">{ser.durata_minuti} min</span>
                               </p>
                             </div>
                             <button
@@ -889,7 +923,7 @@ export default function AggiungiCalendarioSidebar({
                     {/* Add service button */}
                     <button
                       onClick={() => setIsAddingServiceView(true)}
-                      className="w-full flex items-center justify-center gap-2 bg-zinc-900/40 hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 text-fuchsia-400 hover:text-fuchsia-300 font-semibold border border-dashed border-zinc-800 rounded-xl py-3.5 text-xs transition-all cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 bg-zinc-50/40 hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 text-fuchsia-400 hover:text-fuchsia-300 font-semibold border border-dashed border-zinc-200 rounded-xl py-3.5 text-xs transition-all cursor-pointer"
                     >
                       <Plus size={14} />
                       Aggiungi servizio
@@ -905,7 +939,7 @@ export default function AggiungiCalendarioSidebar({
                           placeholder="Aggiungi dettagli o note speciali per il trattamento..."
                           value={noteText}
                           onChange={(e) => setNoteText(e.target.value)}
-                          className="w-full h-20 bg-zinc-900/60 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 outline-none focus:border-fuchsia-500 resize-none font-sans"
+                          className="w-full h-20 bg-zinc-50/60 border border-zinc-200 rounded-lg p-2.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 resize-none font-sans"
                         />
                       </div>
                     ) : (
@@ -927,7 +961,7 @@ export default function AggiungiCalendarioSidebar({
                 <>
                   {/* TYPE OF BLOCK (Screenshot 2) */}
                   <div className="space-y-2.5">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Tipo di blocco</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Tipo di blocco</h3>
                     <div className="flex flex-wrap gap-1.5">
                       {(['Pausa', 'Pranzo', 'Riunione', 'Tempo libero', 'Personalizza'] as const).map(pType => (
                         <button
@@ -936,7 +970,7 @@ export default function AggiungiCalendarioSidebar({
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-sans transition-all cursor-pointer ${
                             blockType === pType
                               ? 'bg-fuchsia-600 text-white shadow-sm font-bold scale-[1.02]'
-                              : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border border-zinc-800/30'
+                              : 'bg-white hover:bg-zinc-850 text-zinc-700 border border-zinc-200/30'
                           }`}
                         >
                           {pType}
@@ -950,14 +984,14 @@ export default function AggiungiCalendarioSidebar({
                         placeholder="Nome blocco personalizzato..."
                         value={customBlockName}
                         onChange={(e) => setCustomBlockName(e.target.value)}
-                        className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-fuchsia-500 mt-2 block"
+                        className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-xs text-zinc-800 placeholder-zinc-500 outline-none focus:border-fuchsia-500 mt-2 block"
                       />
                     )}
                   </div>
 
                   {/* QUANDO (BLOCK) */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Quando</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Quando</h3>
                     
                     <div className="grid grid-cols-3 gap-2">
                       {/* Data */}
@@ -967,7 +1001,7 @@ export default function AggiungiCalendarioSidebar({
                           type="date"
                           value={data}
                           onChange={(e) => setData(e.target.value)}
-                          className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors font-mono"
                         />
                       </div>
 
@@ -977,7 +1011,7 @@ export default function AggiungiCalendarioSidebar({
                         <select
                           value={oraInizio}
                           onChange={(e) => setOraInizio(e.target.value)}
-                          className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
                             <option key={time} value={time}>{time}</option>
@@ -991,7 +1025,7 @@ export default function AggiungiCalendarioSidebar({
                         <select
                           value={blockTimeFine}
                           onChange={(e) => setBlockTimeFine(e.target.value)}
-                          className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
                             <option key={time} value={time}>{time}</option>
@@ -1001,45 +1035,45 @@ export default function AggiungiCalendarioSidebar({
                     </div>
 
                     {/* Repeate Block switch */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 border border-zinc-800/40 select-none">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50/30 border border-zinc-200/40 select-none">
                       <span className="text-xs text-zinc-350 font-sans">Ripeti questo blocco</span>
                       <button
                         onClick={() => setRipeti(!ripeti)}
-                        className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-800 justify-start'}`}
+                        className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-100 justify-start'}`}
                       >
                         <div className="w-4 h-4 rounded-full bg-white shadow-md" />
                       </button>
                     </div>
 
                     {ripeti && (
-                      <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-4 animate-in fade-in duration-200">
+                      <div className="p-4 rounded-xl bg-zinc-50/40 border border-zinc-200 space-y-4 animate-in fade-in duration-200">
                         <div className="grid grid-cols-2 gap-4">
                           {/* Si ripete ogni */}
                           <div>
                             <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Si ripete ogni</label>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden h-9">
+                              <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
                                   type="button"
                                   onClick={() => setOgniSettimane(prev => Math.max(1, prev - 1))}
-                                  className="px-2.5 h-full text-zinc-450 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   -
                                 </button>
-                                <div className="border-l border-zinc-800 h-4" />
-                                <span className="w-10 text-center font-mono text-zinc-200 text-sm font-semibold select-none">
+                                <div className="border-l border-zinc-200 h-4" />
+                                <span className="w-10 text-center font-mono text-zinc-800 text-sm font-semibold select-none">
                                   {ogniSettimane}
                                 </span>
-                                <div className="border-r border-zinc-800 h-4" />
+                                <div className="border-r border-zinc-200 h-4" />
                                 <button
                                   type="button"
                                   onClick={() => setOgniSettimane(prev => prev + 1)}
-                                  className="px-2.5 h-full text-zinc-450 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   +
                                 </button>
                               </div>
-                              <span className="text-xs text-zinc-400">settimana/e</span>
+                              <span className="text-xs text-zinc-500">settimana/e</span>
                             </div>
                           </div>
 
@@ -1047,34 +1081,34 @@ export default function AggiungiCalendarioSidebar({
                           <div>
                             <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Termina dopo</label>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden h-9">
+                              <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
                                   type="button"
                                   onClick={() => setTerminaDopoVolte(prev => Math.max(1, prev - 1))}
-                                  className="px-2.5 h-full text-zinc-455 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   -
                                 </button>
-                                <div className="border-l border-zinc-800 h-4" />
-                                <span className="w-10 text-center font-mono text-zinc-200 text-sm font-semibold select-none">
+                                <div className="border-l border-zinc-200 h-4" />
+                                <span className="w-10 text-center font-mono text-zinc-800 text-sm font-semibold select-none">
                                   {terminaDopoVolte}
                                 </span>
-                                <div className="border-r border-zinc-800 h-4" />
+                                <div className="border-r border-zinc-200 h-4" />
                                 <button
                                   type="button"
                                   onClick={() => setTerminaDopoVolte(prev => prev + 1)}
-                                  className="px-2.5 h-full text-zinc-455 hover:text-white hover:bg-zinc-800 transition-colors font-semibold text-lg select-none"
+                                  className="px-2.5 h-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-semibold text-lg select-none"
                                 >
                                   +
                                 </button>
                               </div>
-                              <span className="text-xs text-zinc-400">volte</span>
+                              <span className="text-xs text-zinc-500">volte</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Calculated repetition date preview */}
-                        <div className="flex items-center gap-2 bg-zinc-950/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-300 font-sans select-none shadow-sm">
+                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
                           <RotateCw size={13} className="text-fuchsia-400 animate-spin" style={{ animationDuration: '3s' }} />
                           <span>Si ripete fino a <span className="text-fuchsia-400 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
                         </div>
@@ -1084,16 +1118,16 @@ export default function AggiungiCalendarioSidebar({
 
                   {/* COMPONENTE TEAM */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-400 tracking-wider font-mono">Componente del team</h3>
+                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Componente del team</h3>
                     <div>
                       <label className="text-[10.5px] text-zinc-500 mb-1 block">Collaboratore</label>
                       <select
                         value={selectedDipendenteId}
                         onChange={(e) => setSelectedDipendenteId(e.target.value)}
-                        className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2 px-3 text-sm text-zinc-100 outline-none focus:border-fuchsia-500 cursor-pointer"
+                        className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 cursor-pointer"
                       >
                         {dipendenti.map(emp => (
-                          <option key={emp.id} value={emp.id} className="bg-zinc-900 text-zinc-100">
+                          <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
                             {emp.nome} {emp.cognome}
                           </option>
                         ))}
@@ -1106,7 +1140,7 @@ export default function AggiungiCalendarioSidebar({
             </div>
 
             {/* Bottom Sticky Action Footer */}
-            <div className="p-6 border-t border-zinc-900 bg-zinc-950">
+            <div className="p-6 border-t border-zinc-200 bg-white">
               {validationError && (
                 <div className="mb-3 text-red-500 text-xs font-bold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20 text-center animate-in fade-in zoom-in-95">
                   {validationError}
@@ -1122,23 +1156,23 @@ export default function AggiungiCalendarioSidebar({
           </>
         ) : (
           /* --- VIEW 2: ADDING SERVICES SUBPANEL (Screenshot 3) --- */
-          <div className="flex flex-col h-full bg-zinc-950">
+          <div className="flex flex-col h-full bg-white">
             
             {/* Header subpanel */}
-            <div className="p-6 pb-2 border-b border-zinc-900 flex justify-between items-center">
+            <div className="p-6 pb-2 border-b border-zinc-200 flex justify-between items-center">
               <button
                 onClick={() => {
                   setIsAddingServiceView(false);
                   setSearchServiceQuery('');
                 }}
-                className="flex items-center gap-2 text-zinc-400 hover:text-zinc-100 text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 text-sm font-semibold transition-colors"
               >
                 <ChevronLeft size={16} />
                 Aggiungi servizio
               </button>
               <button
                 onClick={onClose}
-                className="p-1 text-zinc-400 hover:text-zinc-100 rounded-lg hover:bg-zinc-850"
+                className="p-1 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-850"
               >
                 <X size={20} />
               </button>
@@ -1153,7 +1187,7 @@ export default function AggiungiCalendarioSidebar({
                   placeholder="Cerca un servizio..."
                   value={searchServiceQuery}
                   onChange={(e) => setSearchServiceQuery(e.target.value)}
-                  className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg py-2.5 pl-9 pr-4 text-xs text-zinc-100 outline-none focus:border-fuchsia-500"
+                  className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2.5 pl-9 pr-4 text-xs text-zinc-900 outline-none focus:border-fuchsia-500"
                 />
               </div>
 
@@ -1183,7 +1217,7 @@ export default function AggiungiCalendarioSidebar({
 
                 return (
                   <div key={category} className="space-y-2">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-450 font-mono pl-1">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-500 font-mono pl-1">
                       {category}
                     </h4>
 
@@ -1197,11 +1231,11 @@ export default function AggiungiCalendarioSidebar({
                             className={`w-full text-left p-3.5 rounded-xl border transition-all flex justify-between items-center ${
                               isChosen
                                 ? 'bg-fuchsia-500/5 border-fuchsia-500/40'
-                                : 'bg-zinc-900/40 border-zinc-800/60 hover:bg-zinc-900/80 hover:border-zinc-700'
+                                : 'bg-zinc-50/40 border-zinc-200/60 hover:bg-zinc-50/80 hover:border-zinc-300'
                             }`}
                           >
                             <div>
-                              <p className="text-xs font-semibold text-zinc-200">{ser.nome}</p>
+                              <p className="text-xs font-semibold text-zinc-800">{ser.nome}</p>
                               <p className="text-[10px] text-zinc-500 font-medium mt-0.5 font-mono">
                                 {ser.prezzo_base} € • {ser.durata_minuti >= 60 ? `${Math.floor(ser.durata_minuti / 60)}h ${ser.durata_minuti % 60 ? ser.durata_minuti % 60 + 'm' : ''}` : `${ser.durata_minuti} min`}
                               </p>
@@ -1211,7 +1245,7 @@ export default function AggiungiCalendarioSidebar({
                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
                               isChosen
                                 ? 'bg-fuchsia-600 border-fuchsia-600 text-white'
-                                : 'border-zinc-700 bg-transparent'
+                                : 'border-zinc-300 bg-transparent'
                             }`}>
                               {isChosen && <Check size={12} className="stroke-[3]" />}
                             </div>
@@ -1225,7 +1259,7 @@ export default function AggiungiCalendarioSidebar({
             </div>
 
             {/* Bottom sticky panel back buttons */}
-            <div className="p-6 border-t border-zinc-900 bg-zinc-950 flex gap-3">
+            <div className="p-6 border-t border-zinc-200 bg-white flex gap-3">
               <button
                 onClick={() => {
                   setIsAddingServiceView(false);

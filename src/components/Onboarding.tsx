@@ -61,6 +61,11 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       const docRef = doc(db, 'salons', user.uid);
       const activeTeamMembers = teamMembers.filter(m => m.nome.trim() !== '');
       
+      // Le regole del database vietano di riscrivere createdAt: se il salone
+      // esiste già (onboarding rifatto) va lasciato quello originale, altrimenti
+      // il salvataggio viene rifiutato in blocco.
+      const esistente = await getDoc(docRef);
+
       const payload: any = {
         ownerEmail: user.email,
         ownerName: user.displayName || null,
@@ -73,9 +78,12 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
         },
         settings: {
           marketingEnabled: plan !== 'base' && plan !== 'free'
-        },
-        createdAt: serverTimestamp()
+        }
       };
+
+      if (!esistente.exists()) {
+        payload.createdAt = serverTimestamp();
+      }
 
       await setDoc(docRef, payload, { merge: true });
       
