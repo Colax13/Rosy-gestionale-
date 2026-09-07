@@ -1,6 +1,7 @@
 'use client';
 
 import FloatingActionBar from '@/components/FloatingActionBar';
+import ImportaClienti from '@/components/ImportaClienti';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { clientiApi } from '@/lib/api-client';
@@ -24,7 +25,7 @@ export default function GestioneClienti() {
   const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
+  const [importAperto, setImportAperto] = useState(false);
 
   useEffect(() => {
     caricaClienti();
@@ -61,35 +62,6 @@ export default function GestioneClienti() {
 
   const handleError = (msg: string) => {
     alert(msg);
-  };
-
-  const handleFileUpload = async (event: any) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.type.match('application/pdf') && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
-      handleError("Carica un PDF o un foglio di calcolo (.csv, .xlsx).");
-      return;
-    }
-
-    setIsImporting(true);
-
-    const reader = new FileReader();
-    reader.onload = async (e: any) => {
-      const base64Data = e.target.result.split(',')[1];
-      try {
-        await clientiApi.importAi({ fileData: base64Data, mimeType: file.type || 'application/pdf' });
-        caricaClienti();
-        alert('Clienti importati con successo tramite IA!');
-      } catch (err) {
-        handleError("Errore nell'analisi del documento tramite IA.");
-      } finally {
-        setIsImporting(false);
-        // Reset file input
-        event.target.value = null;
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const onClienteCreato = () => {
@@ -217,19 +189,23 @@ export default function GestioneClienti() {
       )}
 
       {/* Floating Action Bar */}
+      {importAperto && (
+        <ImportaClienti
+          clientiEsistenti={clienti}
+          onChiudi={() => setImportAperto(false)}
+          onImportato={caricaClienti}
+        />
+      )}
+
       <FloatingActionBar>
-        <label className="flex items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-full px-5 py-2.5 transition-colors cursor-pointer text-sm font-medium">
+        <button
+          onClick={() => setImportAperto(true)}
+          className="flex items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-full px-5 py-2.5 transition-colors cursor-pointer text-sm font-medium"
+        >
           <FileText size={16} />
-          {isImporting ? 'Elaborazione IA...' : 'Importa (PDF/XLS)'}
-          <input 
-            type="file" 
-            className="hidden" 
-            accept=".pdf,.csv,.xlsx,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={handleFileUpload}
-            disabled={isImporting}
-          />
-        </label>
-        
+          Importa da Excel
+        </button>
+
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm"
