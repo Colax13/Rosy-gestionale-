@@ -224,7 +224,7 @@ export default function GestioneDipendenti() {
       {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-xl font-playfair text-zinc-900 font-semibold">
                 {editingData ? 'Modifica Dipendente' : 'Nuovo operatore'}
@@ -355,7 +355,7 @@ export default function GestioneDipendenti() {
       {/* Confirm Toggle Status Modal */}
       {confirmToggleStatus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma operazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero {confirmToggleStatus.attivo ? 'disattivare' : 'attivare'} l'accesso per {confirmToggleStatus.nome}?
@@ -384,7 +384,7 @@ export default function GestioneDipendenti() {
       {/* Confirm Delete Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il dipendente {confirmDelete.nome} {confirmDelete.cognome}? Questa operazione non può essere annullata.

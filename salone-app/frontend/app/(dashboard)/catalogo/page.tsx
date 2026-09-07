@@ -327,7 +327,7 @@ export default function GestioneCatalogo() {
       {/* Modal Form Categoria */}
       {isCatModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 transition-opacity">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-5 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-lg font-playfair text-zinc-900 font-semibold">
                 {editingCategoria ? 'Rinomina Categoria' : 'Nuova categoria'}
@@ -382,10 +382,10 @@ export default function GestioneCatalogo() {
       {/* Modal Form Servizio */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 transition-opacity">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200 max-h-[90vh] flex flex-col">
+            <div className="shrink-0 flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-xl font-playfair text-zinc-900 font-semibold">
-                {editingService ? 'Modifica Servizio' : 'Nuovo servizio'}
+                {editingService ? 'Modifica servizio' : 'Nuovo servizio'}
               </h2>
               <button 
                 onClick={handleCloseModal}
@@ -395,7 +395,8 @@ export default function GestioneCatalogo() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6">
+            <form onSubmit={handleSave} className="flex flex-col min-h-0 flex-1">
+              <div className="p-6 overflow-y-auto flex-1 min-h-0">
               {formError && (
                 <div className="mb-4 p-3 bg-red-500/10 text-red-500 text-sm rounded-md border border-red-500/20 flex items-start gap-2">
                   <AlertCircle size={18} className="shrink-0 mt-0.5" />
@@ -418,7 +419,7 @@ export default function GestioneCatalogo() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-500 mb-1">Prezzo Base (€) *</label>
+                    <label className="block text-sm font-medium text-zinc-500 mb-1">Prezzo base (€) *</label>
                     <input
                       name="prezzo_base"
                       type="number"
@@ -440,7 +441,7 @@ export default function GestioneCatalogo() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Lav. Iniziale (min) *</label>
+                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Lavorazione (min) *</label>
                     <input
                       name="tempo_lavorazione_minuti"
                       type="number"
@@ -453,7 +454,7 @@ export default function GestioneCatalogo() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Posa/Attesa (min) *</label>
+                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Posa (min) *</label>
                     <input
                       name="tempo_posa_minuti"
                       type="number"
@@ -466,7 +467,7 @@ export default function GestioneCatalogo() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Lav. Finale (min) *</label>
+                    <label className="block text-[11px] font-medium text-zinc-500 mb-1 leading-tight">Finitura (min) *</label>
                     <input
                       name="tempo_finitura_minuti"
                       type="number"
@@ -540,7 +541,11 @@ export default function GestioneCatalogo() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-zinc-200">
+              </div>
+
+              {/* Pulsanti sempre visibili: prima stavano in fondo al modulo e
+                  su schermi normali finivano fuori dalla finestra. */}
+              <div className="shrink-0 flex justify-end gap-3 p-6 border-t border-zinc-200 bg-white">
                 <button
                   type="button"
                   onClick={handleCloseModal}
@@ -568,7 +573,7 @@ export default function GestioneCatalogo() {
       {/* Delete Confirmation Dialog */}
       {deleteConfirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               {deleteConfirmDialog.tipo === 'categoria' 

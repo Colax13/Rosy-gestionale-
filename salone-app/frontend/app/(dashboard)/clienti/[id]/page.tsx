@@ -377,7 +377,7 @@ export default function SchedaCliente() {
       {/* Confirm Delete Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il cliente {cliente.nome} {cliente.cognome}? L'operazione rimuoverà anche lo storico appuntamenti e non potrà essere annullata.

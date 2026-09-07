@@ -356,7 +356,7 @@ export default function BuoniSpa() {
       {/* Dettaglio del buono */}
       {dettaglio && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDettaglio(null)}>
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-zinc-100 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-mono text-lg font-bold text-zinc-900">{dettaglio.codice}</div>
@@ -421,7 +421,7 @@ export default function BuoniSpa() {
       {/* Registrazione utilizzo */}
       {utilizzo && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setUtilizzo(null)}>
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div>
               <h3 className="text-lg font-bold text-zinc-900 font-playfair">Registra utilizzo</h3>
               <p className="text-sm text-zinc-500 mt-1">
@@ -604,7 +604,7 @@ export default function BuoniSpa() {
       {/* Conferma eliminazione */}
       {confermaEliminazione && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfermaEliminazione(null)}>
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center flex flex-col gap-3 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center flex flex-col gap-3 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
               <Trash2 size={22} />
             </div>

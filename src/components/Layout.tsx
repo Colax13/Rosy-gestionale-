@@ -257,7 +257,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Subscription Modal */}
       {isSubscriptionModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="p-6 text-center border-b border-zinc-200 bg-zinc-50/50">
                <h2 className="text-xl font-bold text-zinc-900 font-playfair">Il tuo Piano</h2>
             </div>

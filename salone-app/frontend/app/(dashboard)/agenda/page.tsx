@@ -1210,7 +1210,7 @@ export default function PaginaAgenda() {
              {isStaffMenuOpen && (
                <>
                  <div className="fixed inset-0 z-40" onClick={() => setIsStaffMenuOpen(false)}></div>
-                 <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-zinc-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                 <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-zinc-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
                    <div className="py-1">
                      <button
                        onClick={() => { setSelectedDipendenteId('tutti'); setIsStaffMenuOpen(false); }}
@@ -1430,7 +1430,7 @@ export default function PaginaAgenda() {
       {/* Conferma spostamento fuori tempo */}
       {confermaSpostamento && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2 border border-amber-200">
               <CalendarIcon size={24} />
             </div>
@@ -1589,7 +1589,7 @@ export default function PaginaAgenda() {
       {/* Alert Orari Lavoro Notifica */}
       {alertOrari.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 text-center flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-zinc-900">Ora non disponibile</h3>
             <p className="text-zinc-500 text-sm mb-2 leading-relaxed">
               L'operatore non lavora in questa fascia oraria.<br />
@@ -1623,7 +1623,7 @@ export default function PaginaAgenda() {
       {/* Complete Appuntamento Modal */}
       {completaAppModal.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-zinc-200/80 bg-zinc-50/50 flex justify-between items-center">
               <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
                 <CheckCircle2 className="text-[#10b981]" size={20} />
@@ -1807,7 +1807,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
            onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }}
          >
            <div
-             className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center flex flex-col gap-3 animate-in zoom-in-95 duration-150"
+             className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center flex flex-col gap-3 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
              onClick={(e) => e.stopPropagation()}
            >
              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-1 border border-red-200">

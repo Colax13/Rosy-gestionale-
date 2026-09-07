@@ -57,7 +57,7 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
           <h2 className="text-xl font-playfair text-zinc-900 font-semibold">Nuovo cliente</h2>
           <button 
