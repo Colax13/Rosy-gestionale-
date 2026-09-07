@@ -103,11 +103,11 @@ export default function GestioneClienti() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3">
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
                 <Users className="text-fuchsia-500" size={28} />
                 Clienti
               </h1>
-              <p className="text-zinc-500 font-sans mt-1 text-sm">Gestione e anagrafica clienti del salone.</p>
+              <p className="text-zinc-500 mt-1 text-sm">Gestione e anagrafica clienti del salone.</p>
             </div>
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function GestioneClienti() {
           <div className="bg-white/20 p-1 rounded-full">
             <Plus size={16} strokeWidth={2.5} />
           </div>
-          <span>Nuovo Cliente</span>
+          <span>Nuovo cliente</span>
         </button>
       </FloatingActionBar>
 

@@ -724,7 +724,7 @@ export default function AggiungiCalendarioSidebar({
                         <div className="mt-2 p-3 bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-xl flex gap-2 animate-in fade-in zoom-in-95 duration-200">
                           <FileText size={16} className="text-fuchsia-400 shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-0.5 font-mono">Nota Cliente</p>
+                            <p className="text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-0.5 font-mono">Nota cliente</p>
                             <p className="text-sm text-zinc-700 leading-relaxed italic pr-2">{selectedClient.note}</p>
                           </div>
                         </div>
@@ -734,7 +734,7 @@ export default function AggiungiCalendarioSidebar({
                       /* Create customer directly in menu! */
                       <form onSubmit={handleCreateClient} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/40 space-y-3 animate-in fade-in duration-150">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-fuchsia-400 font-bold font-sans uppercase">Nuovo Cliente</span>
+                          <span className="text-xs text-fuchsia-400 font-bold font-sans uppercase">Nuovo cliente</span>
                           <button
                             type="button"
                             onClick={() => setIsCreatingClient(false)}
@@ -788,7 +788,7 @@ export default function AggiungiCalendarioSidebar({
                           </label>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase block">Canale Acquisizione</label>
+                          <label className="text-[10px] text-zinc-500 font-bold uppercase block">Canale di acquisizione</label>
                           <select
                             value={newClientCanale}
                             onChange={(e) => setNewClientCanale(e.target.value)}
@@ -805,7 +805,7 @@ export default function AggiungiCalendarioSidebar({
                           type="submit"
                           className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold text-xs py-1.5 rounded transition-colors"
                         >
-                          Aggiungi e Seleziona Cliente
+                          Aggiungi e seleziona cliente
                         </button>
                       </form>
                     ) : (

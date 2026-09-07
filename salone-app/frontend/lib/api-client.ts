@@ -226,3 +226,26 @@ export const appuntamentiApi = {
     return { success: true };
   }
 };
+
+export const buoniApi = {
+  getAll: async (): Promise<any[]> => {
+    const q = query(collection(db, 'buoni'), where('userId', '==', getUserId()));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  create: async (data: any) => {
+    const ref = doc(collection(db, 'buoni'));
+    const payload = { ...data, userId: getUserId(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+    await setDoc(ref, payload);
+    return { id: ref.id, ...payload };
+  },
+  update: async (id: string, data: any) => {
+    const ref = doc(db, 'buoni', id);
+    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+    return { id, ...data };
+  },
+  delete: async (id: string) => {
+    await deleteDoc(doc(db, 'buoni', id));
+    return { success: true };
+  }
+};

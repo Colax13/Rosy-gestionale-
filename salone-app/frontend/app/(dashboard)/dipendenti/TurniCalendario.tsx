@@ -265,7 +265,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
         <div>
           <h2 className="font-semibold text-zinc-900 flex items-center gap-2 text-lg">
             <Clock size={20} className="text-fuchsia-500" />
-            Panoramica Orari
+            Panoramica orari
           </h2>
           <div className="text-zinc-500 text-xs mt-1">
             Visualizza gli orari di lavoro base. Per modificare, clicca sull'icona di modifica.
@@ -332,7 +332,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
           <div className="bg-white border border-zinc-200 rounded-xl shadow-2xl w-full max-w-[900px] overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center bg-zinc-100/40">
               <div>
-                <h3 className="text-lg font-semibold text-zinc-900">Modifica Orari Settimanali</h3>
+                <h3 className="text-lg font-semibold text-zinc-900">Modifica orari settimanali</h3>
                 <p className="text-sm text-zinc-500 mt-0.5">
                   Operatore: <span className="text-fuchsia-400 font-medium">{editingDipendente.nome} {editingDipendente.cognome}</span>
                 </p>
@@ -428,7 +428,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
                 className="px-6 py-2.5 text-sm font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors border border-zinc-200"
                 disabled={saving}
               >
-                Annulla Modifiche
+                Annulla modifiche
               </button>
               <button 
                 onClick={handleSave}
@@ -442,7 +442,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
                   </>
                 ) : (
                   <>
-                    <Save size={18} /> Salva Turni Operatore
+                    <Save size={18} /> Salva turni
                   </>
                 )}
               </button>

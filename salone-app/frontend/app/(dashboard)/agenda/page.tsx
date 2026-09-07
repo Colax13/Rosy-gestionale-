@@ -4,7 +4,7 @@
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
 import { appuntamentiApi, dipendentiApi } from '@/lib/api-client';
-import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import {
@@ -57,7 +57,7 @@ function MonthDayCell({
 
   const appsPerOperatore = apps.reduce((acc, app) => {
     const opId = app.id_dipendente || app.dipendenti?.id || 'unassigned';
-    const opName = app.dipendenti ? `${app.dipendenti.nome} ${app.dipendenti.cognome}` : 'Staff Generico';
+    const opName = app.dipendenti ? `${app.dipendenti.nome} ${app.dipendenti.cognome}` : 'Non assegnato';
     if (!acc[opId]) acc[opId] = { id: opId, nome: opName, appuntamenti: [] };
     acc[opId].appuntamenti.push(app);
     return acc;
@@ -157,7 +157,7 @@ function MonthDayCell({
                   className="w-full mt-1 flex items-center justify-center gap-2 py-2 text-[11px] font-semibold text-zinc-900 bg-fuchsia-400 hover:bg-fuchsia-500 rounded-lg transition-colors shadow-sm"
                 >
                   <User size={14} />
-                  Vedi Profilo Operatore
+                  Vedi profilo operatore
                 </button>
               </>
             )}
@@ -640,7 +640,7 @@ export default function PaginaAgenda() {
   };
 
   const renderDayView = () => {
-    const staff = [...dipendenti, { id: 'unassigned', nome: 'Staff', cognome: 'Generico' }];
+    const staff = [...dipendenti, { id: 'unassigned', nome: 'Non', cognome: 'assegnato' }];
 
     const turniStaff: Record<string, TurnoDelGiorno> = {};
     staff.forEach(d => { turniStaff[d.id] = turnoDelGiorno(d, selectedDate); });
@@ -1147,7 +1147,7 @@ export default function PaginaAgenda() {
             className="btn-primary shrink-0 whitespace-nowrap flex items-center gap-2 bg-[#D400FF] hover:bg-[#FF3EF7] text-white px-2 xl:px-4 py-2 rounded-lg transition-colors shadow-[0_0_15px_rgba(212,0,255,0.4)] cursor-pointer ml-auto text-sm font-medium"
           >
             <Plus size={16} />
-            <span className="hidden sm:inline">Nuovo Appuntamento</span>
+            <span className="hidden sm:inline">Nuovo appuntamento</span>
             <span className="sm:hidden">Nuovo</span>
           </button>
         </div>
@@ -1165,8 +1165,8 @@ export default function PaginaAgenda() {
                <div className="flex items-center gap-2">
                  <User size={14} className="text-fuchsia-500" />
                  <span className="font-medium truncate">
-                   {selectedDipendenteId === 'tutti' ? 'Tutti gli Operatori' :
-                    selectedDipendenteId === 'unassigned' ? 'Staff Generico' :
+                   {selectedDipendenteId === 'tutti' ? 'Tutti gli operatori' :
+                    selectedDipendenteId === 'unassigned' ? 'Non assegnato' :
                     (dipendenti.find(d => d.id === selectedDipendenteId)?.nome + ' ' + dipendenti.find(d => d.id === selectedDipendenteId)?.cognome) || 'Seleziona...'}
                  </span>
                </div>
@@ -1182,7 +1182,7 @@ export default function PaginaAgenda() {
                        onClick={() => { setSelectedDipendenteId('tutti'); setIsStaffMenuOpen(false); }}
                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'tutti' ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                      >
-                       Tutti gli Operatori
+                       Tutti gli operatori
                      </button>
                      {dipendenti.length > 0 && <div className="h-px bg-zinc-200 my-1 mx-2"></div>}
                      {dipendenti.map(d => (
@@ -1199,7 +1199,7 @@ export default function PaginaAgenda() {
                        onClick={() => { setSelectedDipendenteId('unassigned'); setIsStaffMenuOpen(false); }}
                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'unassigned' ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                      >
-                       Staff Generico
+                       Non assegnato
                      </button>
                    </div>
                  </div>
@@ -1236,8 +1236,8 @@ export default function PaginaAgenda() {
               <Link to="/prodotti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
                 <Scissors size={15} className="text-zinc-500" /> Prodotti
               </Link>
-              <Link to="/prodotti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
-                <FileText size={15} className="text-zinc-500" /> Buoni
+              <Link to="/buoni-spa" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                <Ticket size={15} className="text-zinc-500" /> Buoni
               </Link>
               <div className="h-px bg-zinc-100 my-1"></div>
               <Link to="/" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
@@ -1395,7 +1395,7 @@ export default function PaginaAgenda() {
               <div>
                 <h3 className="text-sm font-bold text-fuchsia-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <FileText size={16} />
-                  Documenti Personali
+                  Documenti personali
                 </h3>
                 
                 {selectedOperatorePreview.id !== 'unassigned' ? (
@@ -1423,7 +1423,7 @@ export default function PaginaAgenda() {
                   </div>
                 ) : (
                   <div className="p-6 text-center border border-dashed border-zinc-200 rounded-lg bg-zinc-50/50">
-                    <p className="text-sm text-zinc-500">Nessun documento per lo Staff Generico.</p>
+                    <p className="text-sm text-zinc-500">Nessun documento caricato.</p>
                   </div>
                 )}
               </div>
@@ -1435,7 +1435,7 @@ export default function PaginaAgenda() {
                 onClick={() => setSelectedOperatorePreview(null)}
                 className="px-6 py-2 bg-zinc-100 text-zinc-900 font-semibold rounded-lg hover:bg-white transition-colors text-sm shadow-sm"
               >
-                Chiudi Scheda
+                Chiudi scheda
               </button>
             </div>
           </div>

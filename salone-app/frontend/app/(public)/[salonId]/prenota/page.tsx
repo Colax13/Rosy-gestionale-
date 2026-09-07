@@ -685,7 +685,7 @@ export default function PrenotazionePubblica() {
                      {isSubmitting ? (
                         <>Attendi...</>
                      ) : (
-                        <><CheckCircle2 size={20} /> Conferma Appuntamento</>
+                        <><CheckCircle2 size={20} /> Conferma appuntamento</>
                      )}
                   </button>
                 </div>

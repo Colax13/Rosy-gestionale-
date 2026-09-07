@@ -98,8 +98,8 @@ export default function Settings() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3 mb-1"><SettingsIcon className="text-fuchsia-500" size={28} />Impostazioni</h1>
-              <p className="text-zinc-500 text-sm">Personalizza i dettagli, gli orari e l'aspetto del tuo salone.</p>
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3"><SettingsIcon className="text-fuchsia-500" size={28} />Impostazioni</h1>
+              <p className="text-zinc-500 mt-1 text-sm">Personalizza i dettagli, gli orari e l'aspetto del tuo salone.</p>
             </div>
             {!isEditing ? (
                <button onClick={() => setIsEditing(true)} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-lg font-medium transition-colors">
@@ -139,7 +139,7 @@ export default function Settings() {
           onClick={() => setActiveTab('foto')}
           className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'foto' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
-          <ImageIcon size={18} /> Foto & Sede
+          <ImageIcon size={18} /> Foto e sede
         </button>
       </div>
 
@@ -154,7 +154,7 @@ export default function Settings() {
           <>
             {activeTab === 'generale' && (
               <div className="space-y-6">
-            <h3 className="text-xl font-bold text-zinc-900">Informazioni Salone</h3>
+            <h3 className="text-xl font-bold text-zinc-900">Informazioni salone</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 overflow-hidden w-full">
                 <label className="block text-sm font-medium text-zinc-500 mb-2">Link Pubblico di Prenotazione</label>
@@ -178,13 +178,13 @@ export default function Settings() {
                     }}
                     className="shrink-0 w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-sm font-medium transition-colors border border-zinc-300 mt-2 sm:mt-0"
                   >
-                    <Copy size={16} /> <span>Copia Link</span>
+                    <Copy size={16} /> <span>Copia link</span>
                   </button>
                 </div>
                 <div className="h-px bg-zinc-100 my-6"></div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-2">Nome Salone</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Nome salone</label>
                 {isEditing ? (
                   <input type="text" value={dettagli.nomeSalone} onChange={e => setDettagli({...dettagli, nomeSalone: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
@@ -192,7 +192,7 @@ export default function Settings() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-2">Indirizzo Sede Principale</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Indirizzo</label>
                 {isEditing ? (
                   <input type="text" value={dettagli.indirizzo} onChange={e => setDettagli({...dettagli, indirizzo: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
@@ -200,7 +200,7 @@ export default function Settings() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-2">Telefono Principale</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Telefono</label>
                 {isEditing ? (
                   <input type="text" value={dettagli.telefono} onChange={e => setDettagli({...dettagli, telefono: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
@@ -208,7 +208,7 @@ export default function Settings() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-500 mb-2">Email Pubblica</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Email pubblica</label>
                 {isEditing ? (
                   <input type="email" value={dettagli.email} onChange={e => setDettagli({...dettagli, email: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
                 ) : (
@@ -237,7 +237,7 @@ export default function Settings() {
                        <Store size={20} />
                     </div>
                   )}
-                  <span className="text-zinc-500 text-sm">{dettagli.logoUrl ? "Logo configurato" : "Nessun logo"}</span>
+                  <span className="text-zinc-500 mt-1 text-sm">{dettagli.logoUrl ? "Logo configurato" : "Nessun logo"}</span>
                 </div>
               )}
             </div>
@@ -246,7 +246,7 @@ export default function Settings() {
 
         {activeTab === 'orari' && (
           <div className="space-y-6">
-             <h3 className="text-xl font-bold text-zinc-900 mb-1">Orari di Apertura</h3>
+             <h3 className="text-xl font-bold text-zinc-900 mb-1">Orari di apertura</h3>
              <p className="text-sm text-zinc-500 mb-6">Specifica gli orari standard. Potrai aggiungere eccezioni e festività prossimamente.</p>
              
              <div className="space-y-3">
@@ -272,7 +272,7 @@ export default function Settings() {
         {activeTab === 'foto' && (
           <div className="space-y-6 text-center py-8">
              <Store size={48} className="mx-auto text-zinc-500 mb-4" />
-             <h3 className="text-xl font-bold text-zinc-900">Gestione Foto Sede</h3>
+             <h3 className="text-xl font-bold text-zinc-900">Foto del salone</h3>
              <p className="text-zinc-500 text-sm max-w-sm mx-auto">
                Questa funzionalità verrà attivata a breve. Potrai caricare le foto del tuo salone che i clienti vedranno durante la prenotazione.
              </p>
@@ -284,12 +284,12 @@ export default function Settings() {
       </div>
 
       <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
-        <h3 className="text-xl font-bold text-zinc-900 mb-2">Account Salone</h3>
+        <h3 className="text-xl font-bold text-zinc-900 mb-2">Account salone</h3>
         <p className="text-zinc-500 mb-6 text-sm">Gestisci l'accesso, il piano e le impostazioni dell'account proprietario.</p>
         
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-white border border-zinc-200 rounded-lg">
           <div>
-            <p className="text-sm font-medium text-zinc-800">Email Proprietario</p>
+            <p className="text-sm font-medium text-zinc-800">Email proprietario</p>
             <p className="text-sm text-zinc-500">{auth.currentUser?.email || 'admin@salone.it'}</p>
           </div>
           <button
@@ -303,8 +303,8 @@ export default function Settings() {
 
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-white border border-zinc-200 rounded-lg mt-4">
           <div>
-            <p className="text-sm font-medium text-zinc-800">Piano Attuale</p>
-            <p className="text-sm text-zinc-500">Piano Base Gratuito</p>
+            <p className="text-sm font-medium text-zinc-800">Piano attuale</p>
+            <p className="text-sm text-zinc-500">Piano base gratuito</p>
           </div>
           <button
             disabled

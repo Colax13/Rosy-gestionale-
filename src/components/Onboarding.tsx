@@ -140,12 +140,12 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       case 1:
         return (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Informazioni Base Salone</h2>
+            <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Informazioni sul salone</h2>
             <p className="text-gray-500 text-sm mb-8">Iniziamo configurando i dettagli principali. <span className="text-fuchsia-600 font-medium">Tranquillo, potrai modificare tutto freely in seguito!</span></p>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome del Salone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome del salone</label>
                 <input 
                   type="text" 
                   autoFocus
@@ -157,7 +157,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Orario Apertura</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Orario di apertura</label>
                   <input 
                     type="time" 
                     className="w-full p-3 border border-gray-200 rounded-lg focus:border-fuchsia-500 outline-none"
@@ -166,7 +166,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Orario Chiusura</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Orario di chiusura</label>
                   <input 
                     type="time" 
                     className="w-full p-3 border border-gray-200 rounded-lg focus:border-fuchsia-500 outline-none"
@@ -186,14 +186,14 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       case 2:
         return (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Il Tuo Team</h2>
+            <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Il tuo team</h2>
             <p className="text-gray-500 text-sm mb-6">Quante persone lavorano nella tua azienda? Inserisci i nomi degli operatori. Puoi inserire l'email per dargli accesso o farlo dopo.</p>
             
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 pb-4">
               {teamMembers.map((member, idx) => (
                 <div key={idx} className="bg-white p-4 border border-gray-100 rounded-xl shadow-sm flex flex-col sm:flex-row gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Nome Operatore</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Nome operatore</label>
                     <input 
                       type="text" 
                       placeholder="Es. Marco"
@@ -231,12 +231,12 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       case 3:
         return (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-             <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Importazione & Dati</h2>
+             <h2 className="text-2xl font-bold font-sans text-gray-900 mb-2">Importazione dati</h2>
              <p className="text-gray-500 text-sm mb-8">Vuoi caricare i tuoi dati ora o fare tutto in futuro con calma?</p>
              
              <div className="space-y-6">
                 <div>
-                  <h3 className="text-gray-900 font-medium mb-3">Database Clienti</h3>
+                  <h3 className="text-gray-900 font-medium mb-3">Elenco clienti</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div 
                       onClick={() => setImportazioneClienti('subito_file')}
@@ -262,7 +262,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                 </div>
 
                 <div>
-                  <h3 className="text-gray-900 font-medium mb-3">Catalogo Prodotti</h3>
+                  <h3 className="text-gray-900 font-medium mb-3">Catalogo servizi</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div 
                       onClick={() => setCostruzioneCatalogo('subito')}
@@ -328,7 +328,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
 
               {/* Piano PRO */}
               <div className="bg-black rounded-2xl shadow-xl p-8 flex flex-col relative transform md:-translate-y-4">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider">Più Scelto</div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider">Più scelto</div>
                 <h3 className="text-xl font-bold text-white mb-2">PRO</h3>
                 <p className="text-gray-300 text-sm mb-6 flex-grow">Marketing generativo e automazioni.</p>
                 <div className="text-3xl font-bold mb-6 text-white">€49<span className="text-lg text-gray-400 font-normal">/mese</span></div>

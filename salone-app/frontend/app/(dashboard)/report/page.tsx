@@ -86,7 +86,7 @@ export default function PaginaReport() {
   const esportaCSV = () => {
     if (dipendenti.length === 0) return;
     
-    const headers = ['Nome', 'Cognome', 'Appuntamenti', 'Totale Incassato (€)'];
+    const headers = ['Nome', 'Cognome', 'Appuntamenti', 'Totale incassato (€)'];
     const rows = dipendenti.map(d => [
       d.nome,
       d.cognome,
@@ -120,7 +120,7 @@ export default function PaginaReport() {
   if (error) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-playfair text-zinc-900 mb-6">Report Aziendale</h1>
+        <h1 className="text-3xl font-playfair font-bold text-zinc-900 mb-6">Report</h1>
         <div className="card p-4 border-l-4 border-red-500 bg-red-50 text-red-700">
           <p>{error}</p>
           <button onClick={caricaDati} className="mt-2 text-sm underline font-semibold">Riprova</button>
@@ -140,8 +140,8 @@ export default function PaginaReport() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3"><BarChart3 className="text-fuchsia-500" size={28} />Report e Statistiche</h1>
-              <p className="text-zinc-500 mt-1 font-sans text-sm">Panoramica incassi e performance dipendenti</p>
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3"><BarChart3 className="text-fuchsia-500" size={28} />Report</h1>
+              <p className="text-zinc-500 mt-1 text-sm">Panoramica incassi e performance dipendenti</p>
             </div>
           </div>
         </div>
@@ -194,14 +194,14 @@ export default function PaginaReport() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
         >
-          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Totali per Dipendente</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Totali per operatore</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans">
               <thead>
                 <tr className="border-b border-zinc-200 text-zinc-500">
                   <th className="py-3 px-4 font-semibold text-sm">Dipendente</th>
                   <th className="py-3 px-4 font-semibold text-sm text-right">Appuntamenti</th>
-                  <th className="py-3 px-4 font-semibold text-sm text-right">Totale Incassato</th>
+                  <th className="py-3 px-4 font-semibold text-sm text-right">Totale incassato</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
@@ -258,7 +258,7 @@ export default function PaginaReport() {
               className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-playfair text-zinc-900">Performance Canali</h3>
+                <h3 className="text-lg font-playfair text-zinc-900">Canali di acquisizione</h3>
                 <span className="text-xs bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-fuchsia-400" />
                   Totale: {clientiReport.acquisiti_questo_mese.length} nuovi clienti

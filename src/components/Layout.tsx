@@ -1,6 +1,6 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, UserCog, CalendarDays, Settings, CreditCard, Palette, Globe, HelpCircle, LogOut, Menu, X, Store, MessageSquare, Moon, Sun, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, UserCog, CalendarDays, Settings, CreditCard, Palette, Globe, HelpCircle, LogOut, Menu, X, Store, MessageSquare, Moon, Sun, Sparkles, Scissors, Package, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import RicercaGlobale from '../../salone-app/frontend/components/RicercaGlobale';
@@ -39,12 +39,12 @@ export default function Layout({ children }: { children: ReactNode }) {
     { path: '/rosie', label: 'Rosie Hub', icon: Sparkles },
     { path: '/agenda', label: 'Agenda', icon: CalendarDays },
     { path: '/clienti', label: 'Clienti', icon: Users },
-    { path: '/catalogo', label: 'Servizi', icon: Store },
-    { path: '/dipendenti', label: 'Dipendenti', icon: UserCog },
+    { path: '/catalogo', label: 'Servizi', icon: Scissors },
+    { path: '/dipendenti', label: 'Operatori', icon: UserCog },
     { path: '/report', label: 'Report', icon: FileText },
-    { path: '/prodotti', label: 'Prodotti & Offerte', icon: Store },
+    { path: '/prodotti', label: 'Prodotti', icon: Package },
     { path: '/automazioni', label: 'Automazioni', icon: MessageSquare },
-    { path: '/buoni-spa', label: 'Buoni Spa', icon: Store }
+    { path: '/buoni-spa', label: 'Buoni', icon: Ticket }
   ];
 
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
@@ -238,7 +238,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="hidden md:flex ml-auto items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 px-4 py-2 rounded-xl text-sm font-medium transition-colors border border-zinc-300 shadow-sm"
             >
               <Globe size={18} className="text-[#D400FF]" />
-              <span id="share-btn-text">Condividi Prenotazione</span>
+              <span id="share-btn-text">Condividi prenotazione</span>
             </motion.button>
           </motion.header>
         <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 md:p-0 w-full bg-white scrollbar-none flex flex-col">
@@ -272,7 +272,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                <div className="mt-4 pt-4 border-t border-zinc-200">
                  <h4 className="font-semibold text-zinc-800 mb-2">Funzionalità PRO (Prossimamente)</h4>
                  <ul className="text-sm text-zinc-500 space-y-2">
-                   <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> WhatsApp Reminders</li>
+                   <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> Promemoria WhatsApp</li>
                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> App per i dipendenti</li>
                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" /> Analisi avanzate</li>
                  </ul>

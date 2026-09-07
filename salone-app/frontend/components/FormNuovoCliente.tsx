@@ -59,7 +59,7 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
         <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
-          <h2 className="text-xl font-playfair text-zinc-900 font-semibold">Nuovo Cliente</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 font-semibold">Nuovo cliente</h2>
           <button 
             onClick={onChiudi}
             className="text-zinc-500 hover:text-zinc-900 transition-colors p-1"
@@ -129,7 +129,7 @@ export default function FormNuovoCliente({ onChiudi, onClienteCreato }: FormNuov
           </div>
 
           <div className="mb-4">
-            <label htmlFor="canale_acquisizione" className="block text-sm font-medium text-zinc-500 mb-1">Canale di Acquisizione</label>
+            <label htmlFor="canale_acquisizione" className="block text-sm font-medium text-zinc-500 mb-1">Canale di acquisizione</label>
             <div className="flex gap-2">
               <select
                 id="canale_acquisizione"

@@ -270,7 +270,7 @@ export default function SchedaCliente() {
               <div className="pt-4 border-t border-zinc-200">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText size={16} className="text-zinc-500" />
-                  <span className="text-sm font-semibold text-zinc-900">Note & Preferenze</span>
+                  <span className="text-sm font-semibold text-zinc-900">Note e preferenze</span>
                 </div>
                 {!isEditing ? (
                   <p className="text-sm text-zinc-500 leading-relaxed">
@@ -290,12 +290,12 @@ export default function SchedaCliente() {
           </div>
         </div>
 
-        {/* COLONNA DESTRA: Storico Appuntamenti */}
+        {/* COLONNA DESTRA: Storico appuntamenti */}
         <div className="lg:col-span-2">
           <div className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200 min-h-full">
             <h2 className="text-xl font-playfair text-zinc-900 mb-6 flex items-center gap-2">
               <Calendar size={20} className="text-fuchsia-500" />
-              Storico Appuntamenti
+              Storico appuntamenti
             </h2>
 
             {storico.length === 0 ? (
@@ -331,7 +331,7 @@ export default function SchedaCliente() {
                             <div className="relative group inline-block">
                               <span className="cursor-help inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/35 shadow-sm transition-all hover:bg-indigo-500/25">
                                 <Paintbrush size={11} className="text-indigo-400" />
-                                Colori Utilizzati
+                                Colori utilizzati
                               </span>
                               {/* Hover Tooltip/Popup */}
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 md:w-96 bg-white border border-zinc-300 text-zinc-800 text-sm rounded-xl p-5 shadow-2xl opacity-0 scale-90 translate-y-1 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-30 font-sans leading-relaxed border-t-4 border-t-indigo-500 text-left">
@@ -352,7 +352,7 @@ export default function SchedaCliente() {
                           <div className="mt-2 text-sm text-zinc-500 bg-zinc-50/50 p-3 rounded-lg border border-zinc-200/50">
                             <div className="flex items-center gap-1.5 mb-1 text-zinc-500 font-semibold text-xs tracking-wider uppercase">
                               <FileText size={12} />
-                              <span>Nota Appuntamento</span>
+                              <span>Nota appuntamento</span>
                             </div>
                             <p className="italic leading-relaxed">{appuntamento.note}</p>
                           </div>
@@ -378,7 +378,7 @@ export default function SchedaCliente() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Eliminazione</h3>
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il cliente {cliente.nome} {cliente.cognome}? L'operazione rimuoverà anche lo storico appuntamenti e non potrà essere annullata.
             </p>
@@ -393,7 +393,7 @@ export default function SchedaCliente() {
                 onClick={executeDelete}
                 className="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg transition-colors bg-red-600 hover:bg-red-500"
                >
-                 Elimina Cliente
+                 Elimina cliente
                </button>
             </div>
           </div>

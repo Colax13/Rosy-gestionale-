@@ -141,9 +141,9 @@ export default function GestioneDipendenti() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div className="w-full">
-              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3 mb-4">
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3 mb-4">
                 <User className="text-fuchsia-500" size={28} />
-                Staff e Dipendenti
+                Operatori
               </h1>
           <div className="flex gap-6 mt-2">
             <button 
@@ -156,7 +156,7 @@ export default function GestioneDipendenti() {
               onClick={() => setActiveTab('turni')}
               className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'turni' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
             >
-              Turni e Orari
+              Turni e orari
             </button>
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function GestioneDipendenti() {
                       className="flex items-center gap-2 text-sm font-medium text-fuchsia-400 hover:text-fuchsia-300 transition-colors"
                     >
                       <Eye size={16} />
-                      Vedi Profilo Operatore
+                      Vedi profilo operatore
                     </button>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function GestioneDipendenti() {
           <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200">
             <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-xl font-playfair text-zinc-900 font-semibold">
-                {editingData ? 'Modifica Dipendente' : 'Nuovo Dipendente'}
+                {editingData ? 'Modifica Dipendente' : 'Nuovo operatore'}
               </h2>
               <button 
                 onClick={handleCloseModal}
@@ -318,7 +318,7 @@ export default function GestioneDipendenti() {
                       onChange={handleChange}
                       className="w-4 h-4 text-fuchsia-500 focus:ring-fuchsia-500 border-zinc-200 rounded cursor-pointer"
                     />
-                    <span className="text-sm font-medium text-zinc-900">Accesso Abilitato</span>
+                    <span className="text-sm font-medium text-zinc-900">Accesso abilitato</span>
                   </label>
                   <p className="text-xs text-zinc-500 mt-1 ml-6">
                     Se disattivato, il dipendente non potrà più accedere al gestionale o prendere appuntamenti.
@@ -356,7 +356,7 @@ export default function GestioneDipendenti() {
       {confirmToggleStatus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Operazione</h3>
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma operazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero {confirmToggleStatus.attivo ? 'disattivare' : 'attivare'} l'accesso per {confirmToggleStatus.nome}?
             </p>
@@ -385,7 +385,7 @@ export default function GestioneDipendenti() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Eliminazione</h3>
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               Vuoi davvero eliminare definitivamente il dipendente {confirmDelete.nome} {confirmDelete.cognome}? Questa operazione non può essere annullata.
             </p>
@@ -473,12 +473,12 @@ export default function GestioneDipendenti() {
               {/* Impostazioni Accesso Rapide */}
               <section>
                 <h3 className="text-lg font-semibold text-zinc-900 flex items-center gap-2 mb-4">
-                  <Shield size={20} className="text-fuchsia-500" /> Sicurezza e Accesso
+                  <Shield size={20} className="text-fuchsia-500" /> Sicurezza e accesso
                 </h3>
                 <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-200">
                   <div className="flex items-center justify-between p-4 bg-zinc-50/50">
                     <div>
-                      <h4 className="font-medium text-zinc-800 text-sm">Stato Account</h4>
+                      <h4 className="font-medium text-zinc-800 text-sm">Stato account</h4>
                       <p className="text-xs text-zinc-500 mt-1">Sospendi temporaneamente l'accesso al sistema</p>
                     </div>
                     <button
@@ -490,7 +490,7 @@ export default function GestioneDipendenti() {
                   </div>
                   <div className="flex items-center justify-between p-4 bg-zinc-50/50">
                     <div>
-                      <h4 className="font-medium text-zinc-800 text-sm">Elimina Dipendente</h4>
+                      <h4 className="font-medium text-zinc-800 text-sm">Elimina operatore</h4>
                       <p className="text-xs text-zinc-500 mt-1">Rimuovi definifivamente questo dipendente</p>
                     </div>
                     <button
@@ -516,7 +516,7 @@ export default function GestioneDipendenti() {
           <div className="bg-white/20 p-1.5 rounded-full">
             <Plus size={16} strokeWidth={2.5} />
           </div>
-          <span>Nuovo Dipendente</span>
+          <span>Nuovo operatore</span>
         </button>
       </FloatingActionBar>
 

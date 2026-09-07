@@ -199,11 +199,11 @@ export default function GestioneCatalogo() {
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
             <div>
-              <h1 className="text-3xl font-playfair text-zinc-900 flex items-center gap-3">
+              <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
                 <Scissors className="text-fuchsia-500" size={28} />
-                Catalogo Servizi
+                Servizi
               </h1>
-              <p className="text-zinc-500 font-sans mt-1 text-sm">Gestione dei servizi offerti, divisi per categoria.</p>
+              <p className="text-zinc-500 mt-1 text-sm">Gestione dei servizi offerti, divisi per categoria.</p>
             </div>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function GestioneCatalogo() {
                  <table className="w-full text-left border-collapse">
                    <thead>
                      <tr className="bg-zinc-100/40 border-b border-zinc-200 text-zinc-500 text-xs font-semibold uppercase tracking-wider">
-                       <th className="py-2.5 px-5">Nome Servizio</th>
+                       <th className="py-2.5 px-5">Nome servizio</th>
                        <th className="py-2.5 px-5 text-center">Durata</th>
                        <th className="py-2.5 px-5 text-right">Prezzo</th>
                        <th className="py-2.5 px-5 text-center">Stato</th>
@@ -330,7 +330,7 @@ export default function GestioneCatalogo() {
           <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200">
             <div className="flex justify-between items-center p-5 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-lg font-playfair text-zinc-900 font-semibold">
-                {editingCategoria ? 'Rinomina Categoria' : 'Nuova Categoria'}
+                {editingCategoria ? 'Rinomina Categoria' : 'Nuova categoria'}
               </h2>
               <button 
                 onClick={() => setIsCatModalOpen(false)}
@@ -385,7 +385,7 @@ export default function GestioneCatalogo() {
           <div className="bg-white rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-zinc-200">
             <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-100/30">
               <h2 className="text-xl font-playfair text-zinc-900 font-semibold">
-                {editingService ? 'Modifica Servizio' : 'Nuovo Servizio'}
+                {editingService ? 'Modifica Servizio' : 'Nuovo servizio'}
               </h2>
               <button 
                 onClick={handleCloseModal}
@@ -405,7 +405,7 @@ export default function GestioneCatalogo() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-500 mb-1">Nome Servizio *</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Nome servizio *</label>
                   <input
                     name="nome"
                     type="text"
@@ -569,7 +569,7 @@ export default function GestioneCatalogo() {
       {deleteConfirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma Eliminazione</h3>
+            <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
               {deleteConfirmDialog.tipo === 'categoria' 
                 ? `Eliminando la categoria "${deleteConfirmDialog.nome}", eliminerai anche tutti i servizi inclusi. Questa azione è irreversibile. Procedere?` 
@@ -607,7 +607,7 @@ export default function GestioneCatalogo() {
           className="flex items-center gap-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-full px-5 py-2.5 transition-colors text-sm font-medium"
         >
           <FolderPlus size={16} />
-          Nuova Categoria
+          Nuova categoria
         </button>
         
         <button
@@ -617,7 +617,7 @@ export default function GestioneCatalogo() {
           <div className="bg-white/20 p-1 rounded-full">
             <Plus size={16} strokeWidth={2.5} />
           </div>
-          <span>Nuovo Servizio</span>
+          <span>Nuovo servizio</span>
         </button>
       </FloatingActionBar>
 

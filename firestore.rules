@@ -129,6 +129,21 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidId(dipendenteId) && resource.data.userId == request.auth.uid;
     }
 
+    match /buoni/{buonoId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(buonoId)
+                    && incoming().keys().hasAll(['userId', 'codice', 'valore', 'stato'])
+                    && incoming().userId == request.auth.uid
+                    && incoming().codice is string && incoming().codice.size() <= 40
+                    && incoming().valore is number && incoming().valore >= 0
+                    && incoming().stato is string && incoming().stato.size() <= 20;
+      allow update: if isSignedIn() && isValidId(buonoId)
+                    && resource.data.userId == request.auth.uid
+                    && incoming().userId == resource.data.userId;
+      allow delete: if isSignedIn() && isValidId(buonoId) && resource.data.userId == request.auth.uid;
+    }
+
     match /salons/{salonId} {
       allow read: if true;
       allow list: if false;

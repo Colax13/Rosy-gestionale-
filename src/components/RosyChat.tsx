@@ -32,7 +32,7 @@ export default function RosyChat() {
       <div className="flex-1 overflow-y-auto w-full scrollbar-none p-6 pb-4 flex flex-col gap-5">
          
          <div className="flex flex-col mb-4 bg-zinc-100/80 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/50">
-           <h3 className="text-zinc-900 dark:text-zinc-100 font-semibold mb-1">Assistente Vocale</h3>
+           <h3 className="text-zinc-900 dark:text-zinc-100 font-semibold mb-1">Assistente vocale</h3>
            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Di cosa ha bisogno il tuo salone oggi?</p>
          </div>
          
