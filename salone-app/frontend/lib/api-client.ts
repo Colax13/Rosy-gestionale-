@@ -183,27 +183,73 @@ export const appuntamentiApi = {
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
+  /**
+   * Appuntamenti di un giorno o di un intervallo.
+   *
+   * Prima scaricava TUTTI gli appuntamenti del salone a ogni apertura
+   * dell'agenda e li filtrava sul computer: con qualche migliaio di
+   * appuntamenti diventava pesante. Ora chiede al database solo la finestra
+   * che serve; se l'indice non è ancora stato pubblicato ricade sul vecchio
+   * comportamento, così l'agenda non si blocca mai.
+   */
   getAgenda: async (date?: string, startDate?: string, endDate?: string): Promise<any[]> => {
-    // Firestore non supporta easily combined range filters on random timestamps easily without indexes. 
-    // Mettiamo un getDocs globale per utente se piccolo, o indexiamo
-    const q = query(collection(db, 'appuntamenti'), where('userId', '==', getUserId()));
-    const snap = await getDocs(q);
-    
-    // Filtro locale per comodita senza require index
-    let items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    if (date) {
-      const targetDate = new Date(date).toISOString().split('T')[0];
-      items = items.filter((app: any) => app.data_ora.startsWith(targetDate));
-    } else if (startDate && endDate) {
-      const start = new Date(startDate).getTime();
-      const end = new Date(endDate).getTime() + 86400000 - 1; 
+    const daGiorno = startDate || date;
+    const aGiorno = endDate || date;
+
+    // Confini in ora locale, con un giorno di margine per parte: le date sono
+    // salvate in UTC e senza margine si perderebbero gli appuntamenti serali.
+    let daIso: string | undefined;
+    let aIso: string | undefined;
+    if (daGiorno && aGiorno) {
+      const da = new Date(`${daGiorno}T00:00:00`);
+      da.setDate(da.getDate() - 1);
+      const a = new Date(`${aGiorno}T23:59:59`);
+      a.setDate(a.getDate() + 1);
+      daIso = da.toISOString();
+      aIso = a.toISOString();
+    }
+
+    let items: any[];
+    try {
+      const q = daIso && aIso
+        ? query(
+            collection(db, 'appuntamenti'),
+            where('userId', '==', getUserId()),
+            where('data_ora', '>=', daIso),
+            where('data_ora', '<=', aIso)
+          )
+        : query(collection(db, 'appuntamenti'), where('userId', '==', getUserId()));
+      const snap = await getDocs(q);
+      items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+      // Indice composito non ancora pubblicato: si riparte da tutto l'elenco.
+      console.warn('Query per intervallo non disponibile, ricarico tutto:', err);
+      const snap = await getDocs(query(collection(db, 'appuntamenti'), where('userId', '==', getUserId())));
+      items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // Taglio fine in ora locale, così i confini del giorno sono quelli veri.
+    if (daGiorno && aGiorno) {
+      const inizio = new Date(`${daGiorno}T00:00:00`).getTime();
+      const fine = new Date(`${aGiorno}T23:59:59.999`).getTime();
       items = items.filter((app: any) => {
-        const d = new Date(app.data_ora).getTime();
-        return d >= start && d <= end;
+        const t = new Date(app.data_ora).getTime();
+        return t >= inizio && t <= fine;
       });
     }
+
     return items;
+  },
+  /** Le prenotazioni arrivate dal sito e non ancora confermate dal salone. */
+  getRichieste: async (): Promise<any[]> => {
+    const q = query(
+      collection(db, 'appuntamenti'),
+      where('userId', '==', getUserId()),
+      where('stato', '==', 'in_attesa')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    return items.sort((a, b) => (a.data_ora || '').localeCompare(b.data_ora || ''));
   },
   create: async (data: any) => {
     const ref = doc(collection(db, 'appuntamenti'));

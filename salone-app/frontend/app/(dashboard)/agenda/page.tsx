@@ -222,6 +222,11 @@ export default function PaginaAgenda() {
   const [avvisoSpostamento, setAvvisoSpostamento] = useState<string | null>(null);
   const [confermaSpostamento, setConfermaSpostamento] = useState<{ messaggio: string; procedi: () => void } | null>(null);
 
+  // Richieste arrivate dal sito e ancora da confermare
+  const [richieste, setRichieste] = useState<any[]>([]);
+  const [pannelloRichieste, setPannelloRichieste] = useState(false);
+  const [richiestaInCorso, setRichiestaInCorso] = useState<string | null>(null);
+
   const getLocalDateString = (d: Date) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -240,6 +245,33 @@ export default function PaginaAgenda() {
   useEffect(() => {
     caricaAgenda();
   }, [selectedDate, viewMode]);
+
+  useEffect(() => { caricaRichieste(); }, []);
+
+  const caricaRichieste = async () => {
+    try {
+      setRichieste(await appuntamentiApi.getRichieste());
+    } catch (err) {
+      console.error('Errore nel caricamento delle richieste:', err);
+    }
+  };
+
+  /** Conferma o rifiuta una richiesta arrivata dal sito. */
+  const rispondiARichiesta = async (richiesta: any, azione: 'conferma' | 'rifiuta') => {
+    setRichiestaInCorso(richiesta.id);
+    try {
+      await appuntamentiApi.update(richiesta.id, {
+        stato: azione === 'conferma' ? 'confermato' : 'annullato',
+        data_ora: richiesta.data_ora
+      });
+      await caricaRichieste();
+      caricaAgenda();
+    } catch (err) {
+      setAvvisoSpostamento('Non sono riuscito ad aggiornare la richiesta. Riprova.');
+    } finally {
+      setRichiestaInCorso(null);
+    }
+  };
 
   const getStartOfWeek = (d: Date) => {
     const data = new Date(d);
@@ -330,6 +362,7 @@ export default function PaginaAgenda() {
     switch (stato) {
       case 'completato': return 'bg-green-100 text-green-800 border-green-200';
       case 'annullato': return 'bg-red-100 text-red-800 border-red-200';
+      case 'in_attesa': return 'bg-amber-100 text-amber-800 border-amber-200';
       default: return 'bg-blue-100 text-blue-800 border-blue-200';
     }
   };
@@ -1213,6 +1246,23 @@ export default function PaginaAgenda() {
       <div className="flex gap-4 flex-1 min-h-0">
         {viewMode === 'giorno' && (
           <aside className="hidden xl:flex w-[250px] shrink-0 flex-col gap-3">
+            {richieste.length > 0 && (
+              <button
+                onClick={() => setPannelloRichieste(true)}
+                className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-left hover:bg-amber-100 transition-colors flex items-center gap-3"
+              >
+                <span className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm tabular-nums shrink-0">
+                  {richieste.length}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-amber-900 leading-tight">
+                    {richieste.length === 1 ? 'Richiesta da confermare' : 'Richieste da confermare'}
+                  </span>
+                  <span className="block text-[11px] text-amber-700">Arrivate dal sito</span>
+                </span>
+              </button>
+            )}
+
             {renderCalendarioMese()}
 
             <div className="bg-white border border-zinc-200 rounded-xl p-3 shadow-sm">
@@ -1282,6 +1332,99 @@ export default function PaginaAgenda() {
 
         </div>
       </div>
+
+      {/* Richieste di appuntamento arrivate dal sito */}
+      {pannelloRichieste && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setPannelloRichieste(false)}>
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 font-playfair">Richieste da confermare</h3>
+                <p className="text-sm text-zinc-500 mt-0.5">Arrivate dal sito, in attesa di una risposta.</p>
+              </div>
+              <button onClick={() => setPannelloRichieste(false)} className="p-1 text-zinc-400 hover:text-zinc-900 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5 flex flex-col gap-3">
+              {richieste.length === 0 && (
+                <p className="text-sm text-zinc-500 text-center py-6">Nessuna richiesta in attesa.</p>
+              )}
+
+              {richieste.map(r => {
+                const quando = new Date(r.data_ora);
+                const servizi = (r.righe_appuntamento || []).map((x: any) => x.servizi_catalogo?.nome).filter(Boolean).join(', ');
+                const telefono = r.clienti?.telefono || '';
+                const occupato = richiestaInCorso === r.id;
+
+                return (
+                  <div key={r.id} className="border border-zinc-200 rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-zinc-900">
+                          {r.clienti?.nome} {r.clienti?.cognome}
+                        </div>
+                        <div className="text-sm text-zinc-500 truncate">{servizi || 'Servizio non indicato'}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-semibold text-zinc-900 capitalize">
+                          {quando.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </div>
+                        <div className="text-sm text-fuchsia-600 font-semibold tabular-nums">{formattaOrario(r.data_ora)}</div>
+                      </div>
+                    </div>
+
+                    {(telefono || r.dipendenti?.nome) && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                        {r.dipendenti?.nome && <span>Con {r.dipendenti.nome}</span>}
+                        {telefono && <span className="font-mono">{telefono}</span>}
+                      </div>
+                    )}
+
+                    {r.note && (
+                      <p className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-lg p-2 whitespace-pre-wrap">{r.note}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        disabled={occupato}
+                        onClick={() => rispondiARichiesta(r, 'conferma')}
+                        className="flex-1 min-w-[110px] px-3 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 size={15} /> Conferma
+                      </button>
+                      <button
+                        disabled={occupato}
+                        onClick={() => { setPannelloRichieste(false); handleEdit(r); }}
+                        className="flex-1 min-w-[110px] px-3 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Edit2 size={15} /> Modifica
+                      </button>
+                      {telefono && (
+                        <a
+                          href={`tel:${telefono}`}
+                          className="flex-1 min-w-[110px] px-3 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          Ricontatta
+                        </a>
+                      )}
+                      <button
+                        disabled={occupato}
+                        onClick={() => rispondiARichiesta(r, 'rifiuta')}
+                        className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Rifiuta la richiesta"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conferma spostamento fuori tempo */}
       {confermaSpostamento && (
@@ -1564,6 +1707,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
 
   const isBlock = app.stato === 'annullato';
   const isCompleted = app.stato === 'completato';
+  const isInAttesa = app.stato === 'in_attesa';
   const isEven = idx % 2 === 0;
 
   const heightPixels = durata * (pixelPerMinute || 2);
@@ -1573,6 +1717,9 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
   let bgClass = '';
   if (isBlock) {
     bgClass = 'bg-zinc-100 border-l-4 border-zinc-300 text-zinc-500';
+  } else if (isInAttesa) {
+    // Richiesta dal sito non ancora confermata
+    bgClass = 'bg-amber-50 border-l-4 border-amber-400 text-zinc-700';
   } else if (isCompleted) {
     bgClass = 'bg-emerald-50 border-l-4 border-emerald-500 text-zinc-400';
   } else {
@@ -1738,7 +1885,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                        {app.clienti?.nome} {(app.clienti?.cognome || '').slice(0, 1)}.
                      </span>
                      <span className={`text-[9px] sm:text-[10px] truncate leading-tight ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-600'}`}>
-                       {seg.nome} · {seg.durata}′
+                       {isInAttesa ? 'Da confermare · ' : ''}{seg.nome} · {seg.durata}′
                      </span>
                    </>
                  ) : (

@@ -234,7 +234,7 @@ export default function PrenotazionePubblica() {
       await appuntamentiApi.createPublic(salonId, {
          data_ora: startDateTime.toISOString(),
          note: customerNotes,
-         stato: 'prenotato',
+         stato: 'in_attesa',
          clienti: {
             nome: customerName,
             cognome: customerSurname,
@@ -704,15 +704,15 @@ export default function PrenotazionePubblica() {
              </div>
 
              <div className="relative z-10 w-full max-w-sm">
-               <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-full flex items-center justify-center mb-8 mx-auto shadow-2xl ring-8 ring-emerald-500/20 shadow-emerald-500/30">
-                 <CheckCircle2 size={48} className="drop-shadow-md" />
+               <div className="w-24 h-24 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-full flex items-center justify-center mb-8 mx-auto shadow-2xl ring-8 ring-indigo-500/20 shadow-indigo-500/30">
+                 <Clock size={48} className="drop-shadow-md" />
                </div>
-               <h2 className="text-4xl font-extrabold tracking-tight mb-3 text-center text-slate-900 leading-tight">Prenotato!</h2>
+               <h2 className="text-4xl font-extrabold tracking-tight mb-3 text-center text-slate-900 leading-tight">Richiesta inviata</h2>
                
                <div className="bg-white border text-center border-slate-100 rounded-[2rem] p-8 w-full mt-8 shadow-xl shadow-black/5 relative overflow-hidden">
                  
                  <p className="text-lg text-slate-600 mb-6 font-medium leading-relaxed">
-                   Ti aspettiamo da <strong className="text-slate-900">{salonName}</strong> per <strong className="text-slate-900">{selectedService}</strong>.
+                   Abbiamo ricevuto la tua richiesta per <strong className="text-slate-900">{selectedService}</strong> da <strong className="text-slate-900">{salonName}</strong>.
                  </p>
                  
                  <div className="bg-[#f8f8fb] rounded-[1.25rem] p-5 border border-slate-100 max-w-sm mx-auto text-left space-y-3">
@@ -721,7 +721,7 @@ export default function PrenotazionePubblica() {
                        <CalendarIcon size={18} className="text-emerald-600" />
                      </div>
                      <div>
-                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Quando</div>
+                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Quando (richiesto)</div>
                        <div className="font-bold text-slate-900 text-sm">{selectedDate.split(' ')[0]} alle {selectedTime}</div>
                      </div>
                    </div>
@@ -740,8 +740,12 @@ export default function PrenotazionePubblica() {
                  </div>
                </div>
 
-               <div className="mt-8 text-center text-[13px] font-medium text-slate-500 px-8">
-                 Abbiamo inviato un SMS di conferma al numero <br/><strong className="text-slate-800">{customerPhone}</strong>
+               <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+                 <p className="text-[13px] font-semibold text-amber-900 mb-1">L'appuntamento non è ancora confermato</p>
+                 <p className="text-[13px] text-amber-800 leading-relaxed">
+                   Il salone controlla la disponibilità e ti risponde al numero{' '}
+                   <strong className="whitespace-nowrap">{customerPhone}</strong>.
+                 </p>
                </div>
              </div>
 
