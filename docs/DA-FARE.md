@@ -353,3 +353,101 @@ Oltre alla prenotazione online che invia la richiesta al gestionale (**A14**), s
 - automazioni collegate: messaggi di richiesta inviata, conferma, promemoria, annullamento
 
 Da decidere insieme a **B1** (app o sito) e **B2** (notifiche o SMS); il pagamento presumibilmente su Stripe, come già fanno per i buoni.
+
+---
+
+## G. Nuova lista (giro 3)
+
+Raccolta dalla chiamata. Ordine di scrittura, non di lavorazione.
+
+### Bug da sistemare
+
+**G1 — Modalità scura rotta, e barre nere per chi ce l'ha attiva** · ALTA
+Le intestazioni sopra l'agenda, clienti, servizi e operatori appaiono nere ad
+alcuni e normali ad altri. *Causa individuata:* nel raddrizzare i colori ho
+scritto `body { bg-white text-zinc-900 }` fisso, mentre le barre hanno ancora
+le varianti `dark:`. Chi ha il tema scuro salvato nel browser si ritrova barre
+scure su pagina bianca; chi non l'ha mai attivato vede tutto normale — per
+questo Daniele lo vede giusto. Da rifare: modalità chiara e scura entrambe
+funzionanti, con l'interruttore che le cambia davvero.
+
+**G2 — "Vedi chi sono" su Rosie Hub** · MEDIA
+Il pulsante va sistemato.
+
+**G3 — Nome della cliente tagliato** · ALTA
+Deve vedersi **completo**, e su **tutti i blocchi** dell'appuntamento: se c'è
+colore, posa e piega, il nome sta sia sul colore sia sulla piega. Se non ci
+sta, puntini di sospensione e nome intero al passaggio del mouse.
+
+**G4 — La card balla quando ci passi sopra** · ALTA
+Adesso si rimpicciolisce e si riassesta. Deve aprirsi completa **senza
+schiacciarsi**, restando alta uguale, e andare in evidenza.
+
+**G5 — Lo zero fisso nei campi numerici** · ALTA
+Nel servizio, prezzo e minuti partono da `0`: se scrivi 15 diventa `015` e non
+si salva. Lo zero deve sparire appena scrivi, oppure niente numero e un
+segnaposto in grigio.
+
+**G6 — L'aspetto della posa non piace** · MEDIA
+Così com'è non convince: deve dare l'idea di **spazio libero**, non di una
+fascia occupata.
+
+### Agenda: nuove funzioni
+
+**G7 — Spostare i singoli servizi fra operatori** · ALTA
+Colore con un'operatrice e piega con un'altra: si deve poter trascinare **il
+singolo servizio** a destra o a sinistra, non tutto l'appuntamento. Spostando
+di colonna l'orario **non deve cambiare**.
+
+**G8 — Domanda allo spostamento** · ALTA
+Quando si sposta, comparire un riquadro: *«Lo lasci allo stesso orario o lo
+cambi?»*, e si decide lì.
+
+**G9 — Servizi separati restano legati a vista** · MEDIA
+Se i due servizi finiscono su operatrici diverse i trattini di collegamento
+spariscono: restano **dello stesso colore**, e passando col mouse su uno si
+evidenzia anche l'altro, così si capisce che è la stessa cliente.
+
+**G10 — Effetto sfocatura sul resto al passaggio del mouse** · da decidere
+Idea da valutare, serve un parere.
+
+### Operatori
+
+**G11 — Accesso per le operatrici** · ALTA
+Email o nome utente e password, per entrare anche dal telefono.
+
+**G12 — Permessi per operatrice** · ALTA
+Chi dà l'accesso sceglie **a quali pagine** può entrare: solo agenda, oppure
+agenda più clienti e servizi, oppure agenda e buoni. Il resto oscurato.
+
+**G13 — Servizi che ogni operatrice può fare** · ALTA
+Non tutte fanno tutto. Terza scheda nella scheda operatore, accanto a turni e
+orari, con l'elenco dei servizi da spuntare e il tasto Salva.
+
+### Clienti e prenotazioni
+
+**G14 — "Ricontatta" che funziona** · ALTA
+Da computer apre WhatsApp sul numero della cliente. Da telefono propone
+**chiama** oppure **messaggio WhatsApp**.
+
+**G15 — Verifica del numero nella prenotazione online** · ALTA
+Oggi si può prenotare con un numero inventato. Serve un controllo.
+
+**G16 — Messaggio alla cliente quando confermi** · ALTA
+Quando il salone conferma, alla cliente arriva un messaggio.
+
+**G17 — App o sito: decisione** · da decidere
+Obiettivo dichiarato: far spendere meno al cliente.
+
+### Buoni
+
+**G18 — Collegare i buoni pagati online** · ALTA
+Il foglio Google contiene già quanto ha pagato, chi è, e **piega sì / piega
+no** in base all'importo. Da capire se leggere il foglio o passare da Make.
+
+### Nuovo
+
+**G19 — Preconto** · MEDIA
+Come al ristorante: si selezionano i servizi fatti, esce il totale, si stampa
+su una stampantina. I prezzi sono **gli stessi del catalogo**, così cambiando
+lì cambia anche qui. Serve capire il collegamento con la stampante.
