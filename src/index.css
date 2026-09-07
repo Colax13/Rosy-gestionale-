@@ -24,18 +24,24 @@
 }
 
 :root {
-   /* LIGHT MODE COLORS */
-   --th-zinc-950: #f4f4f5;
-   --th-zinc-900: #ffffff; 
-   --th-zinc-800: #e4e4e7;
-   --th-zinc-700: #d4d4d8;
-   --th-zinc-600: #a1a1aa;
+   /* Tema chiaro.
+      Prima questa scala era ROVESCIATA: zinc-900 valeva bianco e zinc-100
+      quasi nero, così il codice scritto per il tema scuro girava anche in
+      chiaro. Un trucco che si ritorce contro appena qualcuno scrive una
+      classe pensando al significato normale: si ritrova bianco su bianco.
+      Adesso ogni tonalità vale quello che dice: 50 chiarissimo, 950 quasi
+      nero, come nel resto del mondo Tailwind. */
+   --th-zinc-950: #09090b;
+   --th-zinc-900: #18181b;
+   --th-zinc-800: #27272a;
+   --th-zinc-700: #3f3f46;
+   --th-zinc-600: #52525b;
    --th-zinc-500: #71717a;
-   --th-zinc-400: #52525b;
-   --th-zinc-300: #3f3f46;
-   --th-zinc-200: #27272a;
-   --th-zinc-100: #18181b;
-   --th-zinc-50:  #09090b;
+   --th-zinc-400: #a1a1aa;
+   --th-zinc-300: #d4d4d8;
+   --th-zinc-200: #e4e4e7;
+   --th-zinc-100: #f4f4f5;
+   --th-zinc-50:  #fafafa;
 }
 
 :root.dark {
@@ -54,7 +60,7 @@
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100;
+  @apply bg-white text-zinc-900;
 }
 
 .gradient-brand {
