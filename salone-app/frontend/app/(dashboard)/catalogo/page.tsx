@@ -347,7 +347,7 @@ export default function GestioneCatalogo() {
                  </div>
                )}
                <div>
-                  <label className="block text-sm font-medium text-zinc-500 mb-1">Nome Categoria *</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Nome categoria *</label>
                   <input
                     type="text"
                     required
@@ -431,7 +431,7 @@ export default function GestioneCatalogo() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-500 mb-1">Durata Totale (min)</label>
+                    <label className="block text-sm font-medium text-zinc-500 mb-1">Durata totale (min)</label>
                     <div className="w-full p-2 h-[42px] border border-zinc-200 bg-zinc-50/30 text-zinc-500 rounded-md font-sans flex items-center cursor-not-allowed">
                       {formData.durata_minuti || 0}
                     </div>
@@ -506,7 +506,7 @@ export default function GestioneCatalogo() {
                       onChange={handleChange}
                       className="w-4 h-4 text-fuchsia-500 focus:ring-fuchsia-500 border-zinc-300 rounded cursor-pointer bg-white"
                     />
-                    <span className="text-sm font-medium text-zinc-900">Servizio Attivo nel Catalogo</span>
+                    <span className="text-sm font-medium text-zinc-900">Servizio attivo nel catalogo</span>
                   </label>
                   <p className="text-xs text-zinc-500 mt-1 ml-6">
                     Se disattivato, non apparirà in fase di creazione di un nuovo appuntamento.
@@ -514,7 +514,7 @@ export default function GestioneCatalogo() {
                 </div>
 
                 <div className="pt-2 border-t border-zinc-200">
-                  <label className="block text-sm font-medium text-zinc-500 mb-1">Note Private (Solo Per Te)</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Note private (solo per te)</label>
                   <textarea
                     name="note_private"
                     value={formData.note_private || ''}
@@ -527,7 +527,7 @@ export default function GestioneCatalogo() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-500 mb-1">Avvisi Pubblici (Visibili al Cliente)</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Avvisi pubblici (visibili alla cliente)</label>
                   <textarea
                     name="note_pubbliche"
                     value={formData.note_pubbliche || ''}

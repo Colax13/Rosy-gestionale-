@@ -291,7 +291,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
              <div className="mt-8 flex justify-between">
               <button onClick={prevStep} className="text-gray-500 px-4 py-3 hover:bg-gray-100 rounded-lg">Indietro</button>
               <button onClick={nextStep} className="bg-black text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors">
-                Vai ai Piani <ArrowRight size={18} />
+                Vai ai piani <ArrowRight size={18} />
               </button>
             </div>
           </div>

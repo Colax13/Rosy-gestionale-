@@ -335,7 +335,7 @@ export default function PaginaReport() {
             >
               <h3 className="text-lg font-playfair text-zinc-900 mb-6 flex items-center gap-2">
                 <Sparkles size={16} className="text-fuchsia-400" />
-                Ultimi Clienti Acquisiti questo mese
+                Ultimi clienti acquisiti questo mese
               </h3>
 
               <div className="overflow-x-auto font-sans text-sm">

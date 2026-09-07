@@ -1511,11 +1511,11 @@ export default function PaginaAgenda() {
               <div>
                 <h3 className="text-sm font-bold text-fuchsia-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Shield size={16} />
-                  Autorizzazioni e Accesso
+                  Autorizzazioni e accesso
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white border border-zinc-200 rounded-lg p-4 flex flex-col gap-1">
-                    <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Ruolo di Sistema</span>
+                    <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Ruolo</span>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${selectedOperatorePreview.ruolo === 'admin' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-zinc-100 text-zinc-700 border border-zinc-300'}`}>
                         {selectedOperatorePreview.ruolo || 'Dipendente'}

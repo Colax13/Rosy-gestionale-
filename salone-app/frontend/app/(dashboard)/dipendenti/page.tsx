@@ -297,7 +297,7 @@ export default function GestioneDipendenti() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-500 mb-1">Ruolo Sistema *</label>
+                  <label className="block text-sm font-medium text-zinc-500 mb-1">Ruolo *</label>
                   <select
                     name="ruolo"
                     value={formData.ruolo}

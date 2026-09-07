@@ -337,7 +337,7 @@ export default function SchedaCliente() {
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-80 md:w-96 bg-white border border-zinc-300 text-zinc-800 text-sm rounded-xl p-5 shadow-2xl opacity-0 scale-90 translate-y-1 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-200 pointer-events-none z-30 font-sans leading-relaxed border-t-4 border-t-indigo-500 text-left">
                                 <div className="flex items-center gap-2 font-bold text-zinc-900 pb-2 mb-2 border-b border-zinc-200 text-base">
                                   <Paintbrush size={16} className="text-indigo-400" />
-                                  <span>Dettagli Colori / Miscela:</span>
+                                  <span>Colori e miscela</span>
                                 </div>
                                 <p className="font-mono text-sm leading-relaxed text-indigo-100 bg-black/40 p-3 rounded-lg border border-black/50 break-words mt-2">
                                   {appuntamento.miscela_colore}

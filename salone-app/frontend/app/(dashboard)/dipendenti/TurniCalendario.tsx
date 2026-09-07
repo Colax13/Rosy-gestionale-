@@ -307,7 +307,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
                     <button
                       onClick={() => handleOpenEdit(dip)}
                       className="p-2 text-zinc-500 hover:text-fuchsia-400 hover:bg-zinc-100 rounded-lg transition-colors inline-flex items-center justify-center opacity-70 group-hover:opacity-100"
-                      title="Modifica Orari"
+                      title="Modifica"
                     >
                       <Edit2 size={16} />
                     </button>

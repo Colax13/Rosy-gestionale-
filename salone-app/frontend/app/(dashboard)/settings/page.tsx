@@ -157,7 +157,7 @@ export default function Settings() {
             <h3 className="text-xl font-bold text-zinc-900">Informazioni salone</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 overflow-hidden w-full">
-                <label className="block text-sm font-medium text-zinc-500 mb-2">Link Pubblico di Prenotazione</label>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Link pubblico di prenotazione</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-zinc-200 w-full overflow-hidden">
                   <div className="flex items-center gap-3 w-full sm:w-auto min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-lg bg-fuchsia-600/10 text-fuchsia-500 flex items-center justify-center shrink-0">
@@ -217,7 +217,7 @@ export default function Settings() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-500 mb-2">Descrizione Salone (Visibile ai clienti)</label>
+              <label className="block text-sm font-medium text-zinc-500 mb-2">Descrizione del salone (visibile alle clienti)</label>
               {isEditing ? (
                 <textarea rows={4} value={dettagli.descrizioneGenerale} onChange={e => setDettagli({...dettagli, descrizioneGenerale: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500 resize-none" />
               ) : (
@@ -225,7 +225,7 @@ export default function Settings() {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-500 mb-2">URL Logo Salone (Opzionale)</label>
+              <label className="block text-sm font-medium text-zinc-500 mb-2">Indirizzo del logo (facoltativo)</label>
               {isEditing ? (
                 <input type="text" placeholder="https://..." value={dettagli.logoUrl || ''} onChange={e => setDettagli({...dettagli, logoUrl: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
               ) : (
