@@ -217,44 +217,99 @@ Trovate leggendo il codice, **da verificare insieme una per una**. Le prime tre 
 
 ## E. Stato dei lavori
 
-Aggiornato dopo il primo giro di modifiche (ramo `claude/gestionale-agenda-app-8bk29q`).
+Aggiornato dopo il passaggio sul repository `rosy-gestionale-`.
 
-### Fatto
+### Fatto e pushato
 
-| # | Cosa | Dove |
+| # | Cosa |
+|---|------|
+| A1 | Colonne operatori a larghezza uguale, tutte visibili |
+| A2 | Colonna sinistra con Clienti · Prodotti · Buoni e accesso alla dashboard |
+| A3 | Calendario del mese sempre visibile, clic sul giorno |
+| A4 | Tre tempi nel servizio: lavorazione, posa, finitura |
+| A5 | Durante la posa la fascia è libera e prenotabile |
+| A6 | Colonne affiancate calcolate sulle sole lavorazioni |
+| A7 | Appuntamenti trascinabili, con controllo conflitti |
+| A8 | Turni veri: giorni non lavorativi oscurati ma utilizzabili |
+| A9 | Tema chiaro su tutte le pagine |
+| A10 | Sezione Buoni: registro, ricerca per codice, utilizzo anche parziale |
+| A11 | Import clienti da Excel e CSV, con anteprima e controllo doppioni |
+| A12 | Cliente creabile senza telefono ed email |
+| A14 | Richiesta di appuntamento con Conferma / Modifica / Ricontatta / Rifiuta |
+| C1 | Verificato: era una diagnosi sbagliata. Corretti i due salvataggi rotti davvero |
+| C2 | Risolto insieme ad A12 |
+| C4 | L'agenda chiede solo i giorni che servono, non più tutto lo storico |
+| C5 | Via l'orario fisso 9-18 |
+| C6 | La posa non si indovina più dal nome del servizio |
+| C8 | Report con numeri veri |
+| C11 | Tolto il messaggio "ti abbiamo inviato un SMS" che era falso |
+| F1 | Le tre fasi si leggono a colpo d'occhio + avviso di sforamento |
+| F2 | Pulsanti che non rispondevano, giro completo su tutte le pagine |
+
+### Bloccate: serve prima il pezzo lato server su Vercel
+
+Tre lavori diversi, **un solo prerequisito**: un endpoint sul server con
+`FIREBASE_SERVICE_ACCOUNT` configurata. Conviene farlo una volta sola.
+
+| # | Cosa | Perché serve il server |
+|---|------|------------------------|
+| C3 | Chiudere le regole del database | Il sito di prenotazione deve leggere le disponibilità senza vedere i dati delle clienti |
+| A13, C7 | SMS e promemoria | L'invio non si può fare dal browser: la chiave del fornitore sarebbe visibile a tutti |
+| F3 | Buoni pagati online | Make ha bisogno di un indirizzo a cui scrivere il buono |
+| F4 | Acconto sulla prenotazione | Stripe deve confermare il pagamento a un endpoint fidato |
+
+### Ancora aperte, senza prerequisiti
+
+| # | Cosa | Nota |
 |---|------|------|
-| A1 | Colonne operatori proporzionali, tutte visibili, niente scorrimento laterale | `agenda/page.tsx` |
-| A2 | Colonna sinistra con Clienti · Prodotti · Buoni e accesso alla dashboard | `agenda/page.tsx` |
-| A3 | Calendario del mese sempre visibile, clic sul giorno → apre quel giorno | `agenda/page.tsx` |
-| A4 | Tempi di lavorazione e posa letti dal catalogo e portati sull'appuntamento | `lib/servizi.ts`, `AggiungiCalendarioSidebar.tsx` |
-| A5 | Durante la posa l'agenda lascia il buco: la fascia è prenotabile | `lib/servizi.ts`, `agenda/page.tsx` |
-| A6 | Le colonne affiancate si calcolano sulle sole lavorazioni | `agenda/page.tsx` |
-| A7 | Appuntamenti trascinabili fra orari e operatori, con controllo conflitti | `agenda/page.tsx` |
-| A8 | Turni veri per operatore: giorni non lavorativi oscurati ma utilizzabili | `lib/servizi.ts`, `agenda/page.tsx` |
-| A9 | Tema chiaro su tutte le pagine | tutte le pagine |
-| A12 | Cliente creabile senza telefono ed email | `src/lib/firebase.ts` |
-| C1 | Verificato e corretto (vedi sopra) | `Onboarding.tsx`, `api-client.ts` |
-| C2 | Risolto | `src/lib/firebase.ts` |
-| C5 | L'orario fisso 9-18 non c'è più: la finestra segue turni e appuntamenti | `agenda/page.tsx` |
-| C6 | La posa non viene più indovinata dal nome del servizio | `lib/servizi.ts` |
-
-### Ancora da fare
-
-| # | Cosa | Note |
-|---|------|------|
-| A10 | Sezione Buoni | la voce nel menù c'è, la pagina è ancora da costruire |
-| A11 | Import clienti in blocco | dipende da **B4** (formato di partenza) |
-| A13 | Messaggi e notifiche automatiche | dipende da **B1** e **B2** |
-| A14 | Flusso richiesta → conferma | da fare, insieme al messaggio SMS falso (C11) |
-| C3 | Appuntamenti leggibili da chiunque | richiede una scelta: endpoint pubblico per le disponibilità oppure togliere i dati della cliente dal documento appuntamento |
-| C4 | Agenda che rallenta col tempo | query per intervallo di date invece dello scarico completo |
-| C7 | Promemoria che non partono | serve uno scheduler esterno |
-| C8 | Report con numeri finti | da collegare ai dati veri |
-| C9 | Pagine Prodotti e Automazioni | ancora segnaposto |
-| C10 | Backend Express con dati finti | dipende da **B5** (cancellarlo o no) |
-| C12 | App installabile | dipende da **B1** |
+| C9 | Prodotti e Automazioni | Oggi sono pagine oneste ma vuote: da decidere cosa ci va dentro |
+| C10, B5 | Backend vecchio con dati finti | In `salone-app/backend` sei file su otto non sono collegati a niente. Da cancellare |
+| — | `fix-gap.js` e `patch.js` in radice | Script usa e getta finiti nel repository per sbaglio |
+| C12 | App installabile | Dipende da B1: si fa quando si parte con le notifiche |
+| A15 | Stabilità | Continuo: giro di prova prima di ogni consegna al salone |
 
 ---
+
+## E2. Quanto costa tenerlo acceso (B3)
+
+Budget indicato: intorno ai 100 €, anche 50 € l'anno vanno bene, purché la
+somma non esploda.
+
+### Quello che serve per forza
+
+| Voce | Costo | Note |
+|------|-------|------|
+| Hosting su Vercel | **0 €** | Il piano gratuito basta per un salone. Si paga solo se il sito diventa molto trafficato |
+| Database Firebase | **0 €** fino a ~50.000 letture al giorno | Un salone ne fa qualche centinaio. Oltre la soglia si passa al consumo, ordine di pochi euro l'anno |
+| Dominio | **10-15 € l'anno** | Solo se volete un indirizzo vostro invece di quello di Vercel |
+
+**Totale minimo: 0-15 € l'anno.**
+
+### Quello che si paga a consumo
+
+| Voce | Costo | Con che volumi |
+|------|-------|----------------|
+| SMS (Twilio) | **~0,07 € a messaggio** | 100 promemoria al mese ≈ **7 € al mese, 84 € l'anno** |
+| WhatsApp Business | ~0,04 € a messaggio | Più economico degli SMS ma serve l'approvazione di Meta e i modelli di messaggio |
+| Notifiche dell'app | **0 €** | Solo per chi installa l'app |
+| Stripe (buoni e acconti) | 1,5% + 0,25 € a incasso | Lo pagate già oggi sui buoni |
+
+### Quello che si paga solo se si fa l'app vera
+
+| Voce | Costo |
+|------|-------|
+| Account sviluppatore Apple | **99 $ l'anno** |
+| Account Google Play | 25 $ una tantum |
+
+### In pratica
+
+- **Partendo da sito installabile + SMS solo per i promemoria**: circa **7-10 € al mese**, cioè **85-120 € l'anno**. Dentro il budget.
+- **Se si riducono gli SMS** mandandoli solo il giorno prima e non anche alla prenotazione, si dimezza.
+- **Se le clienti installano l'app**, per loro le notifiche costano zero e gli SMS restano solo per chi non ce l'ha. Più cresce chi la installa, meno si spende.
+- **L'account Apple da 99 $ l'anno si evita** finché restiamo sul sito installabile.
+
+La cosa importante: **non ci sono costi fissi che esplodono**. La parte che cresce
+sono gli SMS, ed è proporzionale ai messaggi mandati, quindi controllabile.
 
 ## F. Nuove richieste (giro successivo)
 
