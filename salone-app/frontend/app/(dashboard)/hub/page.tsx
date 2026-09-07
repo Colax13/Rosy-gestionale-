@@ -46,7 +46,7 @@ export default function DashboardHub() {
       bg: "bg-fuchsia-500/10",
     },
     {
-      title: "Dipendenti",
+      title: "Operatori",
       route: "/dipendenti",
       icon: UserCog,
       color: "text-indigo-500",
@@ -91,8 +91,8 @@ export default function DashboardHub() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h1 className="text-4xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-zinc-300 to-fuchsia-200 tracking-tight drop-shadow-sm mb-4">
-              Benvenuto in Rosy
+            <h1 className="text-4xl md:text-5xl font-playfair font-black text-zinc-900 tracking-tight mb-4">
+              Benvenuto in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D400FF] to-[#6B5CFF]">Rosy</span>
             </h1>
             <p className="text-zinc-500 font-sans mt-2 max-w-lg mx-auto">
               Il tuo ecosistema di gestione. Scegli un modulo per iniziare.
@@ -110,20 +110,20 @@ export default function DashboardHub() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.4, delay: idx * 0.05, ease: "easeOut" }}
                   whileHover={{
-                    scale: 1.05,
-                    y: -5,
-                    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7)",
+                    scale: 1.04,
+                    y: -4,
+                    boxShadow: "0 18px 40px -12px rgba(24,24,27,0.18)",
                   }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-zinc-800/60 to-zinc-900 border border-zinc-200/80 rounded-[28px] p-6 transition-all hover:border-zinc-300/80 group relative overflow-hidden aspect-square shadow-[0_8px_30px_rgb(0,0,0,0.5)] shadow-black/40"
+                  className="flex flex-col items-center justify-center gap-4 bg-white border border-zinc-200 rounded-[28px] p-6 transition-all hover:border-zinc-300 group relative overflow-hidden aspect-square shadow-sm"
                 >
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500 bg-gradient-to-br ${card.bg}`} />
-                  
-                  <div className={`w-14 h-14 rounded-2xl ${card.bg} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 shadow-inner ring-1 ring-white/5`}>
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${card.bg}`} />
+
+                  <div className={`w-14 h-14 rounded-2xl ${card.bg} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 relative z-10`}>
                     <Icon size={26} className={`${card.color}`} strokeWidth={1.5} />
                   </div>
-                  
-                  <span className="font-sans font-semibold text-sm md:text-base text-zinc-900 tracking-wide drop-shadow-sm pointer-events-none">
+
+                  <span className="font-sans font-semibold text-sm md:text-base text-zinc-800 tracking-wide pointer-events-none relative z-10">
                     {card.title}
                   </span>
                 </motion.button>

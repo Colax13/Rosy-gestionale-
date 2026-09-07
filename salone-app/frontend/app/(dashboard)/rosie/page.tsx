@@ -37,7 +37,7 @@ export default function RosieHub() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="text-4xl md:text-5xl font-playfair font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-zinc-300 to-fuchsia-200 tracking-tight drop-shadow-sm">
+          <h1 className="text-4xl md:text-5xl font-playfair font-black text-zinc-900 tracking-tight">
             Buongiorno, {auth.currentUser?.displayName || 'Professionista'}
           </h1>
           <p className="text-zinc-500 font-sans mt-2 max-w-lg">

@@ -83,13 +83,15 @@ export default function App() {
   };
 
   // Check if it's a public booking route: "/anything/prenota"
-  const isPublicRoute = window.location.pathname.endsWith('/prenota');
+  const isPublicRoute = window.location.pathname.endsWith('/prenota') || window.location.search.includes('anteprima');
 
   if (isPublicRoute) {
     return (
       <BrowserRouter>
         <Routes>
           <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
+          <Route path="/hub" element={<Layout><DashboardHub /></Layout>} />
+          <Route path="/rosie" element={<Layout><RosieHub /></Layout>} />
         </Routes>
       </BrowserRouter>
     );

@@ -1108,7 +1108,8 @@ export default function PaginaAgenda() {
                         ))}
                       </div>
                       <div className="grid grid-cols-7 gap-1">
-                        {Array.from({ length: (pickerDate.getDay() || 7) - 1 }).map((_, i) => <div key={`empty-${i}`} />)}
+                        {/* Le celle vuote iniziali dipendono dal PRIMO del mese, non dal giorno scelto: prima la griglia slittava a ogni cambio di giorno. */}
+                        {Array.from({ length: (new Date(pickerDate.getFullYear(), pickerDate.getMonth(), 1).getDay() || 7) - 1 }).map((_, i) => <div key={`empty-${i}`} />)}
                         {Array.from({ length: new Date(pickerDate.getFullYear(), pickerDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
                           const day = i + 1;
                           const cellDate = new Date(pickerDate.getFullYear(), pickerDate.getMonth(), day);
