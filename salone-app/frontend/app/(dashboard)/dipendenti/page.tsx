@@ -454,65 +454,19 @@ export default function GestioneDipendenti() {
                   <h3 className="text-lg font-semibold text-zinc-900 flex items-center gap-2">
                     <FileText size={20} className="text-fuchsia-500" /> Documenti
                   </h3>
-                  <button className="text-sm font-medium text-fuchsia-400 hover:text-fuchsia-300 transition-colors flex items-center gap-1">
-                    <Plus size={16} /> Aggiungi
-                  </button>
                 </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  
-                  {/* Doc template: Identità */}
-                  <div className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-300">
-                     <div className="flex items-start justify-between">
-                       <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg shrink-0">
-                         <FileText size={20} />
-                       </div>
-                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-100 px-2 py-1 rounded text-zinc-500">PDF</span>
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-medium text-zinc-800 text-sm mb-1 line-clamp-1">Documento d'identità</h4>
-                       <p className="text-xs text-zinc-500">Aggiunto il 10/10/2023</p>
-                     </div>
-                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-200/80">
-                        <button className="flex-1 text-xs font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
-                          <Eye size={14} /> Visualizza
-                        </button>
-                        <button className="p-1.5 text-zinc-500 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded transition-colors">
-                          <Download size={14} />
-                        </button>
-                     </div>
+
+                {/* Prima qui c'erano documenti finti con pulsanti che non
+                    facevano nulla. Meglio dire com'è: il caricamento non c'è
+                    ancora. */}
+                <div className="bg-white border border-dashed border-zinc-300 rounded-xl p-8 flex flex-col items-center justify-center gap-2 text-center">
+                  <div className="p-3 bg-zinc-100 rounded-full text-zinc-400">
+                    <FileText size={22} />
                   </div>
-
-                  {/* Doc template: Contratto */}
-                  <div className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 group relative overflow-hidden transition-colors hover:border-zinc-300">
-                     <div className="flex items-start justify-between">
-                       <div className="p-2 bg-green-500/10 text-green-400 rounded-lg shrink-0">
-                         <FileText size={20} />
-                       </div>
-                       <span className="text-[10px] font-bold tracking-wider uppercase bg-zinc-100 px-2 py-1 rounded text-zinc-500">PDF</span>
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-medium text-zinc-800 text-sm mb-1 line-clamp-1">Contratto di assunzione</h4>
-                       <p className="text-xs text-zinc-500">Aggiunto il 15/10/2023</p>
-                     </div>
-                     <div className="flex items-center gap-2 mt-2 pt-3 border-t border-zinc-200/80">
-                        <button className="flex-1 text-xs font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-1.5 rounded transition-colors flex items-center justify-center gap-1">
-                          <Eye size={14} /> Visualizza
-                        </button>
-                        <button className="p-1.5 text-zinc-500 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded transition-colors">
-                          <Download size={14} />
-                        </button>
-                     </div>
-                  </div>
-
-                  {/* Empty Slot */}
-                  <button className="bg-zinc-50/50 border border-dashed border-zinc-200 hover:border-zinc-300 hover:bg-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-700 transition-colors h-[140px]">
-                    <div className="p-2 bg-zinc-100 rounded-full">
-                       <Plus size={20} />
-                    </div>
-                    <span className="text-sm font-medium">Aggiungi Attestato di sicurezza</span>
-                  </button>
-
+                  <p className="text-sm font-medium text-zinc-700">Nessun documento</p>
+                  <p className="text-xs text-zinc-500 max-w-xs">
+                    Il caricamento dei documenti (identità, contratto, attestati) non è ancora attivo.
+                  </p>
                 </div>
               </section>
 

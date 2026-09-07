@@ -1,11 +1,13 @@
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   CalendarDays,
   Users,
   Scissors,
   Clock,
   ChevronDown,
+  ChevronRight,
   Calendar as CalendarIcon
 } from "lucide-react";
 import { auth } from "../../../../../src/lib/firebase";
@@ -67,12 +69,19 @@ export default function RosieHub() {
             </div>
 
             <div className="flex items-center justify-end gap-3 w-full md:w-auto relative z-10 mt-4 md:mt-0">
-               <button className="flex-1 md:flex-none px-6 py-3 rounded-xl gradient-brand text-white font-semibold text-sm shadow-[0_0_15px_rgba(212,0,255,0.3)] hover:shadow-[0_0_25px_rgba(212,0,255,0.5)] hover:-translate-y-0.5 transition-all">
-                 Invia messaggi
+               <button
+                 disabled
+                 title="L'invio automatico dei messaggi non è ancora attivo"
+                 className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-zinc-100 text-zinc-400 font-semibold text-sm cursor-not-allowed"
+               >
+                 Invia messaggi · in arrivo
                </button>
-               <button className="px-5 py-3 bg-zinc-100 dark:bg-[#1A1E2B] hover:bg-zinc-200 dark:hover:bg-[#252B3D] border border-zinc-300 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-300 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
-                 Vedi chi sono <ChevronDown size={16} className="text-zinc-500" />
-               </button>
+               <Link
+                 to="/clienti"
+                 className="px-5 py-3 bg-zinc-100 dark:bg-[#1A1E2B] hover:bg-zinc-200 dark:hover:bg-[#252B3D] border border-zinc-300 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-300 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+               >
+                 Vedi chi sono <ChevronRight size={16} className="text-zinc-500" />
+               </Link>
             </div>
           </div>
 

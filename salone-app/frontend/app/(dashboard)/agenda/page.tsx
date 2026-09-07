@@ -39,7 +39,8 @@ function MonthDayCell({
   dipendenti, 
   setSelectedOperatorePreview, 
   formattaOrario, 
-  getStatoBadge 
+  getStatoBadge,
+  onApriGiorno
 }: {
   dateStr: string;
   d: string;
@@ -49,6 +50,7 @@ function MonthDayCell({
   setSelectedOperatorePreview: (op: any) => void;
   formattaOrario: (iso: string) => string;
   getStatoBadge: (stato: string) => string;
+  onApriGiorno: () => void;
 }) {
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedOp, setSelectedOp] = useState<any>(null);
@@ -65,6 +67,8 @@ function MonthDayCell({
     <div 
       className="p-3 relative hover:bg-zinc-100/60 transition-colors cursor-pointer group flex flex-col justify-between"
       onMouseLeave={() => setView('list')}
+      onClick={onApriGiorno}
+      title="Apri questa giornata"
     >
       <div className="flex justify-between items-start">
         <span className={`inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full ${isOggi ? 'bg-fuchsia-600 text-white' : 'text-zinc-500 group-hover:text-fuchsia-400 font-semibold'}`}>
@@ -417,6 +421,11 @@ export default function PaginaAgenda() {
                  setSelectedOperatorePreview={setSelectedOperatorePreview}
                  formattaOrario={formattaOrario}
                  getStatoBadge={getStatoBadge}
+                 onApriGiorno={() => {
+                   const [aa, mm, gg] = dateStr.split('-').map(Number);
+                   setViewMode('giorno');
+                   setSelectedDate(new Date(aa, mm - 1, gg));
+                 }}
               />
             );
           })}
@@ -1597,7 +1606,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
       style={dynamicStyle}
       className={cardContainerClasses}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => { setIsHovered(false); if (!menuOpen) setShowConfirmDelete(false); }}
+      onMouseLeave={() => setIsHovered(false)}
     >
        {/* Menù azioni */}
        <button
@@ -1608,9 +1617,14 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
        </button>
 
        {menuOpen && (
-         <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto"
-              onMouseLeave={() => setMenuOpen(false)}>
-            {!showConfirmDelete ? (
+         <>
+         {/* Chiude al clic fuori: prima si chiudeva al passaggio del mouse e
+             muovendosi verso "Elimina" il menù spariva da solo. */}
+         <div
+           className="fixed inset-0 z-[99998] pointer-events-auto"
+           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+         ></div>
+         <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto">
               <>
                 {!isCompleted && (
                   <button
@@ -1627,21 +1641,50 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                   <Edit2 size={10} /> Modifica
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(true); }}
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setShowConfirmDelete(true); }}
                   className="px-2 py-2 text-[10px] text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-100"
                 >
                   <Trash2 size={10} /> Elimina
                 </button>
               </>
-            ) : (
-              <div className="p-2 flex flex-col gap-2 bg-red-50">
-                <span className="text-[9px] text-zinc-500 font-bold text-center leading-tight">Confermi l'eliminazione?</span>
-                <div className="flex gap-1.5">
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(app.id); setMenuOpen(false); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-[9px] py-1 rounded transition-colors font-bold">Sì</button>
-                  <button onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }} className="flex-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-[9px] py-1 rounded transition-colors font-bold">No</button>
-                </div>
-              </div>
-            )}
+         </div>
+         </>
+       )}
+
+       {/* Conferma eliminazione: dialogo al centro, così non sparisce
+           muovendo il mouse come succedeva nel menù piccolo. */}
+       {showConfirmDelete && (
+         <div
+           className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 pointer-events-auto"
+           onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }}
+         >
+           <div
+             className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center flex flex-col gap-3 animate-in zoom-in-95 duration-150"
+             onClick={(e) => e.stopPropagation()}
+           >
+             <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-1 border border-red-200">
+               <Trash2 size={22} />
+             </div>
+             <h3 className="text-lg font-bold text-zinc-900 font-playfair">Elimini l'appuntamento?</h3>
+             <p className="text-zinc-600 text-sm leading-relaxed">
+               {app.clienti?.nome} {app.clienti?.cognome} — {formattaOrario(app.data_ora)}
+             </p>
+             <p className="text-zinc-500 text-sm mb-3">L'operazione non si può annullare.</p>
+             <div className="flex flex-col gap-2">
+               <button
+                 onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); onDelete(app.id); }}
+                 className="w-full px-4 py-2 font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl transition-colors shadow-sm"
+               >
+                 Sì, elimina
+               </button>
+               <button
+                 onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(false); }}
+                 className="w-full px-4 py-2 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
+               >
+                 No, annulla
+               </button>
+             </div>
+           </div>
          </div>
        )}
 

@@ -133,11 +133,11 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <div className={`absolute top-0.5 bottom-0.5 w-3 rounded-full bg-white transition-all ${theme === 'dark' ? 'left-[18px]' : 'left-0.5'}`}></div>
               </div>
             </button>
-            <button className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
-              <Globe size={16} /> Lingua
+            <button disabled className="w-full text-left px-4 py-2 text-sm text-zinc-400 flex items-center gap-2 cursor-not-allowed" title="Funzione non ancora disponibile">
+              <Globe size={16} /> Lingua <span className="ml-auto text-[10px] uppercase tracking-wider">in arrivo</span>
             </button>
-            <button className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-white hover:text-zinc-900 flex items-center gap-2">
-              <HelpCircle size={16} /> Aiuto
+            <button disabled className="w-full text-left px-4 py-2 text-sm text-zinc-400 flex items-center gap-2 cursor-not-allowed" title="Funzione non ancora disponibile">
+              <HelpCircle size={16} /> Aiuto <span className="ml-auto text-[10px] uppercase tracking-wider">in arrivo</span>
             </button>
             <div className="h-px bg-zinc-200 my-1"></div>
             <button 

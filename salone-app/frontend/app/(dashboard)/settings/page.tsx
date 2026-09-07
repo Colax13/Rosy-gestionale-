@@ -292,8 +292,12 @@ export default function Settings() {
             <p className="text-sm font-medium text-zinc-800">Email Proprietario</p>
             <p className="text-sm text-zinc-500">{auth.currentUser?.email || 'admin@salone.it'}</p>
           </div>
-          <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-sm font-medium rounded-lg transition-colors">
-            Modifica Credenziali
+          <button
+            disabled
+            title="L'accesso avviene con l'account Google: le credenziali si gestiscono da lì."
+            className="px-4 py-2 bg-zinc-100 text-zinc-400 text-sm font-medium rounded-lg cursor-not-allowed"
+          >
+            Gestita da Google
           </button>
         </div>
 
@@ -302,8 +306,12 @@ export default function Settings() {
             <p className="text-sm font-medium text-zinc-800">Piano Attuale</p>
             <p className="text-sm text-zinc-500">Piano Base Gratuito</p>
           </div>
-          <button className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm font-medium rounded-lg transition-colors">
-            Scopri i Piani Pro
+          <button
+            disabled
+            title="Funzione non ancora disponibile"
+            className="px-4 py-2 bg-zinc-100 text-zinc-400 text-sm font-medium rounded-lg cursor-not-allowed"
+          >
+            Piani in arrivo
           </button>
         </div>
       </div>

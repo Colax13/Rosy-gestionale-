@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, MessageSquare, Plus, ChevronRight, BarChart2 } from 'lucide-react';
 import { auth } from '../lib/firebase';
@@ -62,9 +63,12 @@ export default function RosySidebar() {
           <div className="text-3xl font-bold text-gradient-ai font-playfair tracking-tight mb-2">€220</div>
           <p className="text-xs text-zinc-500 mb-4">contattando 3 clienti inattivi.</p>
           
-          <button className="w-full py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition-all border border-zinc-300 group-hover:border-[#6B5CFF]/50 shadow-sm">
+          <Link
+            to="/clienti"
+            className="w-full py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition-all border border-zinc-300 group-hover:border-[#6B5CFF]/50 shadow-sm"
+          >
             Vedi clienti <ChevronRight size={14} className="text-[#00D8FF]" />
-          </button>
+          </Link>
         </div>
       </div>
 
