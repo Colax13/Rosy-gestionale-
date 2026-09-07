@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "appuntamenti": {
+      "title": "Appuntamenti",
+      "description": "Appuntamenti del salone",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "data_ora": { "type": "string" },
+        "stato": { "type": "string" },
+        "note": { "type": "string" },
+        "idCliente": { "type": "string" },
+        "idDipendente": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "data_ora", "stato", "idCliente", "createdAt", "updatedAt"]
+    },
+    "clienti": {
+      "title": "Clienti",
+      "description": "Elenco clienti del salone",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nome": { "type": "string" },
+        "cognome": { "type": "string" },
+        "telefono": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "nome", "cognome", "createdAt", "updatedAt"]
+    },
+    "dipendenti": {
+      "title": "Dipendenti",
+      "description": "Staff del salone",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nome": { "type": "string" },
+        "cognome": { "type": "string" },
+        "ruolo": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "nome", "cognome", "createdAt", "updatedAt"]
+    },
+    "salons": {
+      "title": "Salons",
+      "description": "Salon data and plans",
+      "type": "object",
+      "properties": {
+        "ownerEmail": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "plan": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "marketingEnabled": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["ownerEmail", "plan", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/appuntamenti/{appuntamentoId}": {
+      "schema": { "$ref": "#/entities/appuntamenti" },
+      "description": "Salone appuntamenti collection"
+    },
+    "/clienti/{clienteId}": {
+      "schema": { "$ref": "#/entities/clienti" },
+      "description": "Salone clienti collection"
+    },
+    "/dipendenti/{dipendenteId}": {
+      "schema": { "$ref": "#/entities/dipendenti" },
+      "description": "Salone dipendenti collection"
+    },
+    "/salons/{salonId}": {
+      "schema": { "$ref": "#/entities/salons" },
+      "description": "Salons info collection"
+    }
+  }
+}

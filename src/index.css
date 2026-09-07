@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-playfair: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-zinc-950: var(--th-zinc-950);
+  --color-zinc-900: var(--th-zinc-900);
+  --color-zinc-800: var(--th-zinc-800);
+  --color-zinc-700: var(--th-zinc-700);
+  --color-zinc-600: var(--th-zinc-600);
+  --color-zinc-500: var(--th-zinc-500);
+  --color-zinc-400: var(--th-zinc-400);
+  --color-zinc-300: var(--th-zinc-300);
+  --color-zinc-200: var(--th-zinc-200);
+  --color-zinc-100: var(--th-zinc-100);
+  --color-zinc-50: var(--th-zinc-50);
+
+  --color-brand: #D400FF;
+  --color-brand-light: #FF3EF7;
+  --color-ai: #00D8FF;
+  --color-ai-gradient: #6B5CFF;
+}
+
+:root {
+   /* LIGHT MODE COLORS */
+   --th-zinc-950: #f4f4f5;
+   --th-zinc-900: #ffffff; 
+   --th-zinc-800: #e4e4e7;
+   --th-zinc-700: #d4d4d8;
+   --th-zinc-600: #a1a1aa;
+   --th-zinc-500: #71717a;
+   --th-zinc-400: #52525b;
+   --th-zinc-300: #3f3f46;
+   --th-zinc-200: #27272a;
+   --th-zinc-100: #18181b;
+   --th-zinc-50:  #09090b;
+}
+
+:root.dark {
+   /* NEW DARK MODE COLORS */
+   --th-zinc-950: #07090F;
+   --th-zinc-900: #121622;
+   --th-zinc-800: #1E2333;
+   --th-zinc-700: #2A3144;
+   --th-zinc-600: #52525b;
+   --th-zinc-500: #71717a;
+   --th-zinc-400: #9CA3AF;
+   --th-zinc-300: #d4d4d8;
+   --th-zinc-200: #e4e4e7;
+   --th-zinc-100: #f4f4f5;
+   --th-zinc-50:  #ffffff;
+}
+
+body {
+  @apply bg-zinc-950 text-zinc-100;
+}
+
+.gradient-brand {
+  background-image: linear-gradient(135deg, var(--color-brand), var(--color-brand-light));
+}
+.gradient-ai {
+  background-image: linear-gradient(135deg, var(--color-ai), var(--color-ai-gradient));
+}
+.gradient-premium {
+  background-image: linear-gradient(135deg, var(--color-brand), var(--color-ai-gradient), var(--color-ai));
+}
+
+.text-gradient-ai {
+  background: linear-gradient(135deg, var(--color-ai), var(--color-ai-gradient));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Unified Scrollbar for all elements */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #52525b transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b;
+}
+
+/* Custom styling for fullcalendar non-business hours to avoid unappealing stripes */
+.fc-non-business {
+  background: var(--th-zinc-900) !important;
+  opacity: 0.6;
+}

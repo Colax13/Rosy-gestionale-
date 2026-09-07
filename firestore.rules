@@ -1,0 +1,144 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Valdatori
+    function isValidAppuntamento(data) {
+      return data.keys().hasAll(['userId', 'data_ora', 'stato'])
+        && data.userId == request.auth.uid;
+    }
+
+    function isValidCliente(data) {
+      return data.keys().hasAll(['userId', 'nome', 'cognome', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.nome is string && data.nome.size() <= 100
+        && data.cognome is string && data.cognome.size() <= 100
+        && ( !('telefono' in data) || (data.telefono is string && data.telefono.size() <= 50) )
+        && ( !('note' in data) || (data.note is string && data.note.size() <= 500) )
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDipendente(data) {
+      return data.keys().hasAll(['userId', 'nome', 'cognome', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.nome is string && data.nome.size() <= 100
+        && data.cognome is string && data.cognome.size() <= 100
+        && ( !('ruolo' in data) || (data.ruolo is string && data.ruolo.size() <= 100) )
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSalon(data) {
+      return data.keys().hasAll(['ownerEmail', 'plan', 'createdAt'])
+        && ( !('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 200) || data.ownerName == null )
+        && data.ownerEmail is string && data.ownerEmail.size() <= 200
+        && data.plan is string && data.plan.size() <= 32
+        && data.createdAt is timestamp
+        && ( !('settings' in data) || (data.settings is map) );
+    }
+
+    function isValidCatalogo(data) {
+      return data.keys().hasAll(['userId', 'nome', 'durata_minuti'])
+        && data.userId == request.auth.uid
+        && data.nome is string && data.nome.size() <= 100
+        && ( !('prezzo_base' in data) || (data.prezzo_base is number) )
+        && ( !('prezzo' in data) || (data.prezzo is number) )
+        && data.durata_minuti is number
+        && ( !('note_private' in data) || (data.note_private is string) )
+        && ( !('note_pubbliche' in data) || (data.note_pubbliche is string) )
+        && ( !('attivo' in data) || (data.attivo is bool) )
+        && ( !('descrizione' in data) || (data.descrizione is string && data.descrizione.size() <= 500) )
+        && ( !('categoria' in data) || (data.categoria is string && data.categoria.size() <= 100) )
+        && ( !('createdAt' in data) || (data.createdAt is timestamp) || (data.createdAt is string) );
+    }
+
+    match /catalogo/{itemId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && isValidId(itemId) && isValidCatalogo(incoming());
+      allow update: if isSignedIn() && isValidId(itemId) && isValidCatalogo(incoming()) && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(itemId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /categorie_catalogo/{catId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(catId) 
+                    && incoming().keys().hasAll(['userId', 'nome'])
+                    && incoming().userId == request.auth.uid
+                    && incoming().nome is string && incoming().nome.size() <= 100;
+      allow update: if isSignedIn() && isValidId(catId) 
+                    && incoming().keys().hasAll(['userId', 'nome'])
+                    && resource.data.userId == request.auth.uid
+                    && incoming().userId == request.auth.uid
+                    && incoming().nome is string && incoming().nome.size() <= 100;
+      allow delete: if isSignedIn() && isValidId(catId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /appuntamenti/{appuntamentoId} {
+      allow get, list: if true;
+      allow create: if isValidId(appuntamentoId) && ( (isSignedIn() && isValidAppuntamento(incoming())) || (incoming().source == 'web_public' && incoming().userId is string) );
+      allow update: if isSignedIn() && isValidId(appuntamentoId) && isValidAppuntamento(incoming()) && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(appuntamentoId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /clienti/{clienteId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(clienteId) && isValidCliente(incoming())
+                    && incoming().createdAt == request.time
+                    && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(clienteId) && isValidCliente(incoming())
+                    && resource.data.userId == request.auth.uid
+                    && incoming().createdAt == resource.data.createdAt
+                    && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && isValidId(clienteId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /dipendenti/{dipendenteId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && isValidId(dipendenteId) && isValidDipendente(incoming())
+                    && incoming().createdAt == request.time
+                    && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(dipendenteId) && isValidDipendente(incoming())
+                    && resource.data.userId == request.auth.uid
+                    && incoming().createdAt == resource.data.createdAt
+                    && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && isValidId(dipendenteId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /salons/{salonId} {
+      allow read: if true;
+      allow list: if false;
+      allow create: if isSignedIn() && salonId == request.auth.uid
+                    && isValidSalon(incoming())
+                    && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && salonId == request.auth.uid
+                    && isValidSalon(incoming())
+                    && incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+  }
+}
