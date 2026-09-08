@@ -11,16 +11,87 @@ import {
   Calendar as CalendarIcon
 } from "lucide-react";
 import { auth } from "../../../../../src/lib/firebase";
-import { appuntamentiApi } from "@/lib/api-client";
+import { appuntamentiApi, clientiApi, dipendentiApi } from "@/lib/api-client";
+import { aData, daQuanto, giorniDa } from "@/lib/tempo";
+import { intervalliOccupati, turnoDelGiorno, dentroTurno } from "@/lib/servizi";
 import RosySidebar from "../../../../../src/components/RosySidebar";
 import RosyLogo from "../../../../../src/components/RosyLogo";
 
+// Da quanto tempo una cliente deve mancare per considerarla da recuperare.
+const GIORNI_ASSENZA = 60;
+
 export default function RosieHub() {
   const [appuntamenti, setAppuntamenti] = useState<any[]>([]);
+  const [tuttiAppuntamenti, setTuttiAppuntamenti] = useState<any[]>([]);
+  const [clienti, setClienti] = useState<any[]>([]);
+  const [dipendenti, setDipendenti] = useState<any[]>([]);
+  const [mostraDormienti, setMostraDormienti] = useState(false);
 
   useEffect(() => {
-    appuntamentiApi.getAgenda(new Date().toISOString().split('T')[0]).then(setAppuntamenti).catch(console.error);
+    const oggi = new Date().toISOString().split('T')[0];
+    appuntamentiApi.getAgenda(oggi).then(setAppuntamenti).catch(console.error);
+    appuntamentiApi.getAgenda().then(setTuttiAppuntamenti).catch(console.error);
+    clientiApi.getAll().then(setClienti).catch(console.error);
+    dipendentiApi.getAll().then(setDipendenti).catch(console.error);
   }, []);
+
+  // --- Clienti da recuperare -------------------------------------------------
+  // Prima il numero era scritto nel codice e il pulsante portava all'elenco
+  // completo: prometteva "vedi chi sono" e mostrava tutti. Adesso il conto è
+  // vero e il pulsante apre proprio quelle clienti, con l'ultima visita.
+  const ultimaVisita = new Map<string, Date>();
+  const giaPrenotate = new Set<string>();
+  tuttiAppuntamenti.forEach(app => {
+    const id = app.id_cliente || app.clienti?.id;
+    if (!id || app.stato === 'annullato') return;
+    const d = aData(app.data_ora);
+    if (!d) return;
+    // Chi ha già un appuntamento in calendario non è da recuperare.
+    if (d.getTime() > Date.now()) { giaPrenotate.add(id); return; }
+    const attuale = ultimaVisita.get(id);
+    if (!attuale || d > attuale) ultimaVisita.set(id, d);
+  });
+
+  const dormienti = clienti
+    .filter(c => !giaPrenotate.has(c.id))
+    .map(c => {
+      const visita = ultimaVisita.get(c.id);
+      const riferimento = visita || aData(c.createdAt);
+      return { cliente: c, ultimaVisita: visita || null, giorni: giorniDa(riferimento) };
+    })
+    .filter(r => r.giorni !== null && r.giorni >= GIORNI_ASSENZA)
+    .sort((a, b) => (b.giorni || 0) - (a.giorni || 0));
+
+  // --- Clienti nuovi di questa settimana -------------------------------------
+  const nuoviSettimana = clienti.filter(c => {
+    const g = giorniDa(c.createdAt);
+    return g !== null && g <= 7;
+  }).length;
+
+  // --- Spazi ancora liberi oggi ----------------------------------------------
+  // Si contano le mezz'ore in turno che nessuno sta ancora occupando, da adesso
+  // in poi: quelle già passate non sono spazi liberi, sono tempo perso.
+  const adesso = new Date();
+  const slotLiberi = dipendenti.reduce((totale, dip) => {
+    const turno = turnoDelGiorno(dip, adesso);
+    if (!turno.lavora) return totale;
+
+    const occupati = appuntamenti
+      .filter(a => (a.id_dipendente || a.idDipendente || a.dipendenti?.id) === dip.id && a.stato !== 'annullato')
+      .flatMap(a => intervalliOccupati(new Date(a.data_ora).getTime(), a.righe_appuntamento || []));
+
+    let liberi = 0;
+    for (let minuti = 0; minuti < 24 * 60; minuti += 30) {
+      if (!dentroTurno(turno, minuti)) continue;
+      const inizio = new Date(adesso);
+      inizio.setHours(0, minuti, 0, 0);
+      const fine = inizio.getTime() + 30 * 60000;
+      if (inizio.getTime() < adesso.getTime()) continue;
+      if (occupati.some(o => o.inizio < fine && inizio.getTime() < o.fine)) continue;
+      liberi++;
+    }
+    return totale + liberi;
+  }, 0);
 
   return (
     <div className="flex-1 overflow-y-auto w-full relative scrollbar-none p-4 md:p-8 min-h-screen">
@@ -63,8 +134,14 @@ export default function RosieHub() {
                 Promemoria Rosie <span className="text-[#00D8FF] animate-pulse">✨</span>
                </h3>
                <p className="text-base text-zinc-500 mt-2 max-w-2xl leading-relaxed">
-                 Hai <strong className="text-zinc-800">2 clienti</strong> che non prenotano da oltre 60 giorni.<br/>
-                 Vuoi inviare un promemoria automatico per recuperare le visite?
+                 {dormienti.length === 0 ? (
+                   <>Nessuna cliente manca da più di {GIORNI_ASSENZA} giorni: sono tutte passate di recente.</>
+                 ) : (
+                   <>
+                     Hai <strong className="text-zinc-800">{dormienti.length} {dormienti.length === 1 ? 'cliente' : 'clienti'}</strong> che non {dormienti.length === 1 ? 'prenota' : 'prenotano'} da oltre {GIORNI_ASSENZA} giorni.<br/>
+                     Vuoi inviare un promemoria automatico per recuperare le visite?
+                   </>
+                 )}
                </p>
             </div>
 
@@ -76,14 +153,55 @@ export default function RosieHub() {
                >
                  Invia messaggi · in arrivo
                </button>
-               <Link
-                 to="/clienti"
-                 className="px-5 py-3 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+               <button
+                 onClick={() => setMostraDormienti(v => !v)}
+                 disabled={dormienti.length === 0}
+                 className="px-5 py-3 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                >
-                 Vedi chi sono <ChevronRight size={16} className="text-zinc-500" />
-               </Link>
+                 {mostraDormienti ? 'Nascondi' : 'Vedi chi sono'}
+                 <ChevronRight size={16} className={`text-zinc-500 transition-transform ${mostraDormienti ? 'rotate-90' : ''}`} />
+               </button>
             </div>
           </div>
+
+          {/* L'elenco vero delle clienti da recuperare, aperto dal pulsante. */}
+          {mostraDormienti && dormienti.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
+            >
+              <div className="px-5 py-3 border-b border-zinc-200 flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-zinc-900">
+                  Chi non passa da più di {GIORNI_ASSENZA} giorni
+                </span>
+                <span className="text-xs text-zinc-500">{dormienti.length} in tutto</span>
+              </div>
+              <div className="divide-y divide-zinc-100 max-h-80 overflow-y-auto">
+                {dormienti.map(({ cliente, ultimaVisita: visita }) => (
+                  <Link
+                    key={cliente.id}
+                    to={`/clienti/${cliente.id}`}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {(cliente.nome || '?').charAt(0)}{(cliente.cognome || '').charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-zinc-900 truncate">
+                        {cliente.nome} {cliente.cognome}
+                      </div>
+                      <div className="text-xs text-zinc-500 truncate">
+                        {visita ? `Ultima visita ${daQuanto(visita)}` : 'Non è mai passata'}
+                        {cliente.telefono ? ` · ${cliente.telefono}` : ''}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-zinc-400 shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* KPI Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-4">
@@ -126,7 +244,7 @@ export default function RosieHub() {
                  <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Nuovi clienti</h4>
                </div>
                <div className="flex items-baseline gap-2">
-                 <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">3</div>
+                 <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">{nuoviSettimana}</div>
                  <div className="text-xs text-zinc-500 font-medium">Questa settimana</div>
                </div>
             </div>
@@ -140,8 +258,8 @@ export default function RosieHub() {
                  <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Slot liberi</h4>
                </div>
                <div className="flex items-baseline gap-2">
-                 <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">4</div>
-                 <div className="text-xs text-zinc-500 font-medium">Disponibili oggi</div>
+                 <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">{slotLiberi}</div>
+                 <div className="text-xs text-zinc-500 font-medium">Mezz'ore libere da adesso</div>
                </div>
             </div>
           </div>

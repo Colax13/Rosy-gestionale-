@@ -36,29 +36,44 @@ const catalogo = [
   { id: 's5', nome: 'Trattamento ricostruzione', categoria: 'Cura', prezzo_base: 35, durata_minuti: 40, tempo_lavorazione_minuti: 40, tempo_posa_minuti: 0, tempo_finitura_minuti: 0, attivo: true },
 ];
 
+const giorniFa = (n: number) => {
+  const d = new Date(oggi);
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+};
+
 const clienti = [
-  { id: 'c1', nome: 'Maria Antonietta', cognome: 'Della Valle Guerrieri', telefono: '3401112233', email: 'maria@example.it', note: 'Preferisce il pomeriggio' },
-  { id: 'c2', nome: 'Anna',   cognome: 'Bianchi',  telefono: '3402223344', email: 'anna@example.it' },
-  { id: 'c3', nome: 'Chiara', cognome: 'Esposito', telefono: '3403334455' },
-  { id: 'c4', nome: 'Federica', cognome: 'Lombardi Santangelo', telefono: '3404445566' },
+  { id: 'c1', nome: 'Maria Antonietta', cognome: 'Della Valle Guerrieri', telefono: '3401112233', email: 'maria@example.it', note: 'Preferisce il pomeriggio', createdAt: giorniFa(400), canale_acquisizione: 'Passaparola' },
+  { id: 'c2', nome: 'Anna',   cognome: 'Bianchi',  telefono: '3402223344', email: 'anna@example.it', createdAt: giorniFa(3), canale_acquisizione: 'Instagram' },
+  { id: 'c3', nome: 'Chiara', cognome: 'Esposito', telefono: '3403334455', createdAt: giorniFa(220), canale_acquisizione: 'Passaparola' },
+  { id: 'c4', nome: 'Federica', cognome: 'Lombardi Santangelo', telefono: '3404445566', createdAt: giorniFa(150) },
+  { id: 'c5', nome: 'Rita',   cognome: 'Marchetti', telefono: '3405556677', createdAt: giorniFa(500) },
+  { id: 'c6', nome: 'Sonia',  cognome: 'Pellegrini', telefono: '3406667788', createdAt: giorniFa(2) },
 ];
 
 const appuntamenti = [
-  { id: 'a1', data_ora: alle(9, 0),  stato: 'confermato', note: 'Riflessante castano', idDipendente: 'd1',
+  { id: 'a1', id_cliente: 'c1', data_ora: alle(9, 0),  stato: 'confermato', note: 'Riflessante castano', idDipendente: 'd1',
     clienti: clienti[0], dipendenti: dipendenti[0],
     righe_appuntamento: [{ servizi_catalogo: catalogo[0] }, { servizi_catalogo: catalogo[1] }] },
-  { id: 'a2', data_ora: alle(9, 30), stato: 'confermato', idDipendente: 'd1',
+  { id: 'a2', id_cliente: 'c2', data_ora: alle(9, 30), stato: 'confermato', idDipendente: 'd1',
     clienti: clienti[1], dipendenti: dipendenti[0],
     righe_appuntamento: [{ servizi_catalogo: catalogo[2] }] },
-  { id: 'a3', data_ora: alle(10, 0), stato: 'in_attesa', idDipendente: 'd2',
+  { id: 'a3', id_cliente: 'c3', data_ora: alle(10, 0), stato: 'in_attesa', idDipendente: 'd2',
     clienti: clienti[2], dipendenti: dipendenti[1],
     righe_appuntamento: [{ servizi_catalogo: catalogo[3] }] },
-  { id: 'a4', data_ora: alle(11, 0), stato: 'completato', idDipendente: 'd3',
+  { id: 'a4', id_cliente: 'c4', data_ora: alle(11, 0), stato: 'completato', idDipendente: 'd3',
     clienti: clienti[3], dipendenti: dipendenti[2],
     righe_appuntamento: [{ servizi_catalogo: catalogo[4] }] },
-  { id: 'a5', data_ora: alle(14, 0), stato: 'confermato', idDipendente: 'd2',
+  { id: 'a5', id_cliente: 'c1', data_ora: alle(14, 0), stato: 'confermato', idDipendente: 'd2',
     clienti: clienti[0], dipendenti: dipendenti[1],
     righe_appuntamento: [{ servizi_catalogo: catalogo[1] }] },
+];
+
+// Qualche visita vecchia, per far comparire le clienti da recuperare.
+const appuntamentiVecchi = [
+  { id: 'v1', data_ora: giorniFa(95), stato: 'completato', id_cliente: 'c1', clienti: clienti[0], righe_appuntamento: [{ servizi_catalogo: catalogo[1] }] },
+  { id: 'v2', data_ora: giorniFa(210), stato: 'completato', id_cliente: 'c3', clienti: clienti[2], righe_appuntamento: [{ servizi_catalogo: catalogo[2] }] },
+  { id: 'v3', data_ora: giorniFa(10), stato: 'completato', id_cliente: 'c4', clienti: clienti[3], righe_appuntamento: [{ servizi_catalogo: catalogo[1] }] },
 ];
 
 const buoni = [
@@ -143,7 +158,7 @@ export const appuntamentiApi = {
   getAgendaPublic: async () => eco(appuntamenti),
   createPublic: nulla,
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
-  getAgenda: async () => eco(appuntamenti),
+  getAgenda: async (data?: string) => eco(data ? appuntamenti : [...appuntamenti, ...appuntamentiVecchi]),
   getRichieste: async () => eco(appuntamenti.filter(a => a.stato === 'in_attesa')),
   create: nulla, update: nulla, delete: nulla,
 };

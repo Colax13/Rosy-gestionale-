@@ -1,4 +1,5 @@
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { aData } from './tempo';
 import { db, auth } from '../../../src/lib/firebase';
 
 const getUserId = () => {
@@ -11,13 +12,6 @@ const getUserId = () => {
 // REFACTORING: DIRECT FIRESTORE CRUD IN REPLACEMENT OF EXPRESS /API
 // ---------------------------------------------------------
 
-/** Prende una data comunque sia stata salvata: Timestamp, stringa o Date. */
-const aData = (valore: any): Date | null => {
-  if (!valore) return null;
-  if (typeof valore?.toDate === 'function') return valore.toDate();
-  const d = new Date(valore);
-  return isNaN(d.getTime()) ? null : d;
-};
 
 const chiaveMese = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
