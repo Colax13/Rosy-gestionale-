@@ -3,6 +3,7 @@
 import FloatingActionBar from '@/components/FloatingActionBar';
 import { useState, useEffect, Fragment } from 'react';
 import { catalogoApi } from '@/lib/api-client';
+import { aNumero, aTesto } from '@/lib/numeri';
 import { Plus, Edit2, Trash2, X, Scissors, Clock, Check, AlertCircle, FolderPlus } from 'lucide-react';
 
 interface Servizio {
@@ -19,6 +20,19 @@ interface Servizio {
   note_pubbliche?: string;
 }
 
+// Il modulo tiene i numeri come testo; si convertono solo al salvataggio.
+interface ModuloServizio {
+  nome: string;
+  prezzo_base: string;
+  tempo_lavorazione_minuti: string;
+  tempo_posa_minuti: string;
+  tempo_finitura_minuti: string;
+  categoria: string;
+  attivo: boolean;
+  note_private?: string;
+  note_pubbliche?: string;
+}
+
 export default function GestioneCatalogo() {
   const [servizi, setServizi] = useState<Servizio[]>([]);
   const [categorie, setCategorie] = useState<string[]>([]);
@@ -28,16 +42,26 @@ export default function GestioneCatalogo() {
   // Stati per il modale Form Servizio
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Servizio | null>(null);
-  const [formData, setFormData] = useState<Partial<Servizio>>({
+  // I campi numerici stanno qui come testo: vedi lib/numeri.ts.
+  const moduloVuoto = (categoria: string): ModuloServizio => ({
     nome: '',
-    prezzo_base: 0,
-    durata_minuti: 30,
-    tempo_lavorazione_minuti: 30,
-    tempo_posa_minuti: 0,
-    tempo_finitura_minuti: 0,
-    categoria: 'Generico',
-    attivo: true
+    prezzo_base: '',
+    tempo_lavorazione_minuti: '',
+    tempo_posa_minuti: '',
+    tempo_finitura_minuti: '',
+    categoria,
+    attivo: true,
+    note_private: '',
+    note_pubbliche: ''
   });
+
+  const [formData, setFormData] = useState<ModuloServizio>(moduloVuoto('Generico'));
+
+  // Durata totale: si ricalcola sempre dai tre tempi, non si scrive a mano.
+  const durataTotaleModulo =
+    aNumero(formData.tempo_lavorazione_minuti) +
+    aNumero(formData.tempo_posa_minuti) +
+    aNumero(formData.tempo_finitura_minuti);
   
   // Stati per il modale Categoria
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
@@ -71,26 +95,20 @@ export default function GestioneCatalogo() {
   const handleOpenModal = (cat?: string, servizio?: Servizio) => {
     if (servizio) {
       setEditingService(servizio);
-      setFormData({ 
-        ...servizio,
-        tempo_lavorazione_minuti: servizio.tempo_lavorazione_minuti ?? servizio.durata_minuti,
-        tempo_posa_minuti: servizio.tempo_posa_minuti ?? 0,
-        tempo_finitura_minuti: servizio.tempo_finitura_minuti ?? 0
+      setFormData({
+        nome: servizio.nome || '',
+        prezzo_base: aTesto(servizio.prezzo_base),
+        tempo_lavorazione_minuti: aTesto(servizio.tempo_lavorazione_minuti ?? servizio.durata_minuti),
+        tempo_posa_minuti: aTesto(servizio.tempo_posa_minuti),
+        tempo_finitura_minuti: aTesto(servizio.tempo_finitura_minuti),
+        categoria: servizio.categoria || '',
+        attivo: servizio.attivo !== false,
+        note_private: servizio.note_private || '',
+        note_pubbliche: servizio.note_pubbliche || ''
       });
     } else {
       setEditingService(null);
-      setFormData({
-        nome: '',
-        prezzo_base: 0,
-        durata_minuti: 30,
-        tempo_lavorazione_minuti: 30,
-        tempo_posa_minuti: 0,
-        tempo_finitura_minuti: 0,
-        categoria: cat || (categorie[0] || 'Taglio'),
-        attivo: true,
-        note_private: '',
-        note_pubbliche: ''
-      });
+      setFormData(moduloVuoto(cat || categorie[0] || 'Taglio'));
     }
     setFormError(null);
     setIsModalOpen(true);
@@ -104,15 +122,8 @@ export default function GestioneCatalogo() {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
-      setFormData(prev => {
-        const numValue = name === 'prezzo_base' || name === 'durata_minuti' || name === 'tempo_lavorazione_minuti' || name === 'tempo_posa_minuti' || name === 'tempo_finitura_minuti' ? Number(value) : value;
-        const newForm = { ...prev, [name]: numValue };
-        
-        if (name === 'tempo_lavorazione_minuti' || name === 'tempo_posa_minuti' || name === 'tempo_finitura_minuti') {
-          newForm.durata_minuti = (Number(newForm.tempo_lavorazione_minuti) || 0) + (Number(newForm.tempo_posa_minuti) || 0) + (Number(newForm.tempo_finitura_minuti) || 0);
-        }
-        return newForm;
-      });
+      // Si tiene quello che è stato scritto, così il campo può restare vuoto.
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -127,10 +138,29 @@ export default function GestioneCatalogo() {
         await catalogoApi.createCategoria(formData.categoria);
       }
       
+      const lavorazione = aNumero(formData.tempo_lavorazione_minuti);
+      if (lavorazione <= 0) {
+        setFormError('La lavorazione deve durare almeno qualche minuto.');
+        return;
+      }
+
+      const daSalvare = {
+        nome: formData.nome.trim(),
+        categoria: formData.categoria.trim(),
+        attivo: formData.attivo,
+        note_private: formData.note_private || '',
+        note_pubbliche: formData.note_pubbliche || '',
+        prezzo_base: aNumero(formData.prezzo_base),
+        tempo_lavorazione_minuti: lavorazione,
+        tempo_posa_minuti: aNumero(formData.tempo_posa_minuti),
+        tempo_finitura_minuti: aNumero(formData.tempo_finitura_minuti),
+        durata_minuti: durataTotaleModulo
+      };
+
       if (editingService) {
-        await catalogoApi.update(editingService.id, formData);
+        await catalogoApi.update(editingService.id, daSalvare);
       } else {
-        await catalogoApi.create(formData);
+        await catalogoApi.create(daSalvare);
       }
       setIsModalOpen(false);
       caricaDati();
@@ -425,7 +455,8 @@ export default function GestioneCatalogo() {
                       type="number"
                       step="0.01"
                       min="0"
-                      required
+                      inputMode="decimal"
+                      placeholder="0,00"
                       value={formData.prezzo_base}
                       onChange={handleChange}
                       className="w-full p-2 border border-zinc-300 bg-zinc-50/50 text-zinc-900 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
@@ -434,7 +465,7 @@ export default function GestioneCatalogo() {
                   <div>
                     <label className="block text-sm font-medium text-zinc-500 mb-1">Durata totale (min)</label>
                     <div className="w-full p-2 h-[42px] border border-zinc-200 bg-zinc-50/30 text-zinc-500 rounded-md font-sans flex items-center cursor-not-allowed">
-                      {formData.durata_minuti || 0}
+                      {durataTotaleModulo} min
                     </div>
                   </div>
                 </div>
@@ -446,8 +477,9 @@ export default function GestioneCatalogo() {
                       name="tempo_lavorazione_minuti"
                       type="number"
                       step="5"
-                      min="5"
-                      required
+                      min="0"
+                      inputMode="numeric"
+                      placeholder="30"
                       value={formData.tempo_lavorazione_minuti}
                       onChange={handleChange}
                       className="w-full p-2 border border-zinc-300 bg-zinc-50/50 text-zinc-900 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
@@ -460,7 +492,8 @@ export default function GestioneCatalogo() {
                       type="number"
                       step="5"
                       min="0"
-                      required
+                      inputMode="numeric"
+                      placeholder="0"
                       value={formData.tempo_posa_minuti}
                       onChange={handleChange}
                       className="w-full p-2 border border-zinc-300 bg-zinc-50/50 text-zinc-900 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
@@ -473,7 +506,8 @@ export default function GestioneCatalogo() {
                       type="number"
                       step="5"
                       min="0"
-                      required
+                      inputMode="numeric"
+                      placeholder="0"
                       value={formData.tempo_finitura_minuti}
                       onChange={handleChange}
                       className="w-full p-2 border border-zinc-300 bg-zinc-50/50 text-zinc-900 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"

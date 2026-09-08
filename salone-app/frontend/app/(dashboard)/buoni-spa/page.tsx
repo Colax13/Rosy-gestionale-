@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { buoniApi } from '@/lib/api-client';
+import { aNumero, aTesto } from '@/lib/numeri';
 import FloatingActionBar from '@/components/FloatingActionBar';
 import {
   Ticket, Plus, Search, X, Edit2, Trash2, Check, AlertCircle,
@@ -74,7 +75,7 @@ export default function BuoniSpa() {
   const [form, setForm] = useState({
     codice: '',
     tipo: 'spa' as 'spa' | 'salone',
-    valore: 50,
+    valore: '50',
     intestatario: '',
     telefono: '',
     data_scadenza: fraUnAnno(),
@@ -102,7 +103,7 @@ export default function BuoniSpa() {
     setForm({
       codice: generaCodice(),
       tipo: 'spa',
-      valore: 50,
+      valore: '50',
       intestatario: '',
       telefono: '',
       data_scadenza: fraUnAnno(),
@@ -117,7 +118,7 @@ export default function BuoniSpa() {
     setForm({
       codice: b.codice,
       tipo: b.tipo || 'spa',
-      valore: b.valore,
+      valore: aTesto(b.valore),
       intestatario: b.intestatario || '',
       telefono: b.telefono || '',
       data_scadenza: b.data_scadenza || '',
@@ -132,7 +133,7 @@ export default function BuoniSpa() {
     setErroreForm(null);
 
     if (!form.codice.trim()) { setErroreForm('Il codice è obbligatorio.'); return; }
-    if (!(Number(form.valore) > 0)) { setErroreForm('Il valore deve essere maggiore di zero.'); return; }
+    if (!(aNumero(form.valore) > 0)) { setErroreForm('Il valore deve essere maggiore di zero.'); return; }
 
     const doppione = buoni.find(b => b.codice.toUpperCase() === form.codice.trim().toUpperCase() && b.id !== inModifica?.id);
     if (doppione) { setErroreForm('Esiste già un buono con questo codice.'); return; }
@@ -142,7 +143,7 @@ export default function BuoniSpa() {
       const dati: any = {
         codice: form.codice.trim().toUpperCase(),
         tipo: form.tipo,
-        valore: Number(form.valore),
+        valore: aNumero(form.valore),
         intestatario: form.intestatario.trim(),
         telefono: form.telefono.trim(),
         data_scadenza: form.data_scadenza,
@@ -524,8 +525,10 @@ export default function BuoniSpa() {
                       type="number"
                       min={0}
                       step="0.01"
+                      inputMode="decimal"
+                      placeholder="0,00"
                       value={form.valore}
-                      onChange={e => setForm({ ...form, valore: Number(e.target.value) })}
+                      onChange={e => setForm({ ...form, valore: e.target.value })}
                       className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 tabular-nums"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">€</span>
