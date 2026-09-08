@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy } from 'lucide-react';
 import { salonApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
+import { idSalone } from '@/lib/sessione';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<'generale' | 'orari' | 'foto'>('generale');
@@ -165,14 +166,14 @@ export default function Settings() {
                     </div>
                     <div className="flex flex-col overflow-hidden w-full">
                       <p className="text-sm font-medium text-zinc-900 truncate w-full">
-                        {window.location.origin}/{auth.currentUser?.uid || 'ID_SALONE'}/prenota
+                        {window.location.origin}/{(idSalone() || auth.currentUser?.uid) || 'ID_SALONE'}/prenota
                       </p>
                       <p className="text-xs text-zinc-500 pt-0.5 mt-1 truncate">Condividi sui social.</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => {
-                      const link = `${window.location.origin}/${auth.currentUser?.uid}/prenota`;
+                      const link = `${window.location.origin}/${(idSalone() || auth.currentUser?.uid)}/prenota`;
                       navigator.clipboard.writeText(link);
                       alert('Link copiato!');
                     }}

@@ -416,12 +416,36 @@ Idea da valutare, serve un parere.
 
 ### Operatori
 
-**G11 — Accesso per le operatrici** · ALTA
-Email o nome utente e password, per entrare anche dal telefono.
+**G11 — Accesso per le operatrici** · ✅ FATTO
+Ognuna con il suo: indirizzo e password creati dalla titolare in Operatori →
+Accessi. Si entra anche dal telefono.
 
-**G12 — Permessi per operatrice** · ALTA
-Chi dà l'accesso sceglie **a quali pagine** può entrare: solo agenda, oppure
-agenda più clienti e servizi, oppure agenda e buoni. Il resto oscurato.
+*Perché così.* Un accesso condiviso non lascia capire chi ha spostato un
+appuntamento, e se si perde un telefono si cambia la password a tutte. Un
+codice del salone con un PIN sarebbe stato più comodo ma finto: le regole del
+database non saprebbero distinguere una persona dall'altra, quindi i permessi
+non varrebbero niente. Con un account vero per ognuna, invece, i permessi
+valgono anche contro chi provasse a girare intorno alla schermata.
+
+**Serve una cosa da fare a mano una volta sola:** accendere Email/Password in
+Firebase → Authentication → Sign-in method, e ripubblicare le regole
+(`firebase deploy --only firestore:rules`).
+
+**G12 — Permessi per operatrice** · ✅ FATTO
+Si spuntano le pagine, o si sceglie una combinazione pronta (solo agenda /
+agenda e clienti / agenda e buoni / tutto tranne i conti). Le pagine negate
+spariscono dal menù e dalle scorciatoie, e non si aprono nemmeno scrivendo
+l'indirizzo a mano.
+
+Il muro vero però sono **le regole del database**: senza permesso non si
+scrive, e sui buoni non si legge nemmeno. Due eccezioni volute: l'anagrafica
+clienti si può **leggere** anche con il solo permesso Agenda (altrimenti sugli
+appuntamenti non comparirebbe il nome della cliente), ma per modificarla serve
+il permesso Clienti; e le impostazioni del salone restano alla titolare e non
+si possono concedere.
+
+Si può anche **sospendere** un accesso senza cancellarlo, e toglierlo del
+tutto quando serve.
 
 **G13 — Servizi che ogni operatrice può fare** · ALTA
 Non tutte fanno tutto. Terza scheda nella scheda operatore, accanto a turni e

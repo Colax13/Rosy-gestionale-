@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@\/lib\/api-client$/, replacement: path.resolve(__dirname, 'anteprima/finto-api-client.ts') },
+      { find: /^@\/lib\/accessi$/, replacement: path.resolve(__dirname, 'anteprima/finto-accessi.ts') },
       { find: '@', replacement: path.resolve(__dirname, 'salone-app/frontend') },
     ],
   },

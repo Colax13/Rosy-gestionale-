@@ -1,11 +1,18 @@
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { aData } from './tempo';
+import { idSalone } from './sessione';
 import { db, auth } from '../../../src/lib/firebase';
 
+/**
+ * L'identificativo con cui sono marcati i dati: NON è chi è entrato, è il
+ * salone. Il titolare e le operatrici che ci lavorano vedono le stesse cose.
+ * Se la sessione non è ancora aperta si ripiega su chi è entrato, che per il
+ * titolare è la stessa cosa.
+ */
 const getUserId = () => {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('Utente non autenticato');
-  return uid;
+  const id = idSalone() || auth.currentUser?.uid;
+  if (!id) throw new Error('Utente non autenticato');
+  return id;
 };
 
 // ---------------------------------------------------------

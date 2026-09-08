@@ -8,6 +8,7 @@ import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLe
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
+import { puoAprirePercorso } from '@/lib/sessione';
 import {
   durataTotale,
   intervalliDaSegmenti,
@@ -1464,21 +1465,33 @@ export default function PaginaAgenda() {
               </div>
             </div>
 
+            {/* Scorciatoie: anche qui si mostrano solo le pagine concesse. */}
+            {(() => {
+              const scorciatoie = [
+                { percorso: '/clienti', etichetta: 'Clienti', icona: Users },
+                { percorso: '/prodotti', etichetta: 'Prodotti', icona: Scissors },
+                { percorso: '/buoni-spa', etichetta: 'Buoni', icona: Ticket }
+              ].filter(x => puoAprirePercorso(x.percorso));
+              const dashboard = puoAprirePercorso('/');
+              if (scorciatoie.length === 0 && !dashboard) return null;
+              return (
             <div className="bg-white border border-zinc-200 rounded-xl p-2 shadow-sm flex flex-col">
-              <Link to="/clienti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
-                <Users size={15} className="text-zinc-500" /> Clienti
-              </Link>
-              <Link to="/prodotti" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
-                <Scissors size={15} className="text-zinc-500" /> Prodotti
-              </Link>
-              <Link to="/buoni-spa" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
-                <Ticket size={15} className="text-zinc-500" /> Buoni
-              </Link>
-              <div className="h-px bg-zinc-100 my-1"></div>
-              <Link to="/" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
-                <LayoutGrid size={15} className="text-zinc-500" /> Apri la dashboard
-              </Link>
+              {scorciatoie.map(({ percorso, etichetta, icona: Icona }) => (
+                <Link key={percorso} to={percorso} className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                  <Icona size={15} className="text-zinc-500" /> {etichetta}
+                </Link>
+              ))}
+              {dashboard && (
+                <>
+                  {scorciatoie.length > 0 && <div className="h-px bg-zinc-100 my-1"></div>}
+                  <Link to="/" className="px-2 py-2 rounded-lg text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors flex items-center gap-2">
+                    <LayoutGrid size={15} className="text-zinc-500" /> Apri la dashboard
+                  </Link>
+                </>
+              )}
             </div>
+              );
+            })()}
           </aside>
         )}
 

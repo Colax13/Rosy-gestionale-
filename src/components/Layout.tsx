@@ -10,6 +10,7 @@ import { auth } from '../lib/firebase';
 import RosySidebar from './RosySidebar';
 import RosyChat from './RosyChat';
 import RosyLogo from './RosyLogo';
+import { puoAprirePercorso, sessioneCorrente, idSalone } from '@/lib/sessione';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -44,7 +45,12 @@ export default function Layout({ children }: { children: ReactNode }) {
     { path: '/prodotti', label: 'Prodotti', icon: Package },
     { path: '/automazioni', label: 'Automazioni', icon: MessageSquare },
     { path: '/buoni-spa', label: 'Buoni', icon: Ticket }
-  ];
+  ]
+  // Le voci che questa persona non può aprire non compaiono nel menù: non
+  // serve mostrare porte chiuse. Il muro vero resta nelle regole del database.
+  .filter(route => puoAprirePercorso(route.path));
+
+  const sessione = sessioneCorrente();
 
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
@@ -152,12 +158,15 @@ export default function Layout({ children }: { children: ReactNode }) {
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-500 hover:bg-white hover:text-zinc-900 transition-colors"
         >
           <div className="w-8 h-8 rounded-full bg-fuchsia-600 text-white flex items-center justify-center font-bold flex-shrink-0">
-            {auth.currentUser?.displayName?.charAt(0).toUpperCase() || 'A'}
+            {(sessione?.nome || auth.currentUser?.displayName || 'A').charAt(0).toUpperCase()}
           </div>
           <div className="flex flex-col items-start truncate overflow-hidden">
             <span className="text-sm font-medium text-zinc-900 truncate max-w-[120px]">
-              {auth.currentUser?.displayName || 'Admin'}
+              {sessione?.nome || auth.currentUser?.displayName || 'Admin'}
             </span>
+            {sessione && !sessione.titolare && (
+              <span className="text-[10px] text-zinc-500 truncate max-w-[120px]">Operatrice</span>
+            )}
           </div>
         </button>
       </div>
@@ -223,8 +232,11 @@ export default function Layout({ children }: { children: ReactNode }) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
-                if (auth.currentUser) {
-                   const link = `${window.location.origin}/${auth.currentUser.uid}/prenota`;
+                // Il collegamento è quello del SALONE, non di chi lo copia:
+                // un'operatrice che lo condivide deve mandare lo stesso indirizzo.
+                const idPerLink = idSalone() || auth.currentUser?.uid;
+                if (idPerLink) {
+                   const link = `${window.location.origin}/${idPerLink}/prenota`;
                    navigator.clipboard.writeText(link);
                    const btn = document.getElementById('share-btn-text');
                    if (btn) {

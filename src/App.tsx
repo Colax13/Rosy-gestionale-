@@ -14,9 +14,12 @@ import DashboardHub from '@/app/(dashboard)/hub/page';
 import RosieHub from '@/app/(dashboard)/rosie/page';
 import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
 import Onboarding from './components/Onboarding';
+import SchermataAccesso from './components/SchermataAccesso';
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { auth } from './lib/firebase';
+import { apriSessione, chiudiSessione, Sessione, puoAprirePercorso, primaPaginaPermessa } from '@/lib/sessione';
+import { Navigate } from 'react-router-dom';
 
 /** Traduce i codici di Firebase in qualcosa che si capisce e si può risolvere. */
 function spiegaErroreAccesso(error: any): string {
@@ -30,6 +33,14 @@ function spiegaErroreAccesso(error: any): string {
       return 'Il browser ha bloccato la finestra di Google. Consenti le finestre a comparsa per questo sito e riprova.';
     case 'auth/network-request-failed':
       return 'Non riesco a raggiungere Google. Controlla la connessione e riprova.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Indirizzo o password non corretti. Se non li ricordi, chiedi alla titolare di rifarteli.';
+    case 'auth/too-many-requests':
+      return 'Troppi tentativi di fila. Aspetta qualche minuto e riprova.';
+    case 'auth/invalid-email':
+      return "L'indirizzo non è scritto in modo valido.";
     case 'auth/invalid-api-key':
     case 'auth/api-key-not-valid.-please-pass-a-valid-api-key.':
       return 'La chiave di Firebase non è valida: la configurazione del progetto non è corretta.';
@@ -45,17 +56,55 @@ export default function App() {
   const [erroreAccesso, setErroreAccesso] = useState<string | null>(null);
   const [accessoInCorso, setAccessoInCorso] = useState(false);
 
+  // Chi è entrato e che cosa gli è permesso: si risolve dopo l'accesso, prima
+  // di aprire il programma, perché da lì dipende quali dati si vanno a leggere.
+  const [sessione, setSessione] = useState<Sessione | null>(null);
+
+  // Le operatrici entrano con indirizzo e password, non con Google.
+  const [modoOperatrice, setModoOperatrice] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
   useEffect(() => {
     // Se l'accesso e avvenuto con il reindirizzamento (telefono, oppure
     // finestrella bloccata) il risultato arriva al ritorno sulla pagina.
     getRedirectResult(auth).catch(err => setErroreAccesso(spiegaErroreAccesso(err)));
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      setLoading(false);
+      if (!currentUser) {
+        chiudiSessione();
+        setSessione(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        setSessione(await apriSessione(
+          currentUser.uid,
+          currentUser.displayName || currentUser.email || 'Operatrice'
+        ));
+      } catch (err: any) {
+        setErroreAccesso(err?.message || 'Non sono riuscito ad aprire la sessione.');
+        await signOut(auth);
+      } finally {
+        setLoading(false);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  const handleLoginOperatrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErroreAccesso(null);
+    setAccessoInCorso(true);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (error: any) {
+      setErroreAccesso(spiegaErroreAccesso(error));
+    } finally {
+      setAccessoInCorso(false);
+    }
+  };
 
   const handleLogin = async () => {
     setErroreAccesso(null);
@@ -108,51 +157,49 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white p-4">
-        <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center border border-zinc-200">
-          <div className="w-16 h-16 bg-fuchsia-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-lg shadow-fuchsia-900/20">
-            <span className="text-3xl font-playfair font-bold text-white">R</span>
-          </div>
-          <h1 className="text-2xl font-bold font-sans text-zinc-900 mb-2 tracking-tight">Accedi a Rosy</h1>
-          <p className="text-zinc-500 mb-8 font-sans text-sm">Gestisci il tuo salone, clienti e appuntamenti, sincronizzato sul cloud.</p>
-          <button
-            onClick={handleLogin}
-            className="w-full bg-zinc-100 text-zinc-900 hover:bg-zinc-50 transition-colors py-3 rounded-lg font-medium flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5 bg-white rounded-full" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
-            {accessoInCorso ? 'Attendi...' : 'Accedi con Google'}
-          </button>
-
-          {erroreAccesso && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
-              <p className="text-sm text-red-700 leading-relaxed">{erroreAccesso}</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <SchermataAccesso
+        modoOperatrice={modoOperatrice}
+        setModoOperatrice={setModoOperatrice}
+        accessoInCorso={accessoInCorso}
+        erroreAccesso={erroreAccesso}
+        setErroreAccesso={setErroreAccesso}
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
+        onGoogle={handleLogin}
+        onOperatrice={handleLoginOperatrice}
+      />
     );
   }
 
-  if (!onboardingComplete) {
+  // L'avvio guidato riguarda chi apre il salone, non chi ci lavora.
+  if (!onboardingComplete && sessione?.titolare !== false) {
     return <Onboarding user={user} onComplete={() => setOnboardingComplete(true)} />;
   }
+
+  // Una pagina che non le è concessa non si apre nemmeno scrivendola a mano
+  // nell'indirizzo: si torna alla prima che può vedere. Il muro vero sono le
+  // regole del database, questo serve a non far vedere pagine vuote.
+  const Protetta = ({ percorso, children }: { percorso: string; children: React.ReactNode }) =>
+    puoAprirePercorso(percorso) ? <>{children}</> : <Navigate to={primaPaginaPermessa()} replace />;
 
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardHub />} />
-          <Route path="/rosie" element={<RosieHub />} />
-          <Route path="/agenda" element={<PaginaAgenda />} />
-          <Route path="/catalogo" element={<GestioneCatalogo />} />
-          <Route path="/report" element={<PaginaReport />} />
-          <Route path="/dipendenti" element={<GestioneDipendenti />} />
-          <Route path="/clienti" element={<GestioneClienti />} />
-          <Route path="/clienti/:id" element={<SchedaCliente />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/prodotti" element={<ProdottiPage />} />
-          <Route path="/automazioni" element={<AutomazioniPage />} />
-          <Route path="/buoni-spa" element={<BuoniSpa />} />
+          <Route path="/" element={<Protetta percorso="/"><DashboardHub /></Protetta>} />
+          <Route path="/rosie" element={<Protetta percorso="/rosie"><RosieHub /></Protetta>} />
+          <Route path="/agenda" element={<Protetta percorso="/agenda"><PaginaAgenda /></Protetta>} />
+          <Route path="/catalogo" element={<Protetta percorso="/catalogo"><GestioneCatalogo /></Protetta>} />
+          <Route path="/report" element={<Protetta percorso="/report"><PaginaReport /></Protetta>} />
+          <Route path="/dipendenti" element={<Protetta percorso="/dipendenti"><GestioneDipendenti /></Protetta>} />
+          <Route path="/clienti" element={<Protetta percorso="/clienti"><GestioneClienti /></Protetta>} />
+          <Route path="/clienti/:id" element={<Protetta percorso="/clienti"><SchedaCliente /></Protetta>} />
+          <Route path="/settings" element={<Protetta percorso="/settings"><SettingsPage /></Protetta>} />
+          <Route path="/prodotti" element={<Protetta percorso="/prodotti"><ProdottiPage /></Protetta>} />
+          <Route path="/automazioni" element={<Protetta percorso="/automazioni"><AutomazioniPage /></Protetta>} />
+          <Route path="/buoni-spa" element={<Protetta percorso="/buoni-spa"><BuoniSpa /></Protetta>} />
         </Routes>
       </Layout>
     </BrowserRouter>

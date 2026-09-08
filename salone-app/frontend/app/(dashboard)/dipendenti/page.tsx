@@ -7,6 +7,7 @@ import { Plus, Edit2, Shield, User, X, Check, AlertCircle, Trash2, Eye, FileText
 
 import TurniCalendario from './TurniCalendario';
 import ServiziOperatore from './ServiziOperatore';
+import AccessiOperatrici from './AccessiOperatrici';
 
 interface Dipendente {
   id: string;
@@ -23,7 +24,7 @@ interface Dipendente {
 }
 
 export default function GestioneDipendenti() {
-  const [activeTab, setActiveTab] = useState<'elenco' | 'turni' | 'servizi'>('elenco');
+  const [activeTab, setActiveTab] = useState<'elenco' | 'turni' | 'servizi' | 'accessi'>('elenco');
   const [dipendenti, setDipendenti] = useState<Dipendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +171,12 @@ export default function GestioneDipendenti() {
             >
               Servizi
             </button>
+            <button
+              onClick={() => setActiveTab('accessi')}
+              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'accessi' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
+            >
+              Accessi
+            </button>
           </div>
         </div>
       </div>
@@ -229,9 +236,13 @@ export default function GestioneDipendenti() {
             <div className="mt-6">
               <TurniCalendario dipendenti={dipendenti} refreshData={caricaDipendenti} />
             </div>
-          ) : (
+          ) : activeTab === 'servizi' ? (
             <div className="mt-6">
               <ServiziOperatore dipendenti={dipendenti} refreshData={() => caricaDipendenti(true)} />
+            </div>
+          ) : (
+            <div className="mt-6">
+              <AccessiOperatrici dipendenti={dipendenti} />
             </div>
           )}
         </>

@@ -10,6 +10,54 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // --- Chi lavora nel salone -------------------------------------------
+    //
+    // I documenti portano `userId` = l'identificativo del salone, che è quello
+    // del titolare. Il titolare è quindi riconosciuto dal confronto diretto.
+    // Le operatrici hanno un documento in `membri/{uid}` che dice a quale
+    // salone appartengono e a quali pagine possono accedere.
+
+    function percorsoMembro() {
+      return /databases/$(database)/documents/membri/$(request.auth.uid);
+    }
+
+    function eMembro() {
+      return isSignedIn() && exists(percorsoMembro());
+    }
+
+    function membro() {
+      return get(percorsoMembro()).data;
+    }
+
+    /** Un accesso sospeso non entra: `attivo` assente vale come acceso. */
+    function membroAttivo() {
+      return !('attivo' in membro()) || membro().attivo == true;
+    }
+
+    /** Il salone è suo: o perché ne è il titolare, o perché ci lavora. */
+    function nelSalone(userId) {
+      return isSignedIn() && (
+        request.auth.uid == userId
+        || (eMembro() && membro().salonId == userId && membroAttivo())
+      );
+    }
+
+    /** Come sopra, ma serve anche il permesso su quella pagina. */
+    function nelSaloneCon(userId, permesso) {
+      return isSignedIn() && (
+        request.auth.uid == userId
+        || (
+          eMembro()
+          && membro().salonId == userId
+          && membroAttivo()
+          && membro().permessi is list
+          && membro().permessi.hasAny([permesso])
+        )
+      );
+    }
+
+
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -22,15 +70,18 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Valdatori
+    // Validatori della FORMA del documento.
+    // A chi appartiene lo decidono nelSalone/nelSaloneCon: qui non si guarda
+    // più `request.auth.uid`, altrimenti le operatrici — che hanno un uid
+    // diverso da quello del salone — sarebbero respinte su tutto.
     function isValidAppuntamento(data) {
       return data.keys().hasAll(['userId', 'data_ora', 'stato'])
-        && data.userId == request.auth.uid;
+        && data.userId is string;
     }
 
     function isValidCliente(data) {
       return data.keys().hasAll(['userId', 'nome', 'cognome', 'createdAt', 'updatedAt'])
-        && data.userId == request.auth.uid
+        && data.userId is string
         && data.nome is string && data.nome.size() <= 100
         && data.cognome is string && data.cognome.size() <= 100
         && ( !('telefono' in data) || (data.telefono is string && data.telefono.size() <= 50) )
@@ -41,7 +92,7 @@ service cloud.firestore {
 
     function isValidDipendente(data) {
       return data.keys().hasAll(['userId', 'nome', 'cognome', 'createdAt', 'updatedAt'])
-        && data.userId == request.auth.uid
+        && data.userId is string
         && data.nome is string && data.nome.size() <= 100
         && data.cognome is string && data.cognome.size() <= 100
         && ( !('ruolo' in data) || (data.ruolo is string && data.ruolo.size() <= 100) )
@@ -60,7 +111,7 @@ service cloud.firestore {
 
     function isValidCatalogo(data) {
       return data.keys().hasAll(['userId', 'nome', 'durata_minuti'])
-        && data.userId == request.auth.uid
+        && data.userId is string
         && data.nome is string && data.nome.size() <= 100
         && ( !('prezzo_base' in data) || (data.prezzo_base is number) )
         && ( !('prezzo' in data) || (data.prezzo is number) )
@@ -74,74 +125,109 @@ service cloud.firestore {
     }
 
     match /catalogo/{itemId} {
+      // Il listino è pubblico: serve alla pagina di prenotazione online.
       allow get: if true;
       allow list: if true;
-      allow create: if isSignedIn() && isValidId(itemId) && isValidCatalogo(incoming());
-      allow update: if isSignedIn() && isValidId(itemId) && isValidCatalogo(incoming()) && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && isValidId(itemId) && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(itemId) && isValidCatalogo(incoming()) && nelSaloneCon(incoming().userId, 'catalogo');
+      allow update: if isValidId(itemId) && isValidCatalogo(incoming()) && nelSaloneCon(resource.data.userId, 'catalogo');
+      allow delete: if isValidId(itemId) && nelSaloneCon(resource.data.userId, 'catalogo');
     }
 
     match /categorie_catalogo/{catId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(catId) 
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
+      allow create: if isValidId(catId)
                     && incoming().keys().hasAll(['userId', 'nome'])
-                    && incoming().userId == request.auth.uid
+                    && nelSaloneCon(incoming().userId, 'catalogo')
                     && incoming().nome is string && incoming().nome.size() <= 100;
-      allow update: if isSignedIn() && isValidId(catId) 
+      allow update: if isValidId(catId)
                     && incoming().keys().hasAll(['userId', 'nome'])
-                    && resource.data.userId == request.auth.uid
-                    && incoming().userId == request.auth.uid
+                    && nelSaloneCon(resource.data.userId, 'catalogo')
+                    && incoming().userId == resource.data.userId
                     && incoming().nome is string && incoming().nome.size() <= 100;
-      allow delete: if isSignedIn() && isValidId(catId) && resource.data.userId == request.auth.uid;
+      allow delete: if isValidId(catId) && nelSaloneCon(resource.data.userId, 'catalogo');
     }
 
     match /appuntamenti/{appuntamentoId} {
       allow get, list: if true;
-      allow create: if isValidId(appuntamentoId) && ( (isSignedIn() && isValidAppuntamento(incoming())) || (incoming().source == 'web_public' && incoming().userId is string) );
-      allow update: if isSignedIn() && isValidId(appuntamentoId) && isValidAppuntamento(incoming()) && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && isValidId(appuntamentoId) && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(appuntamentoId) && (
+                      (isValidAppuntamento(incoming()) && nelSaloneCon(incoming().userId, 'agenda'))
+                      || (incoming().source == 'web_public' && incoming().userId is string)
+                    );
+      allow update: if isValidId(appuntamentoId) && isValidAppuntamento(incoming()) && nelSaloneCon(resource.data.userId, 'agenda');
+      allow delete: if isValidId(appuntamentoId) && nelSaloneCon(resource.data.userId, 'agenda');
     }
 
     match /clienti/{clienteId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(clienteId) && isValidCliente(incoming())
+      // L'agenda mostra il nome della cliente sull'appuntamento: chi ha
+      // l'agenda deve poter leggere l'anagrafica, ma per modificarla serve il
+      // permesso sui clienti.
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
+      allow create: if isValidId(clienteId) && isValidCliente(incoming())
+                    && nelSaloneCon(incoming().userId, 'clienti')
                     && incoming().createdAt == request.time
                     && incoming().updatedAt == request.time;
-      allow update: if isSignedIn() && isValidId(clienteId) && isValidCliente(incoming())
-                    && resource.data.userId == request.auth.uid
+      allow update: if isValidId(clienteId) && isValidCliente(incoming())
+                    && nelSaloneCon(resource.data.userId, 'clienti')
                     && incoming().createdAt == resource.data.createdAt
                     && incoming().updatedAt == request.time;
-      allow delete: if isSignedIn() && isValidId(clienteId) && resource.data.userId == request.auth.uid;
+      allow delete: if isValidId(clienteId) && nelSaloneCon(resource.data.userId, 'clienti');
     }
 
     match /dipendenti/{dipendenteId} {
+      // L'elenco è pubblico: la prenotazione online fa scegliere l'operatrice.
       allow get: if true;
       allow list: if true;
-      allow create: if isSignedIn() && isValidId(dipendenteId) && isValidDipendente(incoming())
+      allow create: if isValidId(dipendenteId) && isValidDipendente(incoming())
+                    && nelSaloneCon(incoming().userId, 'dipendenti')
                     && incoming().createdAt == request.time
                     && incoming().updatedAt == request.time;
-      allow update: if isSignedIn() && isValidId(dipendenteId) && isValidDipendente(incoming())
-                    && resource.data.userId == request.auth.uid
+      allow update: if isValidId(dipendenteId) && isValidDipendente(incoming())
+                    && nelSaloneCon(resource.data.userId, 'dipendenti')
                     && incoming().createdAt == resource.data.createdAt
                     && incoming().updatedAt == request.time;
-      allow delete: if isSignedIn() && isValidId(dipendenteId) && resource.data.userId == request.auth.uid;
+      allow delete: if isValidId(dipendenteId) && nelSaloneCon(resource.data.userId, 'dipendenti');
     }
 
     match /buoni/{buonoId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(buonoId)
+      allow get: if nelSaloneCon(resource.data.userId, 'buoni');
+      allow list: if nelSaloneCon(resource.data.userId, 'buoni');
+      allow create: if isValidId(buonoId)
                     && incoming().keys().hasAll(['userId', 'codice', 'valore', 'stato'])
-                    && incoming().userId == request.auth.uid
+                    && nelSaloneCon(incoming().userId, 'buoni')
                     && incoming().codice is string && incoming().codice.size() <= 40
                     && incoming().valore is number && incoming().valore >= 0
                     && incoming().stato is string && incoming().stato.size() <= 20;
-      allow update: if isSignedIn() && isValidId(buonoId)
-                    && resource.data.userId == request.auth.uid
+      allow update: if isValidId(buonoId)
+                    && nelSaloneCon(resource.data.userId, 'buoni')
                     && incoming().userId == resource.data.userId;
-      allow delete: if isSignedIn() && isValidId(buonoId) && resource.data.userId == request.auth.uid;
+      allow delete: if isValidId(buonoId) && nelSaloneCon(resource.data.userId, 'buoni');
+    }
+
+    // Chi lavora nel salone. Ognuna legge solo la propria riga; a scriverle è
+    // solo la titolare del salone a cui la riga punta. Le due condizioni sulla
+    // stessa riga sono quello che tiene in piedi tutto il resto: se una si
+    // potesse cambiare da sola i permessi, i permessi non varrebbero niente.
+    match /membri/{membroUid} {
+      allow get: if isSignedIn() && (
+                      request.auth.uid == membroUid
+                      || request.auth.uid == resource.data.salonId
+                    );
+      allow list: if isSignedIn() && request.auth.uid == resource.data.salonId;
+      allow create: if isSignedIn()
+                    && isValidId(membroUid)
+                    && incoming().keys().hasAll(['salonId', 'nome', 'permessi'])
+                    && incoming().salonId == request.auth.uid
+                    && incoming().nome is string && incoming().nome.size() <= 200
+                    && incoming().permessi is list && incoming().permessi.size() <= 20
+                    && ( !('attivo' in incoming()) || incoming().attivo is bool )
+                    && ( !('idDipendente' in incoming()) || incoming().idDipendente is string );
+      allow update: if isSignedIn()
+                    && request.auth.uid == resource.data.salonId
+                    && incoming().salonId == resource.data.salonId
+                    && incoming().permessi is list && incoming().permessi.size() <= 20;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.salonId;
     }
 
     match /salons/{salonId} {
