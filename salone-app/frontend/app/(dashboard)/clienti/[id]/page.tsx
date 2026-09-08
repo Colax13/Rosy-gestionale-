@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { clientiApi, appuntamentiApi } from '@/lib/api-client';
 import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2 } from 'lucide-react';
+import BottoneRicontatta from '@/components/BottoneRicontatta';
 
 interface Cliente {
   id: string;
@@ -219,7 +220,15 @@ export default function SchedaCliente() {
                 <div className="flex items-center gap-3">
                   <Phone size={16} className="text-zinc-500" />
                   {!isEditing ? (
-                    <span className="text-zinc-900">{cliente.telefono || <span className="italic text-zinc-500/50">Nessun telefono</span>}</span>
+                    <div className="flex items-center gap-3 flex-wrap min-w-0">
+                      <span className="text-zinc-900">{cliente.telefono || <span className="italic text-zinc-500/50">Nessun telefono</span>}</span>
+                      <BottoneRicontatta
+                        telefono={cliente.telefono}
+                        aspetto="discreto"
+                        etichetta="Scrivi"
+                        messaggio={`Buongiorno ${cliente.nome || ''}!`.replace(/\s+/g, ' ')}
+                      />
+                    </div>
                   ) : (
                     <input 
                       name="telefono" value={formData.telefono || ''} onChange={handleChange} 

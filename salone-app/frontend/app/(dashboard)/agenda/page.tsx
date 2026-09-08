@@ -7,6 +7,7 @@ import { appuntamentiApi, dipendentiApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
+import BottoneRicontatta from '@/components/BottoneRicontatta';
 import {
   durataTotale,
   intervalliDaSegmenti,
@@ -1561,14 +1562,11 @@ export default function PaginaAgenda() {
                       >
                         <Edit2 size={15} /> Modifica
                       </button>
-                      {telefono && (
-                        <a
-                          href={`tel:${telefono}`}
-                          className="flex-1 min-w-[110px] px-3 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          Ricontatta
-                        </a>
-                      )}
+                      <BottoneRicontatta
+                        telefono={telefono}
+                        className="flex-1 min-w-[110px]"
+                        messaggio={`Buongiorno ${r.clienti?.nome || ''}, la ricontatto per la sua richiesta di appuntamento.`.replace(/\s+/g, ' ')}
+                      />
                       <button
                         disabled={occupato}
                         onClick={() => rispondiARichiesta(r, 'rifiuta')}

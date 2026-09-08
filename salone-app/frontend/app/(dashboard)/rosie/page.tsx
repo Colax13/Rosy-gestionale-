@@ -14,6 +14,7 @@ import { auth } from "../../../../../src/lib/firebase";
 import { appuntamentiApi, clientiApi, dipendentiApi } from "@/lib/api-client";
 import { aData, daQuanto, giorniDa } from "@/lib/tempo";
 import { intervalliOccupati, turnoDelGiorno, dentroTurno } from "@/lib/servizi";
+import BottoneRicontatta from "@/components/BottoneRicontatta";
 import RosySidebar from "../../../../../src/components/RosySidebar";
 import RosyLogo from "../../../../../src/components/RosyLogo";
 
@@ -179,15 +180,11 @@ export default function RosieHub() {
               </div>
               <div className="divide-y divide-zinc-100 max-h-80 overflow-y-auto">
                 {dormienti.map(({ cliente, ultimaVisita: visita }) => (
-                  <Link
-                    key={cliente.id}
-                    to={`/clienti/${cliente.id}`}
-                    className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 transition-colors"
-                  >
+                  <div key={cliente.id} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 transition-colors">
                     <div className="w-9 h-9 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold shrink-0">
                       {(cliente.nome || '?').charAt(0)}{(cliente.cognome || '').charAt(0)}
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <Link to={`/clienti/${cliente.id}`} className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-zinc-900 truncate">
                         {cliente.nome} {cliente.cognome}
                       </div>
@@ -195,9 +192,17 @@ export default function RosieHub() {
                         {visita ? `Ultima visita ${daQuanto(visita)}` : 'Non è mai passata'}
                         {cliente.telefono ? ` · ${cliente.telefono}` : ''}
                       </div>
-                    </div>
-                    <ChevronRight size={16} className="text-zinc-400 shrink-0" />
-                  </Link>
+                    </Link>
+                    <BottoneRicontatta
+                      telefono={cliente.telefono}
+                      aspetto="discreto"
+                      etichetta="Ricontatta"
+                      messaggio={`Buongiorno ${cliente.nome || ''}, è passato un po' di tempo dall'ultima volta: le va di fissare un appuntamento?`.replace(/\s+/g, ' ')}
+                    />
+                    <Link to={`/clienti/${cliente.id}`} className="shrink-0">
+                      <ChevronRight size={16} className="text-zinc-400" />
+                    </Link>
+                  </div>
                 ))}
               </div>
             </motion.div>
