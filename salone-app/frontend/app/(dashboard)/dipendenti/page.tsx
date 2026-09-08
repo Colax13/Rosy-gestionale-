@@ -139,7 +139,7 @@ export default function GestioneDipendenti() {
       {/* Intestazione e Tabs */}
       <div className="w-full px-4 md:px-6 pt-4 md:pt-6">
         <div className="max-w-[1400px] mx-auto w-full">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 sticky top-4 z-40 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
             <div className="w-full">
               <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3 mb-4">
                 <User className="text-fuchsia-500" size={28} />

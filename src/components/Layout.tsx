@@ -24,16 +24,15 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const isMainDashboard = location.pathname === '/';
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
+  // Il tema sta in un posto solo: la classe `dark` sulla pagina. Questo
+  // effetto la tiene allineata a quello che l'utente ha scelto, così il tema
+  // regge anche al ricaricamento e non dipende dallo script dentro l'HTML.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   const routes = [
     { path: '/rosie', label: 'Rosie Hub', icon: Sparkles },
@@ -311,16 +310,16 @@ export default function Layout({ children }: { children: ReactNode }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: 40 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed bottom-24 right-5 sm:right-6 w-[calc(100vw-2.5rem)] sm:w-[400px] h-[600px] max-h-[calc(100vh-8rem)] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl z-[100] shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-24 right-5 sm:right-6 w-[calc(100vw-2.5rem)] sm:w-[400px] h-[600px] max-h-[calc(100vh-8rem)] bg-white border border-zinc-200 rounded-3xl z-[100] shadow-2xl flex flex-col overflow-hidden"
           >
             <button 
               onClick={() => setIsChatOpen(false)}
-              className="absolute top-4 right-4 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 z-[70] p-2 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 backdrop-blur-md rounded-full transition-all border border-zinc-200 dark:border-zinc-700 shadow-sm"
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 z-[70] p-2 bg-zinc-100/80 hover:bg-zinc-200 backdrop-blur-md rounded-full transition-all border border-zinc-200 shadow-sm"
             >
               <X size={18} />
             </button>
             <RosyChat />
-            <div className="absolute -bottom-3 right-8 w-6 h-6 bg-white dark:bg-zinc-900 border-b border-r border-zinc-200 dark:border-zinc-800 transform rotate-45 z-[60]"></div>
+            <div className="absolute -bottom-3 right-8 w-6 h-6 bg-white border-b border-r border-zinc-200 transform rotate-45 z-[60]"></div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -91,14 +91,14 @@ export default function RosyLogo({ className = "", size = "md", variant = "defau
           <div className={`rounded-full bg-white relative overflow-hidden ${s.eye.split(' ')[0]} ${s.eye.split(' ')[1]}`} style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
               <motion.div 
                 animate={{ x: mousePos.normX * (size === 'xl' ? 4 : size === 'lg' ? 2 : 1.5), y: mousePos.normY * (size === 'xl' ? 4 : size === 'lg' ? 2 : 1.5) }}
-                className="absolute top-[20%] left-[20%] w-[60%] h-[60%] bg-zinc-900 dark:bg-black rounded-full"
+                className="absolute top-[20%] left-[20%] w-[60%] h-[60%] bg-zinc-900 rounded-full"
               />
           </div>
           {/* Eye 2 */}
           <div className={`rounded-full bg-white relative overflow-hidden ${s.eye.split(' ')[0]} ${s.eye.split(' ')[1]}`} style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
               <motion.div 
                 animate={{ x: mousePos.normX * (size === 'xl' ? 4 : size === 'lg' ? 2 : 1.5), y: mousePos.normY * (size === 'xl' ? 4 : size === 'lg' ? 2 : 1.5) }}
-                className="absolute top-[20%] left-[20%] w-[60%] h-[60%] bg-zinc-900 dark:bg-black rounded-full"
+                className="absolute top-[20%] left-[20%] w-[60%] h-[60%] bg-zinc-900 rounded-full"
               />
           </div>
         </div>

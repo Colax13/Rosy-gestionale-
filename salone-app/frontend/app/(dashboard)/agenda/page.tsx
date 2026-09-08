@@ -1008,7 +1008,7 @@ export default function PaginaAgenda() {
       {/* Orizzontal layout for Agenda header and KPI / Banner */}
       <div className="flex flex-col mb-4 gap-2">
         {/* Intestazione e Controlli Data */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-4 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-xl">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-4 z-40 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
           <div>
             <h1 className="text-2xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
               <CalendarIcon className="text-[#D400FF]" size={24} />

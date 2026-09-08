@@ -78,7 +78,7 @@ export default function RosieHub() {
                </button>
                <Link
                  to="/clienti"
-                 className="px-5 py-3 bg-zinc-100 dark:bg-[#1A1E2B] hover:bg-zinc-200 dark:hover:bg-[#252B3D] border border-zinc-300 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-300 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+                 className="px-5 py-3 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
                >
                  Vedi chi sono <ChevronRight size={16} className="text-zinc-500" />
                </Link>

@@ -27,13 +27,13 @@ export default function RosyChat() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-zinc-900 dark:text-zinc-100 relative">
+    <div className="flex flex-col h-full bg-transparent text-zinc-900 relative">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto w-full scrollbar-none p-6 pb-4 flex flex-col gap-5">
          
-         <div className="flex flex-col mb-4 bg-zinc-100/80 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/50">
-           <h3 className="text-zinc-900 dark:text-zinc-100 font-semibold mb-1">Assistente vocale</h3>
-           <p className="text-zinc-500 dark:text-zinc-400 text-sm">Di cosa ha bisogno il tuo salone oggi?</p>
+         <div className="flex flex-col mb-4 bg-zinc-100/80 p-4 rounded-xl border border-zinc-200 ">
+           <h3 className="text-zinc-900 font-semibold mb-1">Assistente vocale</h3>
+           <p className="text-zinc-500 text-sm">Di cosa ha bisogno il tuo salone oggi?</p>
          </div>
          
          {messages.map(msg => (
@@ -50,8 +50,8 @@ export default function RosyChat() {
              )}
              <div className={`p-3.5 px-4 rounded-2xl max-w-[85%] ${
                msg.sender === 'user' 
-                ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-br-none font-medium shadow-md' 
-                : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-sm border border-zinc-200 dark:border-zinc-700/50 shadow-sm'
+                ? 'bg-zinc-900 text-white rounded-br-none font-medium shadow-md' 
+                : 'bg-white text-zinc-800 rounded-bl-sm border border-zinc-200 shadow-sm'
              }`}>
                <p className="text-sm leading-relaxed">{msg.text}</p>
              </div>
@@ -60,7 +60,7 @@ export default function RosyChat() {
       </div>
       
       {/* Input */}
-      <div className="p-4 bg-zinc-50/90 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 mt-auto sticky bottom-0 rounded-b-3xl">
+      <div className="p-4 bg-zinc-50/90 backdrop-blur-md border-t border-zinc-200 mt-auto sticky bottom-0 rounded-b-3xl">
          <div className="relative flex items-center">
            <input 
              type="text" 
@@ -68,11 +68,11 @@ export default function RosyChat() {
              onChange={e => setInput(e.target.value)}
              onKeyDown={e => e.key === 'Enter' && handleSend()}
              placeholder="Chiedi a Rosy (Es: 'Sposta l'appuntamento...')" 
-             className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 rounded-xl pl-4 pr-12 py-3.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 outline-none transition-colors shadow-inner"
+             className="w-full bg-white border border-zinc-200 focus:border-zinc-300 rounded-xl pl-4 pr-12 py-3.5 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none transition-colors shadow-inner"
            />
            <button 
              onClick={handleSend}
-             className="absolute right-2 w-9 h-9 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 shadow-md hover:opacity-90 transition-opacity"
+             className="absolute right-2 w-9 h-9 rounded-lg bg-zinc-900 flex items-center justify-center text-white shadow-md hover:opacity-90 transition-opacity"
            >
              <ChevronRight size={18} strokeWidth={2.5} />
            </button>

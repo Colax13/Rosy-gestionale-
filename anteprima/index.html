@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rosy — anteprima</title>
+    <script>
+      // Stesso trucco dell'HTML vero: applica il tema prima di disegnare,
+      // altrimenti si vede un lampo bianco a ogni ricaricamento.
+      try {
+        document.documentElement.classList.toggle('dark', localStorage.getItem('theme') === 'dark');
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
