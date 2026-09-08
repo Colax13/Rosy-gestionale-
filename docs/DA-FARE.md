@@ -362,7 +362,7 @@ Raccolta dalla chiamata. Ordine di scrittura, non di lavorazione.
 
 ### Bug da sistemare
 
-**G1 — Modalità scura rotta, e barre nere per chi ce l'ha attiva** · ALTA
+**G1 — Modalità scura rotta, e barre nere per chi ce l'ha attiva** · ✅ FATTO
 Le intestazioni sopra l'agenda, clienti, servizi e operatori appaiono nere ad
 alcuni e normali ad altri. *Causa individuata:* nel raddrizzare i colori ho
 scritto `body { bg-white text-zinc-900 }` fisso, mentre le barre hanno ancora
@@ -371,19 +371,19 @@ scure su pagina bianca; chi non l'ha mai attivato vede tutto normale — per
 questo Daniele lo vede giusto. Da rifare: modalità chiara e scura entrambe
 funzionanti, con l'interruttore che le cambia davvero.
 
-**G2 — "Vedi chi sono" su Rosie Hub** · MEDIA
+**G2 — "Vedi chi sono" su Rosie Hub** · ✅ FATTO
 Il pulsante va sistemato.
 
-**G3 — Nome della cliente tagliato** · ALTA
+**G3 — Nome della cliente tagliato** · ✅ FATTO
 Deve vedersi **completo**, e su **tutti i blocchi** dell'appuntamento: se c'è
 colore, posa e piega, il nome sta sia sul colore sia sulla piega. Se non ci
 sta, puntini di sospensione e nome intero al passaggio del mouse.
 
-**G4 — La card balla quando ci passi sopra** · ALTA
+**G4 — La card balla quando ci passi sopra** · ✅ FATTO
 Adesso si rimpicciolisce e si riassesta. Deve aprirsi completa **senza
 schiacciarsi**, restando alta uguale, e andare in evidenza.
 
-**G5 — Lo zero fisso nei campi numerici** · ALTA
+**G5 — Lo zero fisso nei campi numerici** · ✅ FATTO
 Nel servizio, prezzo e minuti partono da `0`: se scrivi 15 diventa `015` e non
 si salva. Lo zero deve sparire appena scrivi, oppure niente numero e un
 segnaposto in grigio.
