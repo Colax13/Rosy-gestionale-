@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw } from 'lucide-react';
 import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
-import { sovrappongono, tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno } from '@/lib/servizi';
+import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
 
 interface Client {
   id: string;
@@ -176,7 +176,11 @@ export default function AggiungiCalendarioSidebar({
                 tempo_finitura_minuti: riga.servizi_catalogo.tempo_finitura_minuti,
                 prezzo_base: 0,
                 categoria: 'Varie',
-                attivo: true
+                attivo: true,
+                // Chi fa questo servizio, se è stato affidato a un'altra: senza
+                // questo, salvando una modifica il servizio tornava di nascosto
+                // a chi ha in carico l'appuntamento.
+                id_dipendente: (riga as any).id_dipendente || null
              };
            }
            return null;
@@ -303,9 +307,11 @@ export default function AggiungiCalendarioSidebar({
 
       // I tempi di lavorazione e di posa viaggiano con l'appuntamento: sono
       // quelli che permettono all'agenda di lasciare il buco durante la posa.
-      const righe = selectedServices.map(s => {
+      const righe = selectedServices.map((s: any) => {
         const tempi = tempiServizio(s);
         return {
+          // Se il servizio era affidato a un'altra operatrice, ci resta.
+          id_dipendente: s.id_dipendente || null,
           servizi_catalogo: {
             nome: s.nome,
             durata_minuti: tempi.totale,
@@ -346,10 +352,15 @@ export default function AggiungiCalendarioSidebar({
       // altro appuntamento l'operatore è libero e la fascia è prenotabile.
       const myStartMs = apptDate.getTime();
 
+      // Si confrontano solo i servizi che toccano davvero a questa operatrice:
+      // se il colore è suo ma la piega è di un'altra, la piega non la occupa.
       const hasOverlap = appuntamentiEsistenti.some(es => {
-        if ((es.id_dipendente || es.dipendenti?.id) !== selectedDipendenteId) return false;
         if (appuntamentoEdit && es.id === appuntamentoEdit.id) return false;
-        return sovrappongono(myStartMs, righe, new Date(es.data_ora).getTime(), es.righe_appuntamento || []);
+        return siAccavallano(
+          { inizioMs: myStartMs, righe, operatore: selectedDipendenteId },
+          { inizioMs: new Date(es.data_ora).getTime(), righe: es.righe_appuntamento || [], operatore: es.id_dipendente || es.dipendenti?.id },
+          selectedDipendenteId
+        );
       });
 
       // Fuori turno: l'appuntamento comincia o finisce fuori dalle fasce di
@@ -425,11 +436,11 @@ export default function AggiungiCalendarioSidebar({
       const myStartMs = apptDate.getTime();
 
       const hasOverlap = appuntamentiEsistenti.some(es => {
-        if ((es.id_dipendente || es.dipendenti?.id) !== selectedDipendenteId) return false;
         if (appuntamentoEdit && es.id === appuntamentoEdit.id) return false;
-        return sovrappongono(
-          myStartMs, payload.righe_appuntamento,
-          new Date(es.data_ora).getTime(), es.righe_appuntamento || []
+        return siAccavallano(
+          { inizioMs: myStartMs, righe: payload.righe_appuntamento, operatore: selectedDipendenteId },
+          { inizioMs: new Date(es.data_ora).getTime(), righe: es.righe_appuntamento || [], operatore: es.id_dipendente || es.dipendenti?.id },
+          selectedDipendenteId
         );
       });
 

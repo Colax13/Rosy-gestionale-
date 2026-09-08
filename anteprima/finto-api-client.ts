@@ -158,9 +158,36 @@ export const appuntamentiApi = {
   getAgendaPublic: async () => eco(appuntamenti),
   createPublic: nulla,
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
-  getAgenda: async (data?: string) => eco(data ? appuntamenti : [...appuntamenti, ...appuntamentiVecchi]),
+  getAgenda: async (data?: string, da?: string, a?: string) => {
+    const tutti = [...appuntamenti, ...appuntamentiVecchi];
+    const daGiorno = da || data;
+    const aGiorno = a || data;
+    if (!daGiorno || !aGiorno) return eco(tutti);
+    const inizio = new Date(`${daGiorno}T00:00:00`).getTime();
+    const fine = new Date(`${aGiorno}T23:59:59.999`).getTime();
+    return eco(tutti.filter(x => {
+      const t = new Date(x.data_ora).getTime();
+      return t >= inizio && t <= fine;
+    }));
+  },
   getRichieste: async () => eco(appuntamenti.filter(a => a.stato === 'in_attesa')),
-  create: nulla, update: nulla, delete: nulla,
+  // Qui la finzione tiene: le modifiche restano in memoria finché la pagina è
+  // aperta, così si può provare davvero a trascinare i servizi.
+  create: async (dati: any) => {
+    const nuovo = { id: `a${appuntamenti.length + 1}`, ...dati };
+    appuntamenti.push(nuovo);
+    return eco(nuovo);
+  },
+  update: async (id: string, dati: any) => {
+    const i = appuntamenti.findIndex(a => a.id === id);
+    if (i >= 0) appuntamenti[i] = { ...appuntamenti[i], ...dati };
+    return eco(appuntamenti[i]);
+  },
+  delete: async (id: string) => {
+    const i = appuntamenti.findIndex(a => a.id === id);
+    if (i >= 0) appuntamenti.splice(i, 1);
+    return eco({ success: true });
+  },
 };
 
 export const buoniApi = {

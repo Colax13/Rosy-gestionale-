@@ -388,22 +388,22 @@ Nel servizio, prezzo e minuti partono da `0`: se scrivi 15 diventa `015` e non
 si salva. Lo zero deve sparire appena scrivi, oppure niente numero e un
 segnaposto in grigio.
 
-**G6 — L'aspetto della posa non piace** · MEDIA
+**G6 — L'aspetto della posa non piace** · ✅ FATTO
 Così com'è non convince: deve dare l'idea di **spazio libero**, non di una
 fascia occupata.
 
 ### Agenda: nuove funzioni
 
-**G7 — Spostare i singoli servizi fra operatori** · ALTA
+**G7 — Spostare i singoli servizi fra operatori** · ✅ FATTO
 Colore con un'operatrice e piega con un'altra: si deve poter trascinare **il
 singolo servizio** a destra o a sinistra, non tutto l'appuntamento. Spostando
 di colonna l'orario **non deve cambiare**.
 
-**G8 — Domanda allo spostamento** · ALTA
+**G8 — Domanda allo spostamento** · ✅ FATTO
 Quando si sposta, comparire un riquadro: *«Lo lasci allo stesso orario o lo
 cambi?»*, e si decide lì.
 
-**G9 — Servizi separati restano legati a vista** · MEDIA
+**G9 — Servizi separati restano legati a vista** · ✅ FATTO
 Se i due servizi finiscono su operatrici diverse i trattini di collegamento
 spariscono: restano **dello stesso colore**, e passando col mouse su uno si
 evidenzia anche l'altro, così si capisce che è la stessa cliente.

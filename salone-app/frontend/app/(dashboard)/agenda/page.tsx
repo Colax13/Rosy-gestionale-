@@ -9,13 +9,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import {
   durataTotale,
-  intervalliOccupati,
+  intervalliDaSegmenti,
   segmentiAppuntamento,
-  sovrappongono,
+  spezzoniPerOperatore,
+  siAccavallano,
   turnoDelGiorno,
   dentroTurno,
   descriviTurno,
-  TurnoDelGiorno
+  TurnoDelGiorno,
+  NON_ASSEGNATO,
+  operatoreDellaRiga
 } from '@/lib/servizi';
 
 import { Link } from 'react-router-dom';
@@ -28,7 +31,14 @@ interface Appuntamento {
   clienti?: { nome: string; cognome: string; telefono?: string };
   dipendenti?: { id: string; nome: string; cognome: string };
   idDipendente?: string;
-  righe_appuntamento?: { servizi_catalogo: { nome: string; durata_minuti: number } }[];
+  // Ogni riga può dire di chi è: il colore lo fa una, la piega un'altra.
+  // Se non lo dice, è di chi ha in carico l'appuntamento.
+  righe_appuntamento?: {
+    servizi_catalogo?: any;
+    nome?: string;
+    id_dipendente?: string | null;
+    [altro: string]: any;
+  }[];
 }
 
 function MonthDayCell({ 
@@ -219,8 +229,20 @@ export default function PaginaAgenda() {
   // Trascinamento appuntamenti
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragOffsetRef = useRef<number>(0);
+  // Quale servizio si sta trascinando: si può spostare il singolo servizio,
+  // non solo l'appuntamento intero.
+  const trascinatoRef = useRef<{ appId: string; indiceRiga: number; minutiPezzo: number } | null>(null);
   const [avvisoSpostamento, setAvvisoSpostamento] = useState<string | null>(null);
   const [confermaSpostamento, setConfermaSpostamento] = useState<{ messaggio: string; procedi: () => void } | null>(null);
+  // La domanda che compare quando un trascinamento può voler dire due cose.
+  const [domandaSpostamento, setDomandaSpostamento] = useState<{
+    titolo: string;
+    domanda: string;
+    scelte: { etichetta: string; nota?: string; azione: () => void }[];
+  } | null>(null);
+  // Quale appuntamento è sotto il mouse: i suoi pezzi si accendono tutti,
+  // anche quelli finiti nella colonna di un'altra operatrice.
+  const [appEvidenziato, setAppEvidenziato] = useState<string | null>(null);
 
   // Richieste arrivate dal sito e ancora da confermare
   const [richieste, setRichieste] = useState<any[]>([]);
@@ -371,6 +393,10 @@ export default function PaginaAgenda() {
     const colori = ['bg-blue-500', 'bg-fuchsia-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-cyan-500'];
     return colori[index % colori.length];
   };
+
+  // Chi ha in carico l'appuntamento, comunque sia scritto nei dati.
+  const operatoreDi = (app: any): string =>
+    app?.id_dipendente || app?.dipendenti?.id || app?.idDipendente || NON_ASSEGNATO;
 
   const renderLabelPeriodo = () => {
     if (viewMode === 'giorno') {
@@ -546,13 +572,15 @@ export default function PaginaAgenda() {
     if (stessoOrario && stessoOperatore) return;
 
     const righe = app.righe_appuntamento || [];
+    // Si guarda solo quello che occupa DAVVERO questa operatrice: i servizi
+    // affidati ad altre, e le pose, non la impegnano.
     const conflitto = appuntamenti.some(altro => {
       if (altro.id === app.id) return false;
       if (altro.stato === 'annullato') return false;
-      if (!isAppuntementoDiOperatore(altro, dipendente.id)) return false;
-      return sovrappongono(
-        nuovaData.getTime(), righe,
-        new Date(altro.data_ora).getTime(), altro.righe_appuntamento || []
+      return siAccavallano(
+        { inizioMs: nuovaData.getTime(), righe, operatore: dipendente.id },
+        { inizioMs: new Date(altro.data_ora).getTime(), righe: altro.righe_appuntamento || [], operatore: operatoreDi(altro) },
+        dipendente.id
       );
     });
 
@@ -599,6 +627,36 @@ export default function PaginaAgenda() {
     } catch (err) {
       setAppuntamenti(precedenti);
       setAvvisoSpostamento("Non sono riuscito a spostare l'appuntamento. Riprova.");
+    }
+  };
+
+  /**
+   * Affida UN SOLO servizio a un'altra operatrice, senza toccare l'orario.
+   * È il caso di tutti i giorni: il colore lo fa Rosanna, la piega Giulia.
+   * L'appuntamento resta uno, cambia solo di chi è quella riga.
+   */
+  const spostaServizio = async (appId: string, indiceRiga: number, dipendente: any) => {
+    const app = appuntamenti.find(a => a.id === appId);
+    if (!app) return;
+
+    const righe = [...(app.righe_appuntamento || [])];
+    const riga = righe[indiceRiga];
+    if (!riga) return;
+
+    const nuovoId = dipendente.id === NON_ASSEGNATO ? null : dipendente.id;
+    if (operatoreDellaRiga(riga, operatoreDi(app)) === dipendente.id) return;
+
+    righe[indiceRiga] = { ...riga, id_dipendente: nuovoId };
+
+    const precedenti = appuntamenti;
+    setAppuntamenti(prev => prev.map(a => a.id === appId ? { ...a, righe_appuntamento: righe } as any : a));
+
+    try {
+      await appuntamentiApi.update(appId, { righe_appuntamento: righe });
+      caricaAgenda();
+    } catch (err) {
+      setAppuntamenti(precedenti);
+      setAvvisoSpostamento('Non sono riuscito a spostare il servizio. Riprova.');
     }
   };
 
@@ -704,18 +762,100 @@ export default function PaginaAgenda() {
     const orarioDaMinuti = (minuti: number) =>
       `${String(Math.floor(minuti / 60)).padStart(2, '0')}:${String(minuti % 60).padStart(2, '0')}`;
 
+    // Sotto i 10 minuti di scarto si considera "lasciato dov'era": chi trascina
+    // di lato non sta cercando di cambiare l'ora, sta cambiando persona.
+    const TOLLERANZA_MINUTI = 10;
+
     const handleDrop = (e: React.DragEvent, dip: any) => {
       e.preventDefault();
-      const id = e.dataTransfer.getData('text/appuntamento') || draggingId;
+      const trascinato = trascinatoRef.current;
+      const id = e.dataTransfer.getData('text/appuntamento') || trascinato?.appId || draggingId;
       setDraggingId(null);
+      trascinatoRef.current = null;
       if (!id) return;
+
+      const app = appuntamenti.find(a => a.id === id);
+      if (!app) return;
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const y = e.clientY - rect.top - dragOffsetRef.current;
       const minutiDalTop = Math.round((y / PIXELS_PER_MINUTE) / 5) * 5;
       const minuti = Math.max(0, Math.min(minutiDalTop, TOTAL_HOURS * 60 - 5)) + START_HOUR * 60;
 
-      spostaAppuntamento(id, dip, minuti);
+      const inizioApp = new Date(app.data_ora);
+      const minutiApp = inizioApp.getHours() * 60 + inizioApp.getMinutes();
+      // Il pezzo che si sta trascinando può iniziare più tardi dell'appuntamento
+      // (la piega dopo il colore): il confronto va fatto sul pezzo, non sul
+      // primo servizio, altrimenti l'orario mostrato è quello sbagliato.
+      const minutiPezzo = trascinato?.minutiPezzo ?? minutiApp;
+      const scarto = minuti - minutiPezzo;
+      const oraCambiata = Math.abs(scarto) > TOLLERANZA_MINUTI;
+
+      const righe = app.righe_appuntamento || [];
+      const indiceRiga = trascinato?.indiceRiga ?? 0;
+      const riga = righe[indiceRiga];
+      const suo = riga ? operatoreDellaRiga(riga, operatoreDi(app)) : operatoreDi(app);
+      const colonnaCambiata = suo !== dip.id;
+      const piuServizi = righe.length > 1;
+
+      if (!colonnaCambiata && !oraCambiata) return;
+
+      const nome = [app.clienti?.nome, app.clienti?.cognome].filter(Boolean).join(' ') || 'la cliente';
+      const nomeServizio = riga?.servizi_catalogo?.nome || riga?.nome || 'questo servizio';
+      const aChi = `${dip.nome} ${dip.cognome || ''}`.trim();
+      const oraPezzo = orarioDaMinuti(minutiPezzo);
+      const oraNuovaPezzo = orarioDaMinuti(minuti);
+      // Spostando tutto l'appuntamento, gli altri servizi slittano dello stesso
+      // scarto: l'ordine fra loro resta quello.
+      const minutiAppSpostato = Math.max(0, minutiApp + scarto);
+      const oraAppSpostato = orarioDaMinuti(minutiAppSpostato);
+
+      const chiudi = (azione: () => void) => () => { setDomandaSpostamento(null); azione(); };
+
+      // Stessa colonna, ora diversa: è un semplice spostamento d'orario, e si
+      // porta dietro tutto l'appuntamento perché i servizi vanno in fila.
+      if (!colonnaCambiata) {
+        spostaAppuntamento(id, dip, minutiAppSpostato);
+        return;
+      }
+
+      // Un solo servizio nell'appuntamento: l'unica domanda possibile è l'ora.
+      if (!piuServizi) {
+        if (!oraCambiata) { spostaAppuntamento(id, dip, minutiApp); return; }
+        setDomandaSpostamento({
+          titolo: `${nome} passa a ${aChi}`,
+          domanda: 'Lo lasci allo stesso orario o lo cambi?',
+          scelte: [
+            { etichetta: `Stesso orario · ${oraPezzo}`, azione: chiudi(() => spostaAppuntamento(id, dip, minutiApp)) },
+            { etichetta: `Sposta alle ${oraNuovaPezzo}`, azione: chiudi(() => spostaAppuntamento(id, dip, minutiAppSpostato)) }
+          ]
+        });
+        return;
+      }
+
+      // Più servizi: si è preso solo quello, ma forse voleva spostare tutto.
+      setDomandaSpostamento({
+        titolo: `${nome} passa a ${aChi}`,
+        domanda: "Sposti solo questo servizio o tutto l'appuntamento?",
+        scelte: [
+          {
+            etichetta: `Solo «${nomeServizio}» · resta alle ${oraPezzo}`,
+            nota: 'Gli altri servizi restano dove sono.',
+            azione: chiudi(() => spostaServizio(id, indiceRiga, dip))
+          },
+          oraCambiata
+            ? {
+                etichetta: `Tutto l'appuntamento · inizia alle ${oraAppSpostato}`,
+                nota: 'Anche gli altri servizi passano e slittano con lui.',
+                azione: chiudi(() => spostaAppuntamento(id, dip, minutiAppSpostato))
+              }
+            : {
+                etichetta: `Tutto l'appuntamento · resta alle ${orarioDaMinuti(minutiApp)}`,
+                nota: 'Anche gli altri servizi passano, stessa ora.',
+                azione: chiudi(() => spostaAppuntamento(id, dip, minutiApp))
+              }
+        ]
+      });
     };
 
     return (
@@ -786,24 +926,34 @@ export default function PaginaAgenda() {
               <div className="flex flex-1 z-10 min-w-0">
                 {staff.map((dip) => {
                   const turno = turniStaff[dip.id];
-                  const appDip = appuntamenti
-                    .filter(a => isAppuntementoDiOperatore(a, dip.id))
-                    .sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
 
-                  // Le colonne affiancate si calcolano sui soli tempi di
-                  // lavorazione: durante la posa l'operatore è libero, quindi
-                  // l'appuntamento infilato lì dentro prende tutta la larghezza.
-                  const posizionati = appDip.map(app => {
-                    const inizioMs = new Date(app.data_ora).getTime();
-                    return {
-                      app,
-                      inizioMs,
-                      durata: durataTotale(app.righe_appuntamento || []),
-                      occupati: intervalliOccupati(inizioMs, app.righe_appuntamento || []),
-                      colIndex: 0,
-                      colTotal: 1
-                    };
-                  });
+                  // Un appuntamento può essere diviso fra più operatori: il
+                  // colore a una, la piega a un'altra. Qui si prendono solo i
+                  // pezzi che toccano a questa colonna.
+                  const posizionati = appuntamenti
+                    .flatMap(app => {
+                      const inizioApp = new Date(app.data_ora).getTime();
+                      return spezzoniPerOperatore(app.righe_appuntamento || [], operatoreDi(app))
+                        .map((spezzone, i) => ({ app, spezzone, indicePezzo: i, inizioApp }));
+                    })
+                    .filter(({ spezzone }) => spezzone.idDipendente === dip.id)
+                    .map(({ app, spezzone, indicePezzo, inizioApp }) => {
+                      const inizioMs = inizioApp + spezzone.inizio * 60000;
+                      return {
+                        app,
+                        spezzone,
+                        chiave: `${app.id}#${indicePezzo}`,
+                        inizioMs,
+                        durata: spezzone.fine - spezzone.inizio,
+                        // Le colonne affiancate si calcolano sui soli tempi di
+                        // lavorazione: durante la posa l'operatore è libero,
+                        // quindi chi si infila lì prende tutta la larghezza.
+                        occupati: intervalliDaSegmenti(inizioMs, spezzone.segmenti),
+                        colIndex: 0,
+                        colTotal: 1
+                      };
+                    })
+                    .sort((a, b) => a.inizioMs - b.inizioMs);
 
                   const collide = (a: typeof posizionati[0], b: typeof posizionati[0]) =>
                     a.occupati.some(x => b.occupati.some(y => x.inizio < y.fine && y.inizio < x.fine));
@@ -872,17 +1022,18 @@ export default function PaginaAgenda() {
                         })}
                       </div>
 
-                      {/* Appuntamenti */}
-                      {posizionati.map(({ app, durata, colIndex, colTotal }, idx) => {
-                        const date = new Date(app.data_ora);
+                      {/* Appuntamenti (uno o più pezzi per appuntamento) */}
+                      {posizionati.map(({ app, spezzone, chiave, inizioMs, durata, colIndex, colTotal }, idx) => {
+                        const date = new Date(inizioMs);
                         let appMinutes = (date.getHours() * 60 + date.getMinutes()) - (START_HOUR * 60);
                         if (appMinutes < 0) appMinutes = 0;
 
                         return (
                           <MicroAppCard
-                            key={app.id}
+                            key={chiave}
                             app={app}
-                            getStatoBadge={getStatoBadge}
+                            spezzone={spezzone}
+                            inizioMs={inizioMs}
                             formattaOrario={formattaOrario}
                             durata={durata}
                             onDelete={handleElimina}
@@ -894,11 +1045,19 @@ export default function PaginaAgenda() {
                             idx={idx}
                             colIndex={colIndex}
                             colTotal={colTotal}
-                            onDragStartApp={(offsetY: number) => {
+                            evidenziato={appEvidenziato === app.id}
+                            onEvidenzia={setAppEvidenziato}
+                            onDragStartServizio={(indiceRiga: number, offsetY: number, minutiNelPezzo: number) => {
                               dragOffsetRef.current = offsetY;
+                              const inizioBlocco = new Date(inizioMs + minutiNelPezzo * 60000);
+                              trascinatoRef.current = {
+                                appId: app.id,
+                                indiceRiga,
+                                minutiPezzo: inizioBlocco.getHours() * 60 + inizioBlocco.getMinutes()
+                              };
                               setDraggingId(app.id);
                             }}
-                            onDragEndApp={() => setDraggingId(null)}
+                            onDragEndApp={() => { setDraggingId(null); trascinatoRef.current = null; }}
                             isDragging={draggingId === app.id}
                           />
                         );
@@ -1455,6 +1614,49 @@ export default function PaginaAgenda() {
         </div>
       )}
 
+      {/* Un trascinamento che può voler dire due cose: si chiede quale. */}
+      {domandaSpostamento && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl p-6 animate-in zoom-in-95 duration-200 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center mx-auto mb-3 border border-fuchsia-200">
+                <Clock size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-zinc-900 font-playfair">{domandaSpostamento.titolo}</h3>
+              <p className="text-zinc-600 text-sm mt-2 font-medium">{domandaSpostamento.domanda}</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {domandaSpostamento.scelte.map((scelta, i) => (
+                <button
+                  key={i}
+                  onClick={scelta.azione}
+                  className={`w-full px-4 py-3 rounded-xl transition-colors shadow-sm text-left ${
+                    i === 0
+                      ? 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white'
+                      : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300'
+                  }`}
+                >
+                  <span className="block font-bold text-sm">{scelta.etichetta}</span>
+                  {scelta.nota && (
+                    <span className={`block text-xs mt-0.5 ${i === 0 ? 'text-white/80' : 'text-zinc-500'}`}>
+                      {scelta.nota}
+                    </span>
+                  )}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setDomandaSpostamento(null)}
+                className="w-full px-4 py-2 text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Avviso spostamento non riuscito */}
       {avvisoSpostamento && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-white border border-amber-300 shadow-xl rounded-xl px-4 py-3 flex items-center gap-3 max-w-md animate-in fade-in slide-in-from-bottom-2">
@@ -1701,7 +1903,25 @@ export default function PaginaAgenda() {
   );
 }
 
-function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, onEdit, onComplete, isAbsolute, pixelPerMinute, startOffset, idx = 0, colIndex = 0, colTotal = 1, onDragStartApp, onDragEndApp, isDragging = false }: any) {
+// Ogni appuntamento ha il suo colore, sempre lo stesso. Serve quando i servizi
+// finiscono a operatrici diverse: i pezzi stanno in colonne lontane, ma il
+// colore dice a colpo d'occhio che è la stessa cliente.
+const COLORI_APPUNTAMENTO = [
+  { fondo: 'bg-indigo-50',  bordo: 'border-[#6B5CFF]', filo: 'border-[#6B5CFF]' },
+  { fondo: 'bg-fuchsia-50', bordo: 'border-[#D400FF]', filo: 'border-[#D400FF]' },
+  { fondo: 'bg-cyan-50',    bordo: 'border-[#00A9C7]', filo: 'border-[#00A9C7]' },
+  { fondo: 'bg-rose-50',    bordo: 'border-rose-400',  filo: 'border-rose-400' },
+  { fondo: 'bg-violet-50',  bordo: 'border-violet-400', filo: 'border-violet-400' },
+  { fondo: 'bg-teal-50',    bordo: 'border-teal-400',  filo: 'border-teal-400' },
+];
+
+function coloreAppuntamento(id: string) {
+  let somma = 0;
+  for (let i = 0; i < (id || '').length; i++) somma = (somma * 31 + id.charCodeAt(i)) % 100000;
+  return COLORI_APPUNTAMENTO[somma % COLORI_APPUNTAMENTO.length];
+}
+
+function MicroAppCard({ app, spezzone, inizioMs, formattaOrario, durata, onDelete, onEdit, onComplete, isAbsolute, pixelPerMinute, startOffset, idx = 0, colIndex = 0, colTotal = 1, evidenziato = false, onEvidenzia, onDragStartServizio, onDragEndApp, isDragging = false }: any) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -1709,11 +1929,12 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
   const isBlock = app.stato === 'annullato';
   const isCompleted = app.stato === 'completato';
   const isInAttesa = app.stato === 'in_attesa';
-  const isEven = idx % 2 === 0;
 
   const heightPixels = durata * (pixelPerMinute || 2);
   const isCompact = heightPixels < 50;
   const isUltraCompact = heightPixels < 25;
+
+  const tinta = coloreAppuntamento(app.id);
 
   let bgClass = '';
   if (isBlock) {
@@ -1724,12 +1945,12 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
   } else if (isCompleted) {
     bgClass = 'bg-emerald-50 border-l-4 border-emerald-500 text-zinc-400';
   } else {
-    bgClass = isEven
-      ? 'bg-indigo-50 border-l-4 border-[#6B5CFF]'
-      : 'bg-fuchsia-50 border-l-4 border-[#D400FF]';
+    bgClass = `${tinta.fondo} border-l-4 ${tinta.bordo}`;
   }
 
-  const inRilievo = isHovered || menuOpen;
+  // In rilievo sia col mouse sopra, sia quando è sopra un altro pezzo dello
+  // stesso appuntamento: è così che si vede che sono la stessa cliente.
+  const inRilievo = isHovered || menuOpen || evidenziato;
 
   // La card è stretta solo quando divide la colonna con un'altra: in quel caso
   // al passaggio del mouse si allarga per farsi leggere.
@@ -1749,14 +1970,21 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
     opacity: isDragging ? 0.4 : 1
   } : {};
 
-  // I segmenti arrivano dai tempi dichiarati nel catalogo (lavorazione e posa),
-  // non più indovinati dal nome del servizio.
-  const segments = segmentiAppuntamento(app.righe_appuntamento || []);
-  const spanTotale = durata || segments.reduce((acc, s) => acc + s.durata, 0) || 30;
+  // I segmenti di QUESTO pezzo: se il colore lo fa una e la piega un'altra,
+  // ogni colonna mostra solo la propria parte.
+  // Senza spezzone (vista settimana ed elenco) si mostra l'appuntamento intero.
+  const segments = spezzone?.segmenti || segmentiAppuntamento(app.righe_appuntamento || []);
+  const spanTotale = durata || segments.reduce((acc: any, s: any) => acc + s.durata, 0) || 30;
+  const oraPezzo = inizioMs ? new Date(inizioMs).toISOString() : app.data_ora;
 
   // Nome e cognome per intero: sulla card si taglia con i puntini, ma resta
   // leggibile fermando il mouse sopra (è il testo del `title`).
   const nomeCompleto = [app.clienti?.nome, app.clienti?.cognome].filter(Boolean).join(' ') || 'Cliente';
+
+  const accendi = (acceso: boolean) => {
+    setIsHovered(acceso);
+    if (onEvidenzia) onEvidenzia(acceso ? app.id : null);
+  };
 
   const cardContainerClasses = `w-full group/mini flex flex-col transition-[left,width,box-shadow] duration-150 ${isAbsolute ? 'pointer-events-none' : 'relative mb-1'} ${inRilievo ? 'drop-shadow-xl' : ''}`;
 
@@ -1764,8 +1992,8 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
     <div
       style={dynamicStyle}
       className={cardContainerClasses}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => accendi(true)}
+      onMouseLeave={() => accendi(false)}
     >
        {/* Menù azioni */}
        <button
@@ -1776,38 +2004,29 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
        </button>
 
        {menuOpen && (
-         <>
-         {/* Chiude al clic fuori: prima si chiudeva al passaggio del mouse e
-             muovendosi verso "Elimina" il menù spariva da solo. */}
-         <div
-           className="fixed inset-0 z-[99998] pointer-events-auto"
-           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-         ></div>
-         <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto">
-              <>
-                {!isCompleted && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onComplete) onComplete(app); }}
-                    className="px-2 py-2 text-[10px] text-emerald-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium"
-                  >
-                    <CheckCircle2 size={10} /> Completato
-                  </button>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onEdit) onEdit(app); }}
-                  className={`px-2 py-2 text-[10px] text-zinc-500 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium ${!isCompleted ? 'border-t border-zinc-100' : ''}`}
-                >
-                  <Edit2 size={10} /> Modifica
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setShowConfirmDelete(true); }}
-                  className="px-2 py-2 text-[10px] text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-100"
-                >
-                  <Trash2 size={10} /> Elimina
-                </button>
-              </>
+         <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto"
+              onMouseLeave={() => setMenuOpen(false)}>
+            {!isCompleted && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onComplete) onComplete(app); }}
+                className="px-2 py-2 text-[10px] text-emerald-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium"
+              >
+                <CheckCircle2 size={10} /> Completato
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onEdit) onEdit(app); }}
+              className={`px-2 py-2 text-[10px] text-zinc-700 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium ${!isCompleted ? 'border-t border-zinc-100' : ''}`}
+            >
+              <Edit2 size={10} /> Modifica
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(true); setMenuOpen(false); }}
+              className="px-2 py-2 text-[10px] text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-100"
+            >
+              <Trash2 size={10} /> Elimina
+            </button>
          </div>
-         </>
        )}
 
        {/* Conferma eliminazione: dialogo al centro, così non sparisce
@@ -1826,7 +2045,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
              </div>
              <h3 className="text-lg font-bold text-zinc-900 font-playfair">Elimini l'appuntamento?</h3>
              <p className="text-zinc-600 text-sm leading-relaxed">
-               {app.clienti?.nome} {app.clienti?.cognome} — {formattaOrario(app.data_ora)}
+               {nomeCompleto} — {formattaOrario(app.data_ora)}
              </p>
              <p className="text-zinc-500 text-sm mb-3">L'operazione non si può annullare.</p>
              <div className="flex flex-col gap-2">
@@ -1847,28 +2066,32 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
          </div>
        )}
 
-       {/* Le tre fasi: lavorazione piena, posa a trattini (libera), finitura piena */}
+       {/* Le tre fasi: lavorazione piena, posa lasciata libera, finitura piena */}
        <div className="flex flex-col w-full h-full">
-         {segments.map((seg, i) => {
+         {segments.map((seg: any, i: number) => {
            const altezza = `${(seg.durata / spanTotale) * 100}%`;
            const isPrimo = seg.inizio === 0;
 
            if (seg.tipo === 'posa') {
-             // Posa: l'operatore è libero. La fascia è trasparente, tratteggiata e
-             // non intercetta i clic, così ci si fissa dentro un'altra cliente.
+             // Posa: l'operatore è libero, quindi questo spazio deve SEMBRARE
+             // libero. Niente fondo, niente righine, niente bordi: si vede la
+             // griglia sotto come in qualsiasi buco dell'agenda, e i clic ci
+             // passano attraverso, così ci si fissa dentro un'altra cliente.
+             // A tenere insieme le due metà dell'appuntamento basta un filo
+             // tratteggiato sul bordo, dello stesso colore della card.
              return (
                <div
                  key={i}
-                 style={{
-                   height: altezza,
-                   backgroundImage: 'repeating-linear-gradient(135deg, rgba(161,161,170,0.16) 0px, rgba(161,161,170,0.16) 2px, transparent 2px, transparent 7px)'
-                 }}
-                 className="w-full relative pointer-events-none border-y border-dashed border-zinc-300 flex items-center justify-center overflow-hidden"
-                 title={`Posa ${seg.durata} min — operatore libero, si può fissare un'altra cliente`}
+                 style={{ height: altezza }}
+                 className="w-full relative pointer-events-none overflow-hidden"
+                 title={`Posa ${seg.durata} min — qui l'operatore è libero, ci si può fissare un'altra cliente`}
                >
-                 <span className="text-[9px] uppercase tracking-[0.12em] font-semibold text-zinc-500 bg-white/85 px-1.5 rounded-sm leading-none py-0.5 whitespace-nowrap">
-                   posa {seg.durata}′
-                 </span>
+                 <div className={`absolute left-0 top-0 bottom-0 border-l-2 border-dashed transition-colors ${inRilievo ? tinta.filo : 'border-zinc-300'}`}></div>
+                 {!isCompact && (
+                   <span className="absolute left-2.5 top-0.5 text-[9px] text-zinc-400 leading-none whitespace-nowrap">
+                     posa · libero {seg.durata}′
+                   </span>
+                 )}
                </div>
              );
            }
@@ -1881,13 +2104,16 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                  e.dataTransfer.setData('text/appuntamento', app.id);
                  e.dataTransfer.effectAllowed = 'move';
                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                 if (onDragStartApp) onDragStartApp(e.clientY - rect.top + seg.inizio * (pixelPerMinute || 2));
+                 // Si trascina IL SERVIZIO, non per forza tutto l'appuntamento:
+                 // il riferimento è l'inizio di questo blocco, non quello
+                 // dell'appuntamento, altrimenti gli orari mostrati sbagliano.
+                 if (onDragStartServizio) onDragStartServizio(seg.indiceRiga ?? 0, e.clientY - rect.top, seg.inizio);
                }}
                onDragEnd={() => { if (onDragEndApp) onDragEndApp(); }}
                onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(app); }}
-               title={`${nomeCompleto} — ${formattaOrario(app.data_ora)} · ${seg.nome} · ${seg.durata} min`}
+               title={`${nomeCompleto} — ${formattaOrario(oraPezzo)} · ${seg.nome} · ${seg.durata} min`}
                style={{ height: altezza }}
-               className={`w-full flex flex-col px-1.5 py-1 overflow-hidden ring-inset ${inRilievo ? 'ring-2 ring-fuchsia-400' : 'ring-1 ring-zinc-200'} ${bgClass} shadow-sm pointer-events-auto cursor-grab active:cursor-grabbing ${isPrimo ? 'rounded-tr-md' : 'rounded-br-md'} ${isCompact ? 'justify-start' : 'justify-between'}`}
+               className={`w-full flex flex-col px-1.5 py-1 overflow-hidden ring-inset ${inRilievo ? `ring-2 ${tinta.bordo.replace('border-', 'ring-')}` : 'ring-1 ring-zinc-200'} ${bgClass} shadow-sm pointer-events-auto cursor-grab active:cursor-grabbing ${isPrimo ? 'rounded-tr-md' : 'rounded-br-md'} ${isCompact ? 'justify-start' : 'justify-between'}`}
              >
                {/* Il nome sta su OGNI blocco, non solo sul primo: con colore, posa
                    e piega, chi guarda la piega deve capire di chi è senza
@@ -1895,7 +2121,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                    ci sta, e leggibile fermandoci sopra il mouse. */}
                <div className="flex flex-col text-left min-w-0">
                  <span className={`font-bold text-[10px] sm:text-xs truncate ${isBlock ? 'text-zinc-500' : 'text-zinc-900'}`}>
-                   {isPrimo && !isUltraCompact ? `${formattaOrario(app.data_ora)} ` : ''}
+                   {isPrimo && !isUltraCompact ? `${formattaOrario(oraPezzo)} ` : ''}
                    {nomeCompleto}
                  </span>
                  <span className={`text-[9px] sm:text-[10px] truncate leading-tight ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-600'}`}>
