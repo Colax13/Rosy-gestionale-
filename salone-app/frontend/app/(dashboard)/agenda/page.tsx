@@ -1729,16 +1729,23 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
       : 'bg-fuchsia-50 border-l-4 border-[#D400FF]';
   }
 
-  const espanso = isHovered || menuOpen;
+  const inRilievo = isHovered || menuOpen;
 
+  // La card è stretta solo quando divide la colonna con un'altra: in quel caso
+  // al passaggio del mouse si allarga per farsi leggere.
+  const stretta = colTotal > 1;
+
+  // L'altezza NON cambia mai: prima, passandoci sopra, la card diventava alta
+  // quanto il testo e si accorciava, dando l'impressione che ballasse. Adesso
+  // resta ancorata al suo orario, e per andare in evidenza le bastano l'ombra,
+  // il contorno e il salire davanti alle altre.
   const dynamicStyle = isAbsolute ? {
     position: 'absolute' as const,
     top: `${startOffset || 0}px`,
-    left: espanso ? '2px' : `calc(${(colIndex / colTotal) * 100}% + 2px)`,
-    width: espanso ? 'calc(100% - 4px)' : `calc(${(1 / colTotal) * 100}% - 4px)`,
-    height: espanso ? 'auto' : `${heightPixels}px`,
-    minHeight: `${heightPixels}px`,
-    zIndex: espanso ? 9999 : 10 + idx,
+    left: inRilievo && stretta ? '2px' : `calc(${(colIndex / colTotal) * 100}% + 2px)`,
+    width: inRilievo && stretta ? 'calc(100% - 4px)' : `calc(${(1 / colTotal) * 100}% - 4px)`,
+    height: `${heightPixels}px`,
+    zIndex: inRilievo ? 9999 : 10 + idx,
     opacity: isDragging ? 0.4 : 1
   } : {};
 
@@ -1747,7 +1754,11 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
   const segments = segmentiAppuntamento(app.righe_appuntamento || []);
   const spanTotale = durata || segments.reduce((acc, s) => acc + s.durata, 0) || 30;
 
-  const cardContainerClasses = `w-full group/mini flex flex-col transition-all duration-200 ${isAbsolute ? 'pointer-events-none' : 'relative mb-1'} ${espanso && !isCompleted ? 'drop-shadow-lg' : ''}`;
+  // Nome e cognome per intero: sulla card si taglia con i puntini, ma resta
+  // leggibile fermando il mouse sopra (è il testo del `title`).
+  const nomeCompleto = [app.clienti?.nome, app.clienti?.cognome].filter(Boolean).join(' ') || 'Cliente';
+
+  const cardContainerClasses = `w-full group/mini flex flex-col transition-[left,width,box-shadow] duration-150 ${isAbsolute ? 'pointer-events-none' : 'relative mb-1'} ${inRilievo ? 'drop-shadow-xl' : ''}`;
 
   return (
     <div
@@ -1759,7 +1770,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
        {/* Menù azioni */}
        <button
          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); setShowConfirmDelete(false); }}
-         className={`absolute top-1 right-1 opacity-0 group-hover/mini:opacity-100 p-1 text-zinc-500 hover:text-zinc-900 bg-white/90 hover:bg-zinc-100 rounded border border-zinc-200 transition-all z-[9999] pointer-events-auto ${isUltraCompact && !espanso ? 'hidden' : ''}`}
+         className={`absolute top-1 right-1 opacity-0 group-hover/mini:opacity-100 p-1 text-zinc-500 hover:text-zinc-900 bg-white/90 hover:bg-zinc-100 rounded border border-zinc-200 transition-all z-[9999] pointer-events-auto ${isUltraCompact && !inRilievo ? 'hidden' : ''}`}
        >
          <MoreVertical size={12} />
        </button>
@@ -1839,7 +1850,7 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
        {/* Le tre fasi: lavorazione piena, posa a trattini (libera), finitura piena */}
        <div className="flex flex-col w-full h-full">
          {segments.map((seg, i) => {
-           const altezza = espanso ? 'auto' : `${(seg.durata / spanTotale) * 100}%`;
+           const altezza = `${(seg.durata / spanTotale) * 100}%`;
            const isPrimo = seg.inizio === 0;
 
            if (seg.tipo === 'posa') {
@@ -1850,7 +1861,6 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                  key={i}
                  style={{
                    height: altezza,
-                   minHeight: espanso ? '18px' : undefined,
                    backgroundImage: 'repeating-linear-gradient(135deg, rgba(161,161,170,0.16) 0px, rgba(161,161,170,0.16) 2px, transparent 2px, transparent 7px)'
                  }}
                  className="w-full relative pointer-events-none border-y border-dashed border-zinc-300 flex items-center justify-center overflow-hidden"
@@ -1875,28 +1885,25 @@ function MicroAppCard({ app, getStatoBadge, formattaOrario, durata, onDelete, on
                }}
                onDragEnd={() => { if (onDragEndApp) onDragEndApp(); }}
                onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(app); }}
+               title={`${nomeCompleto} — ${formattaOrario(app.data_ora)} · ${seg.nome} · ${seg.durata} min`}
                style={{ height: altezza }}
-               className={`w-full flex flex-col px-1.5 py-1 overflow-hidden ring-1 ring-inset ring-zinc-200 ${bgClass} shadow-sm pointer-events-auto cursor-grab active:cursor-grabbing ${isPrimo ? 'rounded-tr-md' : 'rounded-br-md'} ${isCompact && !espanso ? 'justify-start' : 'justify-between'}`}
+               className={`w-full flex flex-col px-1.5 py-1 overflow-hidden ring-inset ${inRilievo ? 'ring-2 ring-fuchsia-400' : 'ring-1 ring-zinc-200'} ${bgClass} shadow-sm pointer-events-auto cursor-grab active:cursor-grabbing ${isPrimo ? 'rounded-tr-md' : 'rounded-br-md'} ${isCompact ? 'justify-start' : 'justify-between'}`}
              >
+               {/* Il nome sta su OGNI blocco, non solo sul primo: con colore, posa
+                   e piega, chi guarda la piega deve capire di chi è senza
+                   risalire in alto. Per intero, tagliato con i puntini se non
+                   ci sta, e leggibile fermandoci sopra il mouse. */}
                <div className="flex flex-col text-left min-w-0">
-                 {isPrimo ? (
-                   <>
-                     <span className={`font-bold text-[10px] sm:text-xs truncate ${isBlock ? 'text-zinc-500' : 'text-zinc-900'}`}>
-                       {!isUltraCompact || espanso ? `${formattaOrario(app.data_ora)} ` : ''}
-                       {app.clienti?.nome} {(app.clienti?.cognome || '').slice(0, 1)}.
-                     </span>
-                     <span className={`text-[9px] sm:text-[10px] truncate leading-tight ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-600'}`}>
-                       {isInAttesa ? 'Da confermare · ' : ''}{seg.nome} · {seg.durata}′
-                     </span>
-                   </>
-                 ) : (
-                   <span className={`text-[9px] sm:text-[10px] truncate leading-tight font-medium ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-700'}`}>
-                     {seg.nome} · {seg.durata}′
-                   </span>
-                 )}
+                 <span className={`font-bold text-[10px] sm:text-xs truncate ${isBlock ? 'text-zinc-500' : 'text-zinc-900'}`}>
+                   {isPrimo && !isUltraCompact ? `${formattaOrario(app.data_ora)} ` : ''}
+                   {nomeCompleto}
+                 </span>
+                 <span className={`text-[9px] sm:text-[10px] truncate leading-tight ${isBlock || isCompleted ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                   {isPrimo && isInAttesa ? 'Da confermare · ' : ''}{seg.nome} · {seg.durata}′
+                 </span>
                </div>
 
-               {isPrimo && (!isCompact || espanso) && app.note && (
+               {isPrimo && !isCompact && app.note && (
                  <div className="mt-1 text-[9px] text-zinc-500 break-words whitespace-pre-wrap leading-tight line-clamp-1 group-hover/mini:line-clamp-none">
                    {app.note}
                  </div>
