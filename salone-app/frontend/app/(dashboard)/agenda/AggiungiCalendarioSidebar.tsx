@@ -180,10 +180,11 @@ export default function AggiungiCalendarioSidebar({
                 prezzo_base: 0,
                 categoria: 'Varie',
                 attivo: true,
-                // Chi fa questo servizio, se è stato affidato a un'altra: senza
-                // questo, salvando una modifica il servizio tornava di nascosto
-                // a chi ha in carico l'appuntamento.
-                id_dipendente: (riga as any).id_dipendente || null
+                // Chi fa questo servizio, e chi ne fa la finitura, se sono
+                // state affidate ad altre: senza questo, salvando una modifica
+                // tornavano di nascosto a chi ha in carico l'appuntamento.
+                id_dipendente: (riga as any).id_dipendente || null,
+                id_dipendente_finitura: (riga as any).id_dipendente_finitura || null
              };
            }
            return null;
@@ -313,8 +314,9 @@ export default function AggiungiCalendarioSidebar({
       const righe = selectedServices.map((s: any) => {
         const tempi = tempiServizio(s);
         return {
-          // Se il servizio era affidato a un'altra operatrice, ci resta.
+          // Se il servizio, o la sua finitura, erano affidati ad altre, ci restano.
           id_dipendente: s.id_dipendente || null,
+          id_dipendente_finitura: s.id_dipendente_finitura || null,
           servizi_catalogo: {
             nome: s.nome,
             durata_minuti: tempi.totale,

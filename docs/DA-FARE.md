@@ -395,6 +395,9 @@ fascia occupata.
 ### Agenda: nuove funzioni
 
 **G7 — Spostare i singoli servizi fra operatori** · ✅ FATTO
+*(rivisto in corsa: non si sposta il servizio intero ma la singola **fase** —
+la finitura di un colore può andare a un'altra operatrice, separata dalla
+lavorazione e dalla posa dello stesso servizio.)*
 Colore con un'operatrice e piega con un'altra: si deve poter trascinare **il
 singolo servizio** a destra o a sinistra, non tutto l'appuntamento. Spostando
 di colonna l'orario **non deve cambiare**.
@@ -447,7 +450,26 @@ no** in base all'importo. Da capire se leggere il foglio o passare da Make.
 
 ### Nuovo
 
-**G19 — Preconto** · MEDIA
-Come al ristorante: si selezionano i servizi fatti, esce il totale, si stampa
-su una stampantina. I prezzi sono **gli stessi del catalogo**, così cambiando
-lì cambia anche qui. Serve capire il collegamento con la stampante.
+**G19 — Preconto e chiusura dell'appuntamento** · ALTA · rivisto
+Non è più solo "stampare un foglio": è **la nuova logica di fine
+appuntamento**, e passa sempre da lì.
+
+La cliente ha finito. In agenda si prende l'appuntamento e si fa
+**Completa appuntamento**. Si aprono due schermate, una dopo l'altra.
+
+*Prima schermata — il preconto.* Arriva con i trattamenti **già spuntati**,
+quelli che erano stati fissati. Si può togliere quello che non è stato fatto,
+aggiungere quello che è stato fatto in più, mettere un appunto. I prezzi sono
+quelli del catalogo, così cambiandoli lì cambiano anche qui. Da qui si stampa
+sulla stampantina.
+
+*Seconda schermata — cosa resta scritto sull'appuntamento.* Subito dopo:
+- **importo totale**, calcolato da solo sui servizi del preconto;
+- **sconto** eventuale;
+- **spesa definitiva**;
+- **colori usati e codici**, e quello che serve in base al servizio;
+- **note che vanno nello storico della cliente**: preferenze, sensibilità,
+  carattere, quello che serve saperlo la volta dopo.
+
+Da chiarire: che stampantina è (termica da scontrini? di rete o USB?), se il
+preconto resta salvato o è solo carta, e se serve un numero progressivo.

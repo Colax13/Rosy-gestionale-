@@ -99,5 +99,35 @@ check('ma impegna quella a cui è stata data',
     { inizioMs: ore9, righe: [{ servizi_catalogo: colore }, { servizi_catalogo: piega, id_dipendente: 'd2' }], operatore: 'd1' },
     'd2'));
 
+// --- la finitura affidata a un'altra ---
+const coloreFinituraAltrove = [{ servizi_catalogo: colore, id_dipendente_finitura: 'd2' }];
+const treFasi = spezzoniPerOperatore(coloreFinituraAltrove, 'd1');
+
+check('lavorazione e finitura in due colonne', ['d1', 'd2'], treFasi.map(x => x.idDipendente));
+check('il primo pezzo tiene lavorazione e posa', ['lavorazione', 'posa'], treFasi[0].segmenti.map(x => x.fase));
+check('il primo pezzo va da 0 a 60',            [0, 60], [treFasi[0].inizio, treFasi[0].fine]);
+check('il secondo pezzo è la finitura',         ['finitura'], treFasi[1].segmenti.map(x => x.fase));
+check('la finitura va da 60 a 75',              [60, 75], [treFasi[1].inizio, treFasi[1].fine]);
+
+check("la finitura altrui non impegna chi ha steso il colore",
+  false,
+  siAccavallano(
+    { inizioMs: new Date('2026-09-08T10:00:00').getTime(), righe: [{ servizi_catalogo: piega }], operatore: 'd1' },
+    { inizioMs: ore9, righe: coloreFinituraAltrove, operatore: 'd1' },
+    'd1'));
+
+check('ma impegna chi la fa',
+  true,
+  siAccavallano(
+    { inizioMs: new Date('2026-09-08T10:00:00').getTime(), righe: [{ servizi_catalogo: piega }], operatore: 'd2' },
+    { inizioMs: ore9, righe: coloreFinituraAltrove, operatore: 'd1' },
+    'd2'));
+
+// --- lavorazione spostata, finitura ferma ---
+const soloLavorazioneAltrove = [{ servizi_catalogo: colore, id_dipendente: 'd3', id_dipendente_finitura: 'd1' }];
+check('lavorazione a una, finitura a un\'altra',
+  ['d3', 'd1'],
+  spezzoniPerOperatore(soloLavorazioneAltrove, 'd1').map(x => x.idDipendente));
+
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

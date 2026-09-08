@@ -19,7 +19,8 @@ import {
   descriviTurno,
   TurnoDelGiorno,
   NON_ASSEGNATO,
-  operatoreDellaRiga
+  operatoreDellaFase,
+  Fase
 } from '@/lib/servizi';
 
 import { Link } from 'react-router-dom';
@@ -232,7 +233,7 @@ export default function PaginaAgenda() {
   const dragOffsetRef = useRef<number>(0);
   // Quale servizio si sta trascinando: si può spostare il singolo servizio,
   // non solo l'appuntamento intero.
-  const trascinatoRef = useRef<{ appId: string; indiceRiga: number; minutiPezzo: number } | null>(null);
+  const trascinatoRef = useRef<{ appId: string; indiceRiga: number; fase: Fase; minutiPezzo: number } | null>(null);
   const [avvisoSpostamento, setAvvisoSpostamento] = useState<string | null>(null);
   const [confermaSpostamento, setConfermaSpostamento] = useState<{ messaggio: string; procedi: () => void } | null>(null);
   // La domanda che compare quando un trascinamento può voler dire due cose.
@@ -632,11 +633,14 @@ export default function PaginaAgenda() {
   };
 
   /**
-   * Affida UN SOLO servizio a un'altra operatrice, senza toccare l'orario.
-   * È il caso di tutti i giorni: il colore lo fa Rosanna, la piega Giulia.
-   * L'appuntamento resta uno, cambia solo di chi è quella riga.
+   * Affida UNA FASE a un'altra operatrice, senza toccare l'orario.
+   *
+   * È il caso di tutti i giorni: il colore lo stende Rosanna, la finitura la
+   * fa Giulia. Si sposta la singola fase, non tutto il servizio, perché
+   * lavorazione e finitura dello stesso servizio possono stare in mani
+   * diverse. L'appuntamento resta uno solo.
    */
-  const spostaServizio = async (appId: string, indiceRiga: number, dipendente: any) => {
+  const spostaFase = async (appId: string, indiceRiga: number, fase: Fase, dipendente: any) => {
     const app = appuntamenti.find(a => a.id === appId);
     if (!app) return;
 
@@ -644,10 +648,23 @@ export default function PaginaAgenda() {
     const riga = righe[indiceRiga];
     if (!riga) return;
 
+    if (operatoreDellaFase(riga, fase, operatoreDi(app)) === dipendente.id) return;
     const nuovoId = dipendente.id === NON_ASSEGNATO ? null : dipendente.id;
-    if (operatoreDellaRiga(riga, operatoreDi(app)) === dipendente.id) return;
 
-    righe[indiceRiga] = { ...riga, id_dipendente: nuovoId };
+    if (fase === 'finitura') {
+      righe[indiceRiga] = { ...riga, id_dipendente_finitura: nuovoId };
+    } else {
+      // Spostando la lavorazione, la finitura resta a chi la faceva: se
+      // seguiva la lavorazione, la si fissa adesso, altrimenti si sposterebbe
+      // anche lei senza che nessuno l'abbia chiesto.
+      const finituraPrima = operatoreDellaFase(riga, 'finitura', operatoreDi(app));
+      righe[indiceRiga] = {
+        ...riga,
+        id_dipendente: nuovoId,
+        id_dipendente_finitura: riga.id_dipendente_finitura
+          || (finituraPrima === NON_ASSEGNATO ? null : finituraPrima)
+      };
+    }
 
     const precedenti = appuntamenti;
     setAppuntamenti(prev => prev.map(a => a.id === appId ? { ...a, righe_appuntamento: righe } as any : a));
@@ -794,15 +811,21 @@ export default function PaginaAgenda() {
 
       const righe = app.righe_appuntamento || [];
       const indiceRiga = trascinato?.indiceRiga ?? 0;
+      const fase: Fase = trascinato?.fase ?? 'lavorazione';
       const riga = righe[indiceRiga];
-      const suo = riga ? operatoreDellaRiga(riga, operatoreDi(app)) : operatoreDi(app);
+      const suo = riga ? operatoreDellaFase(riga, fase, operatoreDi(app)) : operatoreDi(app);
       const colonnaCambiata = suo !== dip.id;
-      const piuServizi = righe.length > 1;
+
+      // Si può staccare un pezzo quando l'appuntamento ne ha più d'uno: più
+      // servizi, oppure un servizio con la finitura staccabile dalla posa.
+      const piuPezzi = righe.length > 1
+        || segmentiAppuntamento(righe, operatoreDi(app)).some(x => x.fase === 'finitura');
 
       if (!colonnaCambiata && !oraCambiata) return;
 
       const nome = [app.clienti?.nome, app.clienti?.cognome].filter(Boolean).join(' ') || 'la cliente';
-      const nomeServizio = riga?.servizi_catalogo?.nome || riga?.nome || 'questo servizio';
+      const nomeBase = riga?.servizi_catalogo?.nome || riga?.nome || 'questo servizio';
+      const nomeServizio = fase === 'finitura' ? `finitura di ${nomeBase}` : nomeBase;
       const aChi = `${dip.nome} ${dip.cognome || ''}`.trim();
       const oraPezzo = orarioDaMinuti(minutiPezzo);
       const oraNuovaPezzo = orarioDaMinuti(minuti);
@@ -821,7 +844,7 @@ export default function PaginaAgenda() {
       }
 
       // Un solo servizio nell'appuntamento: l'unica domanda possibile è l'ora.
-      if (!piuServizi) {
+      if (!piuPezzi) {
         if (!oraCambiata) { spostaAppuntamento(id, dip, minutiApp); return; }
         setDomandaSpostamento({
           titolo: `${nome} passa a ${aChi}`,
@@ -834,25 +857,25 @@ export default function PaginaAgenda() {
         return;
       }
 
-      // Più servizi: si è preso solo quello, ma forse voleva spostare tutto.
+      // Più pezzi: si è preso solo quello, ma forse voleva spostare tutto.
       setDomandaSpostamento({
         titolo: `${nome} passa a ${aChi}`,
         domanda: "Sposti solo questo servizio o tutto l'appuntamento?",
         scelte: [
           {
             etichetta: `Solo «${nomeServizio}» · resta alle ${oraPezzo}`,
-            nota: 'Gli altri servizi restano dove sono.',
-            azione: chiudi(() => spostaServizio(id, indiceRiga, dip))
+            nota: 'Il resto dell\'appuntamento non si muove.',
+            azione: chiudi(() => spostaFase(id, indiceRiga, fase, dip))
           },
           oraCambiata
             ? {
                 etichetta: `Tutto l'appuntamento · inizia alle ${oraAppSpostato}`,
-                nota: 'Anche gli altri servizi passano e slittano con lui.',
+                nota: 'Passa tutto, e tutto slitta con lui.',
                 azione: chiudi(() => spostaAppuntamento(id, dip, minutiAppSpostato))
               }
             : {
                 etichetta: `Tutto l'appuntamento · resta alle ${orarioDaMinuti(minutiApp)}`,
-                nota: 'Anche gli altri servizi passano, stessa ora.',
+                nota: 'Passa tutto, stessa ora.',
                 azione: chiudi(() => spostaAppuntamento(id, dip, minutiApp))
               }
         ]
@@ -1048,12 +1071,13 @@ export default function PaginaAgenda() {
                             colTotal={colTotal}
                             evidenziato={appEvidenziato === app.id}
                             onEvidenzia={setAppEvidenziato}
-                            onDragStartServizio={(indiceRiga: number, offsetY: number, minutiNelPezzo: number) => {
+                            onDragStartServizio={(indiceRiga: number, fase: Fase, offsetY: number, minutiNelPezzo: number) => {
                               dragOffsetRef.current = offsetY;
                               const inizioBlocco = new Date(inizioMs + minutiNelPezzo * 60000);
                               trascinatoRef.current = {
                                 appId: app.id,
                                 indiceRiga,
+                                fase,
                                 minutiPezzo: inizioBlocco.getHours() * 60 + inizioBlocco.getMinutes()
                               };
                               setDraggingId(app.id);
@@ -2105,7 +2129,7 @@ function MicroAppCard({ app, spezzone, inizioMs, formattaOrario, durata, onDelet
                  // Si trascina IL SERVIZIO, non per forza tutto l'appuntamento:
                  // il riferimento è l'inizio di questo blocco, non quello
                  // dell'appuntamento, altrimenti gli orari mostrati sbagliano.
-                 if (onDragStartServizio) onDragStartServizio(seg.indiceRiga ?? 0, e.clientY - rect.top, seg.inizio);
+                 if (onDragStartServizio) onDragStartServizio(seg.indiceRiga ?? 0, seg.fase || 'lavorazione', e.clientY - rect.top, seg.inizio);
                }}
                onDragEnd={() => { if (onDragEndApp) onDragEndApp(); }}
                onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(app); }}

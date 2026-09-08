@@ -17,12 +17,19 @@ export interface TempiServizio {
   totale: number;
 }
 
+/** Le tre fasi di un servizio. La posa è l'unica in cui nessuno è occupato. */
+export type Fase = 'lavorazione' | 'posa' | 'finitura';
+
 export interface Segmento {
+  /** Se questo pezzo tiene occupata l'operatrice. La posa no. */
   tipo: 'lavorazione' | 'posa';
+  fase: Fase;
   nome: string;
   inizio: number; // minuti dall'inizio dell'appuntamento
   durata: number;
   indiceRiga: number; // a quale servizio dell'appuntamento appartiene
+  /** Chi fa questa fase. Per la posa: chi ha fatto la lavorazione. */
+  operatore: string;
 }
 
 export interface Intervallo {
@@ -31,6 +38,24 @@ export interface Intervallo {
 }
 
 export const DURATA_DEFAULT = 30;
+
+/** Quando nessuno ha preso in carico quella fase. */
+export const NON_ASSEGNATO = 'unassigned';
+
+/**
+ * Chi fa una fase di un servizio.
+ *
+ * Le fasi si affidano una per una: capita di fare il colore con una e la
+ * piega finale con un'altra, dentro lo stesso servizio. La finitura può quindi
+ * avere la sua operatrice (`id_dipendente_finitura`); se non ce l'ha segue chi
+ * fa la lavorazione (`id_dipendente`), e se manca anche quello segue chi ha in
+ * carico l'appuntamento.
+ */
+export function operatoreDellaFase(riga: any, fase: Fase, operatoreAppuntamento?: string | null): string {
+  const dellaRiga = riga?.id_dipendente || operatoreAppuntamento || NON_ASSEGNATO;
+  if (fase === 'finitura') return riga?.id_dipendente_finitura || dellaRiga;
+  return dellaRiga;
+}
 
 /** Le tre fasi di un servizio del catalogo: lavorazione, posa, finitura. */
 export function tempiServizio(servizio: any): TempiServizio {
@@ -54,7 +79,7 @@ export function tempiServizio(servizio: any): TempiServizio {
  * Scompone un appuntamento nei suoi segmenti in ordine: lavorazione, posa,
  * lavorazione... I minuti sono relativi all'inizio dell'appuntamento.
  */
-export function segmentiAppuntamento(righe: any[]): Segmento[] {
+export function segmentiAppuntamento(righe: any[], operatoreAppuntamento?: string | null): Segmento[] {
   const segmenti: Segmento[] = [];
   let cursore = 0;
 
@@ -63,30 +88,41 @@ export function segmentiAppuntamento(righe: any[]): Segmento[] {
     const nome = servizio.nome || 'Servizio';
     const { lavorazione, posa, finitura } = tempiServizio(servizio);
 
+    const diLavorazione = operatoreDellaFase(riga, 'lavorazione', operatoreAppuntamento);
+    const diFinitura = operatoreDellaFase(riga, 'finitura', operatoreAppuntamento);
+
     if (lavorazione > 0) {
-      segmenti.push({ tipo: 'lavorazione', nome, inizio: cursore, durata: lavorazione, indiceRiga });
+      segmenti.push({ tipo: 'lavorazione', fase: 'lavorazione', nome, inizio: cursore, durata: lavorazione, indiceRiga, operatore: diLavorazione });
       cursore += lavorazione;
     }
 
     if (posa > 0) {
-      segmenti.push({ tipo: 'posa', nome: 'Posa', inizio: cursore, durata: posa, indiceRiga });
+      // Durante la posa nessuno è occupato: l'operatrice qui serve solo a
+      // tenere il filo attaccato alla colonna giusta.
+      segmenti.push({ tipo: 'posa', fase: 'posa', nome: 'Posa', inizio: cursore, durata: posa, indiceRiga, operatore: diLavorazione });
       cursore += posa;
     }
 
     if (finitura > 0) {
       segmenti.push({
         tipo: 'lavorazione',
+        fase: 'finitura',
         nome: `${nome} · finitura`,
         inizio: cursore,
         durata: finitura,
-        indiceRiga
+        indiceRiga,
+        operatore: diFinitura
       });
       cursore += finitura;
     }
   });
 
   if (segmenti.length === 0) {
-    segmenti.push({ tipo: 'lavorazione', nome: 'Servizio', inizio: 0, durata: DURATA_DEFAULT, indiceRiga: 0 });
+    segmenti.push({
+      tipo: 'lavorazione', fase: 'lavorazione', nome: 'Servizio',
+      inizio: 0, durata: DURATA_DEFAULT, indiceRiga: 0,
+      operatore: operatoreAppuntamento || NON_ASSEGNATO
+    });
   }
 
   return segmenti;
@@ -253,8 +289,6 @@ export function descriviTurno(turno: TurnoDelGiorno): string {
 // operatore: ogni pezzo va nella sua colonna, ma tutti restano lo stesso
 // appuntamento e si riconoscono dal colore.
 
-export const NON_ASSEGNATO = 'unassigned';
-
 export interface Spezzone {
   idDipendente: string;      // NON_ASSEGNATO quando nessuno l'ha preso
   indiciRighe: number[];     // quali servizi dell'appuntamento
@@ -263,53 +297,31 @@ export interface Spezzone {
   segmenti: Segmento[];      // con inizio relativo al pezzo, non all'appuntamento
 }
 
-/** Di chi è una riga: quello che dice lei, altrimenti chi ha l'appuntamento. */
-export function operatoreDellaRiga(riga: any, operatoreAppuntamento?: string | null): string {
-  return riga?.id_dipendente || operatoreAppuntamento || NON_ASSEGNATO;
-}
-
 /**
  * Spezza l'appuntamento nei pezzi da mettere nelle colonne: uno per ogni
  * sequenza di servizi affidati alla stessa persona.
  */
 export function spezzoniPerOperatore(righe: any[], operatoreAppuntamento?: string | null): Spezzone[] {
-  const elenco = righe || [];
-  if (elenco.length === 0) {
-    return [{
-      idDipendente: operatoreAppuntamento || NON_ASSEGNATO,
-      indiciRighe: [],
-      inizio: 0,
-      fine: DURATA_DEFAULT,
-      segmenti: [{ tipo: 'lavorazione', nome: 'Servizio', inizio: 0, durata: DURATA_DEFAULT, indiceRiga: 0 }]
-    }];
-  }
-
-  const tutti = segmentiAppuntamento(elenco);
+  const segmenti = segmentiAppuntamento(righe || [], operatoreAppuntamento);
   const spezzoni: Spezzone[] = [];
 
-  elenco.forEach((riga, indice) => {
-    const di = operatoreDellaRiga(riga, operatoreAppuntamento);
-    const suoi = tutti.filter(s => s.indiceRiga === indice);
-    if (suoi.length === 0) return;
-
-    const inizio = suoi[0].inizio;
-    const fine = suoi[suoi.length - 1].inizio + suoi[suoi.length - 1].durata;
+  segmenti.forEach(seg => {
     const ultimo = spezzoni[spezzoni.length - 1];
+    const attaccato = ultimo && ultimo.idDipendente === seg.operatore && ultimo.fine === seg.inizio;
 
-    // Servizi di fila della stessa persona stanno in un pezzo solo.
-    if (ultimo && ultimo.idDipendente === di && ultimo.fine === inizio) {
-      ultimo.indiciRighe.push(indice);
-      ultimo.fine = fine;
-      ultimo.segmenti.push(...suoi.map(s => ({ ...s, inizio: s.inizio - ultimo.inizio })));
+    if (attaccato) {
+      ultimo.fine = seg.inizio + seg.durata;
+      ultimo.segmenti.push({ ...seg, inizio: seg.inizio - ultimo.inizio });
+      if (!ultimo.indiciRighe.includes(seg.indiceRiga)) ultimo.indiciRighe.push(seg.indiceRiga);
       return;
     }
 
     spezzoni.push({
-      idDipendente: di,
-      indiciRighe: [indice],
-      inizio,
-      fine,
-      segmenti: suoi.map(s => ({ ...s, inizio: s.inizio - inizio }))
+      idDipendente: seg.operatore,
+      indiciRighe: [seg.indiceRiga],
+      inizio: seg.inizio,
+      fine: seg.inizio + seg.durata,
+      segmenti: [{ ...seg, inizio: 0 }]
     });
   });
 
