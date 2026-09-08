@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw } from 'lucide-react';
 import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
 import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
+import { faServizio, haElencoServizi } from '@/lib/operatori';
 
 interface Client {
   id: string;
@@ -95,6 +96,8 @@ export default function AggiungiCalendarioSidebar({
 
   // Services
   const [catalogoSer, setCatalogoSer] = useState<Service[]>([]);
+  // Mostrare solo i servizi che l'operatrice scelta sa fare.
+  const [soloSuoiServizi, setSoloSuoiServizi] = useState(true);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [isAddingServiceView, setIsAddingServiceView] = useState(false);
   const [searchServiceQuery, setSearchServiceQuery] = useState('');
@@ -471,15 +474,23 @@ export default function AggiungiCalendarioSidebar({
 
   const filteredClients = studentiFiltra(clienti, searchClientQuery);
 
+  // Non tutte fanno tutto: l'elenco parte da quello che sa fare la persona
+  // scelta. Chi non ha l'elenco compilato fa tutto, e il filtro non si vede.
+  const operatoreScelto = dipendenti.find(d => d.id === selectedDipendenteId);
+  const filtroPossibile = haElencoServizi(operatoreScelto);
+  const serviziMostrati = filtroPossibile && soloSuoiServizi
+    ? catalogoSer.filter(s => faServizio(operatoreScelto, s.id))
+    : catalogoSer;
+
   const groupedServices: Record<string, Service[]> = {};
-  catalogoSer.forEach(s => {
+  serviziMostrati.forEach(s => {
     if (!groupedServices[s.categoria]) {
       groupedServices[s.categoria] = [];
     }
     groupedServices[s.categoria].push(s);
   });
 
-  const activeStaffName = dipendenti.find(d => d.id === selectedDipendenteId)?.nome || 'ROSELLA';
+  const activeStaffName = operatoreScelto?.nome || 'ROSELLA';
 
   // Hours array from 08:00 to 20:30 in 15min steps
   const HOUR_SELECT_OPTIONS = [];
@@ -1202,18 +1213,30 @@ export default function AggiungiCalendarioSidebar({
                 />
               </div>
 
-              {/* Rossella tag filter (from wireframe) */}
-              <div className="flex flex-wrap gap-1">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-fuchsia-600/10 border border-fuchsia-500/25 rounded-full text-[10.5px] text-fuchsia-400 font-semibold select-none leading-none">
-                  Servizi svolti da: <span className="uppercase">{activeStaffName}</span>
-                  <button
-                    onClick={() => {}}
-                    className="hover:text-red-400 transition-colors p-[1px]"
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
-              </div>
+              {/* Filtro su chi sa fare cosa: prima era solo una targhetta finta */}
+              {filtroPossibile && (
+                <div className="flex flex-wrap gap-1">
+                  {soloSuoiServizi ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-fuchsia-600/10 border border-fuchsia-500/25 rounded-full text-[10.5px] text-fuchsia-500 font-semibold select-none leading-none">
+                      Servizi svolti da: <span className="uppercase">{activeStaffName}</span>
+                      <button
+                        onClick={() => setSoloSuoiServizi(false)}
+                        title="Mostra tutto il catalogo"
+                        className="hover:text-red-500 transition-colors p-[1px]"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setSoloSuoiServizi(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 border border-zinc-200 rounded-full text-[10.5px] text-zinc-600 font-semibold leading-none hover:bg-zinc-200 transition-colors"
+                    >
+                      Tutto il catalogo · mostra solo quelli di <span className="uppercase">{activeStaffName}</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Scrollable Catalog groups */}
@@ -1246,7 +1269,14 @@ export default function AggiungiCalendarioSidebar({
                             }`}
                           >
                             <div>
-                              <p className="text-xs font-semibold text-zinc-800">{ser.nome}</p>
+                              <p className="text-xs font-semibold text-zinc-800 flex items-center gap-1.5">
+                                {ser.nome}
+                                {filtroPossibile && !faServizio(operatoreScelto, ser.id) && (
+                                  <span className="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-[1px] leading-none">
+                                    non lo fa
+                                  </span>
+                                )}
+                              </p>
                               <p className="text-[10px] text-zinc-500 font-medium mt-0.5 font-mono">
                                 {ser.prezzo_base} € • {ser.durata_minuti >= 60 ? `${Math.floor(ser.durata_minuti / 60)}h ${ser.durata_minuti % 60 ? ser.durata_minuti % 60 + 'm' : ''}` : `${ser.durata_minuti} min`}
                               </p>

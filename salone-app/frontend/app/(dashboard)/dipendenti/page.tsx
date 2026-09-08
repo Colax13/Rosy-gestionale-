@@ -6,6 +6,7 @@ import { dipendentiApi } from '@/lib/api-client';
 import { Plus, Edit2, Shield, User, X, Check, AlertCircle, Trash2, Eye, FileText, Download } from 'lucide-react';
 
 import TurniCalendario from './TurniCalendario';
+import ServiziOperatore from './ServiziOperatore';
 
 interface Dipendente {
   id: string;
@@ -17,10 +18,12 @@ interface Dipendente {
   created_at: string;
   turni?: any;
   fotoUrl?: string;
+  // Gli id dei servizi che sa fare. Vuoto o assente = li fa tutti.
+  servizi?: string[];
 }
 
 export default function GestioneDipendenti() {
-  const [activeTab, setActiveTab] = useState<'elenco' | 'turni'>('elenco');
+  const [activeTab, setActiveTab] = useState<'elenco' | 'turni' | 'servizi'>('elenco');
   const [dipendenti, setDipendenti] = useState<Dipendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +48,11 @@ export default function GestioneDipendenti() {
     caricaDipendenti();
   }, []);
 
-  const caricaDipendenti = async () => {
-    setLoading(true);
+  // `silenzioso` evita di rimettere la pagina in caricamento dopo un
+  // salvataggio: la schermata sparirebbe e con lei la scheda aperta e il
+  // messaggio "salvato".
+  const caricaDipendenti = async (silenzioso = false) => {
+    if (!silenzioso) setLoading(true);
     setError(null);
     try {
       const data = await dipendentiApi.getAll();
@@ -54,7 +60,7 @@ export default function GestioneDipendenti() {
     } catch (err: any) {
       setError(err.message || 'Errore nel caricamento dei dipendenti');
     } finally {
-      setLoading(false);
+      if (!silenzioso) setLoading(false);
     }
   };
 
@@ -158,6 +164,12 @@ export default function GestioneDipendenti() {
             >
               Turni e orari
             </button>
+            <button
+              onClick={() => setActiveTab('servizi')}
+              className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'servizi' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
+            >
+              Servizi
+            </button>
           </div>
         </div>
       </div>
@@ -169,7 +181,7 @@ export default function GestioneDipendenti() {
       {error ? (
         <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded mb-6">
           <p>{error}</p>
-          <button onClick={caricaDipendenti} className="mt-2 text-sm font-semibold underline">Riprova</button>
+          <button onClick={() => caricaDipendenti()} className="mt-2 text-sm font-semibold underline">Riprova</button>
         </div>
       ) : (
         <>
@@ -213,9 +225,13 @@ export default function GestioneDipendenti() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeTab === 'turni' ? (
             <div className="mt-6">
               <TurniCalendario dipendenti={dipendenti} refreshData={caricaDipendenti} />
+            </div>
+          ) : (
+            <div className="mt-6">
+              <ServiziOperatore dipendenti={dipendenti} refreshData={() => caricaDipendenti(true)} />
             </div>
           )}
         </>

@@ -6,6 +6,7 @@ import { Calendar as CalendarIcon, User, Clock, CheckCircle2, Scissors, ArrowLef
 import { auth, db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
+import { faServizio } from '@/lib/operatori';
 
 interface Servizio {
   id: string;
@@ -100,7 +101,17 @@ export default function PrenotazionePubblica() {
 
   const [dates, setDates] = useState<{ full: Date; display: string, short: string }[]>([]);
 
-  const operators = [{ id: 'any', nome: 'Qualsiasi operatore' }, ...operatorsData.map(o => ({ id: o.id, nome: o.nome }))];
+  // Fra le operatrici si mostrano solo quelle che sanno fare il servizio
+  // scelto: altrimenti la cliente prenota con chi non può farglielo.
+  const operatoriPossibili = operatorsData.filter(o => faServizio(o, selectedServiceId));
+  const operators = [{ id: 'any', nome: 'Qualsiasi operatore' }, ...operatoriPossibili.map(o => ({ id: o.id, nome: o.nome }))];
+
+  // Se cambiando servizio l'operatrice scelta non lo fa, si torna a "qualsiasi"
+  // invece di lasciare un nome che non è più fra le scelte.
+  useEffect(() => {
+    if (!selectedOperator) return;
+    if (!operators.some(o => o.nome === selectedOperator)) setSelectedOperator('');
+  }, [selectedServiceId, operatorsData]);
   // Calculate available times based on date and operator
   const getGiornoString = (d: Date) => {
     const map = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];

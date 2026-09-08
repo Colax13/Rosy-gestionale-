@@ -25,7 +25,8 @@ const turnoPieno = {
 const dipendenti = [
   { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', ruolo: 'Titolare',  colore: '#D400FF', turni: turnoPieno },
   { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    ruolo: 'Parrucchiera', colore: '#6B5CFF', turni: turnoPieno },
-  { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  ruolo: 'Estetista', colore: '#00D8FF', turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
+  // Martina fa solo estetica: serve a provare l'elenco dei servizi per operatrice.
+  { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  ruolo: 'Estetista', colore: '#00D8FF', servizi: ['s5'], turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
 ];
 
 const catalogo = [
@@ -151,7 +152,13 @@ export const catalogoApi = {
 export const dipendentiApi = {
   getPublic: async () => eco(dipendenti),
   getAll: async () => eco(dipendenti),
-  create: nulla, update: nulla, delete: nulla,
+  create: nulla,
+  update: async (id: string, dati: any) => {
+    const i = dipendenti.findIndex(d => d.id === id);
+    if (i >= 0) dipendenti[i] = { ...dipendenti[i], ...dati };
+    return eco(dipendenti[i]);
+  },
+  delete: nulla,
 };
 
 export const appuntamentiApi = {
