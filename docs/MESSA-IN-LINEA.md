@@ -47,6 +47,12 @@ Alla fine Vercel dà un indirizzo tipo `rosy-gestionale.vercel.app`.
 3. **Add domain**: incollare l'indirizzo del passo 1
    (solo il dominio: `rosy-gestionale.vercel.app`, senza `https://`)
 
+> **Se usi un dominio tuo** (per esempio
+> `gestionaleparrucchieri.colasantiludovico.it`), va aggiunto **anche quello**,
+> come riga a parte. Vale la regola semplice: ogni indirizzo da cui si apre
+> Rosy deve stare in questo elenco, altrimenti da lì l'accesso con Google non
+> parte. Se l'accesso funziona già, vuol dire che c'è.
+
 ---
 
 ## 3. Firebase: accendere l'accesso con la password
@@ -64,10 +70,55 @@ fallisce (il programma lo dice con parole chiare).
 
 ## 4. Pubblicare le regole del database
 
-Le regole nuove — quelle che fanno valere i permessi delle operatrici — sono
-nel repository ma **non sono ancora attive**. Vanno pubblicate.
+### Cos'è, in parole povere
 
-Dal computer, dentro la cartella del progetto:
+Le **regole** sono la serratura del database. Dicono chi può leggere e chi può
+scrivere che cosa. Non stanno dentro il programma: stanno su Firebase, e si
+pubblicano a parte.
+
+Quelle pubblicate oggi sono **la versione vecchia**, scritta quando nel
+programma entrava una persona sola. Dicono in sostanza: *"puoi leggere solo i
+dati che hai creato tu"*.
+
+Il file `firestore.rules` nel repository è invece **la versione nuova**, che
+conosce le operatrici: *"puoi leggere i dati del salone in cui lavori, e solo
+le pagine che ti hanno concesso"*.
+
+### Perché non si può saltare
+
+Finché non le pubblichi, **la parte delle operatrici non funziona**: ne crei
+una, lei entra, e non vede niente — perché per il database è un'estranea.
+Tutto il resto (agenda, clienti, servizi, buoni) continua a funzionare come
+prima, perché tu sei sempre la stessa persona di prima. Quindi non è urgente
+per te, ma è obbligatorio prima di far entrare qualcun altro.
+
+### Come si fa, senza installare niente
+
+1. Apri il file delle regole su GitHub:
+   https://github.com/Colax13/rosy-gestionale-/blob/main/firestore.rules
+2. Premi il tasto **Copy raw file** (l'icona dei due fogli, in alto a destra
+   del riquadro del codice). Copia tutte e 245 le righe.
+3. Vai su console.firebase.google.com → progetto **gestionaliparrucchieri**
+4. Menù a sinistra: **Firestore Database**
+5. **ATTENZIONE, è il punto dove si sbaglia:** in alto c'è un menù a tendina
+   con il nome del database. Questo progetto **non usa quello predefinito**.
+   Scegli:
+   `ai-studio-7035b199-a80f-403a-9044-0d7d6c4eb074`
+6. Scheda **Regole** (Rules)
+7. Seleziona tutto quello che c'è scritto e **incolla sopra** quello che hai
+   copiato da GitHub
+8. **Pubblica** (Publish)
+
+Se Firebase segnala un errore di sintassi, non pubblicare: mandami il
+messaggio e lo sistemo.
+
+### Come capisci quale versione è pubblicata
+
+Nella scheda Regole, cerca la parola **`membri`** (Ctrl+F nella pagina).
+- La trovi → sono già quelle nuove, hai finito.
+- Non la trovi → sono ancora quelle vecchie, vanno incollate.
+
+### In alternativa, da riga di comando
 
 ```bash
 npm install -g firebase-tools     # solo la prima volta
@@ -76,14 +127,8 @@ firebase use gestionaliparrucchieri
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-Se `firebase deploy` si lamenta del database, è perché questo progetto non usa
-quello predefinito ma `ai-studio-7035b199-a80f-403a-9044-0d7d6c4eb074`: è già
-scritto in `firebase.json`, quindi basta lanciare il comando dalla cartella del
-progetto.
-
-**In alternativa, senza installare niente:** console Firebase → Firestore
-Database → scheda **Regole** → incollare il contenuto di `firestore.rules` →
-**Pubblica**. Attenzione a scegliere il database giusto nel menù in alto.
+Il database giusto è già scritto in `firebase.json`, quindi basta lanciarlo
+dalla cartella del progetto.
 
 ---
 
