@@ -3,11 +3,12 @@
 // Top of the file imports ...
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
-import { appuntamentiApi, dipendentiApi } from '@/lib/api-client';
+import { appuntamentiApi, dipendentiApi, salonApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
+import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import { puoAprirePercorso } from '@/lib/sessione';
 import {
   durataTotale,
@@ -184,6 +185,8 @@ function MonthDayCell({
 export default function PaginaAgenda() {
   const [appuntamenti, setAppuntamenti] = useState<Appuntamento[]>([]);
   const [dipendenti, setDipendenti] = useState<any[]>([]);
+  // Il nome che va in cima al preconto stampato.
+  const [nomeSalone, setNomeSalone] = useState<string>('');
   const [selectedDipendenteId, setSelectedDipendenteId] = useState<string>('tutti');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +200,12 @@ export default function PaginaAgenda() {
   const datePickerRef = useRef<HTMLDivElement>(null);
 
   // Sync picker date when opening and when selectedDate changes
+  useEffect(() => {
+    salonApi.getSettings()
+      .then(dati => setNomeSalone(dati?.nome || dati?.settings?.nome || ''))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (isDatePickerOpen) {
       setPickerDate(new Date(selectedDate));
@@ -534,32 +543,7 @@ export default function PaginaAgenda() {
   };
 
   const handleCompleteClick = (app: any) => {
-    setCompletaAppModal({
-      show: true, 
-      app, 
-      data: {
-        importo: app.prezzo_finale?.toString() || '',
-        note: app.note || '',
-        colori: app.colori_utilizzati || ''
-      }
-    });
-  };
-
-  const confirmComplete = async () => {
-    if (!completaAppModal.app) return;
-    try {
-      await appuntamentiApi.update(completaAppModal.app.id, {
-        stato: 'completato',
-        prezzo_finale: parseFloat(completaAppModal.data.importo) || 0,
-        note: completaAppModal.data.note,
-        colori_utilizzati: completaAppModal.data.colori
-      });
-      setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } });
-      caricaAgenda();
-    } catch (error) {
-      console.error("Errore completamento appuntamento:", error);
-      alert("Si è verificato un errore durante il completamento dell'appuntamento.");
-    }
+    setCompletaAppModal({ show: true, app, data: { importo: '', note: '', colori: '' } });
   };
 
   // Trascinamento: sposta l'appuntamento di orario e/o di operatore.
@@ -1858,79 +1842,17 @@ export default function PaginaAgenda() {
       )}
 
       {/* Complete Appuntamento Modal */}
-      {completaAppModal.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-zinc-200/80 bg-zinc-50/50 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                <CheckCircle2 className="text-[#10b981]" size={20} />
-                Conferma completamento
-              </h3>
-              <button 
-                onClick={() => setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } })}
-                className="p-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900 rounded-full transition-colors"
-               >
-                <X size={16} />
-               </button>
-            </div>
-            
-            <div className="p-6 flex flex-col gap-5">
-              <p className="text-zinc-500 text-sm">
-                Vuoi confermare l'appuntamento con questi dati? C'è qualcosa riguardante il prezzo che vuoi aggiungere o note per appuntamenti futuri?
-              </p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Importo speso (€)</label>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-mono"
-                    placeholder="0.00"
-                    value={completaAppModal.data.importo}
-                    onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, importo: e.target.value } }))}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Colori utilizzati</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all"
-                    placeholder="Es. Biondo cenere, Castano chiaro..."
-                    value={completaAppModal.data.colori}
-                    onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, colori: e.target.value } }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Note per appuntamenti futuri</label>
-                  <textarea 
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 transition-all min-h-[100px] resize-y"
-                    placeholder="Lo storico del cliente, preferenze, sensibilità..."
-                    value={completaAppModal.data.note}
-                    onChange={(e) => setCompletaAppModal(prev => ({ ...prev, data: { ...prev.data, note: e.target.value } }))}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-zinc-200/80 bg-zinc-50/50 flex gap-3">
-              <button 
-                onClick={() => setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } })}
-                className="flex-1 px-4 py-3 font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors shadow-sm"
-              >
-                Chiudi appuntamento
-              </button>
-              <button 
-                onClick={confirmComplete}
-                className="flex-1 px-4 py-3 font-bold text-white bg-[#10b981] hover:bg-[#0ea5e9] hover:bg-emerald-400 rounded-xl transition-colors shadow-sm tracking-wide"
-              >
-                Conferma appuntamento
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Fine appuntamento: preconto, poi quello che resta scritto. */}
+      {completaAppModal.show && completaAppModal.app && (
+        <ChiusuraAppuntamento
+          app={completaAppModal.app}
+          nomeSalone={nomeSalone}
+          onChiudi={() => setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } })}
+          onCompletato={() => {
+            setCompletaAppModal({ show: false, app: null, data: { importo: '', note: '', colori: '' } });
+            caricaAgenda();
+          }}
+        />
       )}
 
     </div>
@@ -2041,17 +1963,17 @@ function MicroAppCard({ app, spezzone, inizioMs, formattaOrario, durata, onDelet
        {menuOpen && (
          <div className="absolute top-6 right-1 bg-white border border-zinc-200 rounded shadow-2xl z-[99999] flex flex-col w-36 overflow-hidden animate-in fade-in zoom-in duration-100 pointer-events-auto"
               onMouseLeave={() => setMenuOpen(false)}>
-            {!isCompleted && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onComplete) onComplete(app); }}
-                className="px-2 py-2 text-[10px] text-emerald-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium"
-              >
-                <CheckCircle2 size={10} /> Completato
-              </button>
-            )}
+            {/* Anche su un appuntamento già chiuso: serve a rivedere il conto
+                quando ci si accorge di aver sbagliato un importo. */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onComplete) onComplete(app); }}
+              className="px-2 py-2 text-[10px] text-emerald-600 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium"
+            >
+              <CheckCircle2 size={10} /> {isCompleted ? 'Rivedi il conto' : 'Completato'}
+            </button>
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen(false); if(onEdit) onEdit(app); }}
-              className={`px-2 py-2 text-[10px] text-zinc-700 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium ${!isCompleted ? 'border-t border-zinc-100' : ''}`}
+              className="px-2 py-2 text-[10px] text-zinc-700 hover:bg-zinc-50 flex items-center gap-2 transition-colors text-left font-medium border-t border-zinc-100"
             >
               <Edit2 size={10} /> Modifica
             </button>

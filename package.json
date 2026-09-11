@@ -12,7 +12,8 @@
     "prova:import": "tsx salone-app/frontend/lib/importa.prova.ts",
     "anteprima": "vite --config vite.anteprima.config.ts",
     "prova:servizi": "tsx salone-app/frontend/lib/servizi.prova.ts",
-    "prova:contatti": "tsx salone-app/frontend/lib/contatti.prova.ts"
+    "prova:contatti": "tsx salone-app/frontend/lib/contatti.prova.ts",
+    "prova:preconto": "tsx salone-app/frontend/lib/preconto.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

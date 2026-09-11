@@ -129,7 +129,13 @@ export const reportApi = {
 export const clientiApi = {
   getAll: async () => eco(clienti),
   getById: async (id: string) => eco(clienti.find(c => c.id === id) || clienti[0]),
-  create: nulla, update: nulla, delete: nulla, importAi: nulla,
+  create: nulla,
+  update: async (id: string, dati: any) => {
+    const i = clienti.findIndex(c => c.id === id);
+    if (i >= 0) clienti[i] = { ...clienti[i], ...dati };
+    return eco(clienti[i]);
+  },
+  delete: nulla, importAi: nulla,
 };
 
 export const salonApi = {

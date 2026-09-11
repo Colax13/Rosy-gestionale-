@@ -474,7 +474,7 @@ no** in base all'importo. Da capire se leggere il foglio o passare da Make.
 
 ### Nuovo
 
-**G19 — Preconto e chiusura dell'appuntamento** · ALTA · rivisto
+**G19 — Preconto e chiusura dell'appuntamento** · ✅ FATTO (stampa dal browser)
 Non è più solo "stampare un foglio": è **la nuova logica di fine
 appuntamento**, e passa sempre da lì.
 
@@ -495,5 +495,12 @@ sulla stampantina.
 - **note che vanno nello storico della cliente**: preferenze, sensibilità,
   carattere, quello che serve saperlo la volta dopo.
 
-Da chiarire: che stampantina è (termica da scontrini? di rete o USB?), se il
-preconto resta salvato o è solo carta, e se serve un numero progressivo.
+*Com'è stato fatto.* La stampa passa dal browser, così funziona con qualsiasi
+stampante senza dover parlare con un modello in particolare. Il foglio è
+stretto come uno scontrino (72 mm): su una termica esce giusto, su un A4 resta
+una colonna in alto a sinistra. Il conto **resta salvato** sull'appuntamento,
+e da un appuntamento già chiuso si può fare *Rivedi il conto* per correggere.
+
+Da chiarire ancora: che stampantina c'è in salone (se è termica di rete si può
+parlarle direttamente e stampare senza finestra di dialogo), e se serve un
+numero progressivo sul preconto.

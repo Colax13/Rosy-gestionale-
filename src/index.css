@@ -375,3 +375,106 @@ body {
   background: var(--color-zinc-100) !important;
   opacity: 0.6;
 }
+
+/* ---------------------------------------------------------------------------
+   Il preconto da stampare
+   ---------------------------------------------------------------------------
+   Sullo schermo il foglio non si vede mai. Quando si stampa sparisce tutto il
+   resto e resta solo lui: così esce un foglio pulito da qualsiasi stampante,
+   senza dover parlare con un modello in particolare.
+
+   È stretto come uno scontrino (72 mm): su una termica esce giusto, su un A4
+   resta una colonna in alto a sinistra.
+   --------------------------------------------------------------------------- */
+
+.foglio-preconto {
+  display: none;
+}
+
+@media print {
+  /* Via tutto quello che non è il foglio. Il foglio sta appeso direttamente
+     alla pagina, quindi nascondere i suoi fratelli non lo tocca. */
+  body > *:not(.foglio-preconto) {
+    display: none !important;
+  }
+
+  .foglio-preconto {
+    display: block !important;
+    position: static;
+    width: 72mm;
+    margin: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .foglio-preconto h1 {
+    font-size: 13pt;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 2mm;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .foglio-preconto .intestazione {
+    text-align: center;
+    margin: 0 0 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1px dashed #000;
+    font-size: 10pt;
+  }
+
+  .foglio-preconto table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .foglio-preconto td {
+    padding: 1mm 0;
+    vertical-align: top;
+  }
+
+  .foglio-preconto .cifra {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .foglio-preconto .riga-sconto {
+    display: flex;
+    justify-content: space-between;
+    margin: 2mm 0 0;
+  }
+
+  .foglio-preconto .totale {
+    display: flex;
+    justify-content: space-between;
+    margin: 3mm 0 0;
+    padding-top: 2mm;
+    border-top: 1px solid #000;
+    font-size: 13pt;
+    font-weight: 700;
+  }
+
+  .foglio-preconto .nota {
+    margin: 4mm 0 0;
+    font-size: 9pt;
+    font-style: italic;
+  }
+
+  .foglio-preconto .piede {
+    margin: 6mm 0 0;
+    padding-top: 2mm;
+    border-top: 1px dashed #000;
+    text-align: center;
+    font-size: 8pt;
+  }
+
+  @page {
+    margin: 6mm;
+  }
+}
