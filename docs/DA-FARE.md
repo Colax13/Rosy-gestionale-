@@ -246,6 +246,13 @@ Aggiornato dopo il passaggio sul repository `rosy-gestionale-`.
 | F1 | Le tre fasi si leggono a colpo d'occhio + avviso di sforamento |
 | F2 | Pulsanti che non rispondevano, giro completo su tutte le pagine |
 
+### ✅ C3 — Regole del database: fatto, e senza server
+
+Si temeva servisse il pezzo lato server. Non serviva: fuori dal salone escono
+due liste ripulite (`vetrina` e `disponibilita`), e gli appuntamenti — con
+dentro nome, cognome e telefono delle clienti — sono chiusi a chiave.
+Pubblicato l'11 settembre 2026 e verificato in linea.
+
 ### Bloccate: serve prima il pezzo lato server su Vercel
 
 Tre lavori diversi, **un solo prerequisito**: un endpoint sul server con
@@ -253,7 +260,6 @@ Tre lavori diversi, **un solo prerequisito**: un endpoint sul server con
 
 | # | Cosa | Perché serve il server |
 |---|------|------------------------|
-| C3 | Chiudere le regole del database | Il sito di prenotazione deve leggere le disponibilità senza vedere i dati delle clienti |
 | A13, C7 | SMS e promemoria | L'invio non si può fare dal browser: la chiave del fornitore sarebbe visibile a tutti |
 | F3 | Buoni pagati online | Make ha bisogno di un indirizzo a cui scrivere il buono |
 | F4 | Acconto sulla prenotazione | Stripe deve confermare il pagamento a un endpoint fidato |
