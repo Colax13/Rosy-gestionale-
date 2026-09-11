@@ -447,13 +447,13 @@ si possono concedere.
 Si può anche **sospendere** un accesso senza cancellarlo, e toglierlo del
 tutto quando serve.
 
-**G13 — Servizi che ogni operatrice può fare** · ALTA
+**G13 — Servizi che ogni operatrice può fare** · ✅ FATTO
 Non tutte fanno tutto. Terza scheda nella scheda operatore, accanto a turni e
 orari, con l'elenco dei servizi da spuntare e il tasto Salva.
 
 ### Clienti e prenotazioni
 
-**G14 — "Ricontatta" che funziona** · ALTA
+**G14 — "Ricontatta" che funziona** · ✅ FATTO
 Da computer apre WhatsApp sul numero della cliente. Da telefono propone
 **chiama** oppure **messaggio WhatsApp**.
 
