@@ -522,3 +522,41 @@ e da un appuntamento già chiuso si può fare *Rivedi il conto* per correggere.
 Da chiarire ancora: che stampantina c'è in salone (se è termica di rete si può
 parlarle direttamente e stampare senza finestra di dialogo), e se serve un
 numero progressivo sul preconto.
+
+**G20 — Rifare la schermata di prenotazione dell'appuntamento** · ALTA
+*Da fare.*
+
+La schermata con cui si prende e si modifica un appuntamento viene da un altro
+gestionale, copiata così com'era. Si vede: non ha lo stesso design del resto di
+Rosy e, soprattutto, **si usa peggio** — i passaggi non sono quelli che il resto
+del programma ha abituato a fare.
+
+Va rifatta da capo, non ritoccata: stessi colori, stessi bottoni, stesse
+distanze delle altre pagine, e i gesti nell'ordine in cui li fa davvero chi sta
+al telefono con la cliente (chi è → che cosa deve fare → con chi → quando).
+Prima di scrivere codice conviene guardarla insieme e dire, punto per punto,
+che cosa dà fastidio: "non mi piace" da solo non basta per rifarla giusta.
+
+---
+
+## Riservato a un salone
+
+**Pagina Buoni — solo RD Salon** · ✅ FATTO
+
+I Buoni sono nati su misura per RD Salon: buoni spa venduti online, il loro
+foglio, la piega compresa secondo l'importo. Agli altri saloni non servono, e
+adesso non li vedono proprio: la voce non compare nel menù, l'indirizzo scritto
+a mano rimanda indietro, e il database rifiuta di leggerli e di scriverli.
+
+L'interruttore è **l'indirizzo del titolare del salone**
+(`rdsalon.ceccano@gmail.com`), non quello di chi sta guardando lo schermo: così
+le operatrici di RD Salon la vedono come la vede lui, e un altro salone no.
+
+Sta scritto in due posti, e vanno cambiati tutti e due insieme:
+- `salone-app/frontend/lib/funzioni.ts` — toglie la voce dal menù;
+- `firestore.rules`, funzione `haIBuoni` — è la serratura vera.
+
+Per accendere i Buoni a un altro salone: aggiungere il suo indirizzo in tutti e
+due gli elenchi e ripubblicare le regole. Quando i saloni saranno tanti, questo
+elenco diventa un campo sulla scheda del salone (`funzioni`), che si accende
+dalla console senza toccare il codice — è la *strada A* di cui abbiamo parlato.

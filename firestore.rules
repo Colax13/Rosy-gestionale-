@@ -56,6 +56,47 @@ service cloud.firestore {
       );
     }
 
+    // --- Funzioni riservate -----------------------------------------------
+    //
+    // Certe pagine sono nate su richiesta di un salone solo e non riguardano
+    // gli altri: i Buoni sono di RD Salon (buoni spa venduti online, il loro
+    // foglio, la loro piega inclusa). L'interruttore è l'indirizzo del
+    // **titolare** del salone, non di chi sta scrivendo: così le sue
+    // operatrici ci arrivano, e un altro salone no.
+    //
+    // Lo stesso elenco sta in `salone-app/frontend/lib/funzioni.ts`, che
+    // toglie la voce dal menù. Se si aggiunge un salone va cambiato in tutti
+    // e due i posti: qui c'è la serratura, là solo la maniglia.
+
+    function saloniConIBuoni() {
+      return ['rdsalon.ceccano@gmail.com'];
+    }
+
+    function emailAbilitataAiBuoni(email) {
+      return email is string && email.lower() in saloniConIBuoni();
+    }
+
+    /** L'indirizzo di chi sta scrivendo adesso: il titolare passa da qui. */
+    function emailDiChiEntra() {
+      return (isSignedIn() && ('email' in request.auth.token))
+        ? request.auth.token.email
+        : '';
+    }
+
+    /** L'indirizzo del titolare, letto dalla scheda del salone: le operatrici
+        passano da qui, perché il loro non dice niente sul salone. */
+    function emailDelSalone(userId) {
+      return exists(/databases/$(database)/documents/salons/$(userId))
+        ? get(/databases/$(database)/documents/salons/$(userId)).data.get('ownerEmail', '')
+        : '';
+    }
+
+    /** True se quel salone ha la pagina dei Buoni. */
+    function haIBuoni(userId) {
+      return emailAbilitataAiBuoni(emailDiChiEntra())
+        || emailAbilitataAiBuoni(emailDelSalone(userId));
+    }
+
 
 
     function isValidId(id) {
@@ -199,19 +240,29 @@ service cloud.firestore {
       allow delete: if isValidId(dipendenteId) && nelSaloneCon(resource.data.userId, 'dipendenti');
     }
 
+    // I buoni sono una funzione riservata: oltre al permesso sulla pagina
+    // serve che il salone ce l'abbia (vedi `haIBuoni` più sopra). Senza questa
+    // riga, un altro salone potrebbe scriversi i buoni a mano dalla console
+    // del browser anche senza vedere la voce nel menù.
     match /buoni/{buonoId} {
-      allow get: if nelSaloneCon(resource.data.userId, 'buoni');
-      allow list: if nelSaloneCon(resource.data.userId, 'buoni');
+      allow get: if nelSaloneCon(resource.data.userId, 'buoni')
+                    && haIBuoni(resource.data.userId);
+      allow list: if nelSaloneCon(resource.data.userId, 'buoni')
+                    && haIBuoni(resource.data.userId);
       allow create: if isValidId(buonoId)
                     && incoming().keys().hasAll(['userId', 'codice', 'valore', 'stato'])
                     && nelSaloneCon(incoming().userId, 'buoni')
+                    && haIBuoni(incoming().userId)
                     && incoming().codice is string && incoming().codice.size() <= 40
                     && incoming().valore is number && incoming().valore >= 0
                     && incoming().stato is string && incoming().stato.size() <= 20;
       allow update: if isValidId(buonoId)
                     && nelSaloneCon(resource.data.userId, 'buoni')
+                    && haIBuoni(resource.data.userId)
                     && incoming().userId == resource.data.userId;
-      allow delete: if isValidId(buonoId) && nelSaloneCon(resource.data.userId, 'buoni');
+      allow delete: if isValidId(buonoId)
+                    && nelSaloneCon(resource.data.userId, 'buoni')
+                    && haIBuoni(resource.data.userId);
     }
 
     // ---------------------------------------------------------------------

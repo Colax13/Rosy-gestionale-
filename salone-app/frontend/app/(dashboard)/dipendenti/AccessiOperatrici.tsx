@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { KeyRound, Plus, Trash2, Check, AlertCircle, CheckCircle2, Pause, Play, Copy } from 'lucide-react';
-import { PAGINE_CONCEDIBILI, PROFILI, ChiavePagina, idSalone, sessioneCorrente } from '@/lib/sessione';
+import { pagineConcedibili, PROFILI, ChiavePagina, idSalone, sessioneCorrente } from '@/lib/sessione';
 import { elencoMembri, creaAccesso, aggiornaAccesso, revocaAccesso, spiegaErroreAccesso, Membro } from '@/lib/accessi';
 
 interface Props {
@@ -229,7 +229,7 @@ export default function AccessiOperatrici({ dipendenti }: Props) {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {PAGINE_CONCEDIBILI.map(pagina => {
+                  {pagineConcedibili().map(pagina => {
                     const dato = m.permessi.includes(pagina.chiave as ChiavePagina);
                     return (
                       <button
@@ -335,7 +335,7 @@ export default function AccessiOperatrici({ dipendenti }: Props) {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {PAGINE_CONCEDIBILI.map(pagina => {
+                    {pagineConcedibili().map(pagina => {
                       const dato = permessi.includes(pagina.chiave as ChiavePagina);
                       return (
                         <label key={pagina.chiave} className="flex items-center gap-2 p-2 rounded-lg hover:bg-zinc-50 cursor-pointer">

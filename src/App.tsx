@@ -81,7 +81,8 @@ export default function App() {
       try {
         setSessione(await apriSessione(
           currentUser.uid,
-          currentUser.displayName || currentUser.email || 'Operatrice'
+          currentUser.displayName || currentUser.email || 'Operatrice',
+          currentUser.email
         ));
       } catch (err: any) {
         setErroreAccesso(err?.message || 'Non sono riuscito ad aprire la sessione.');

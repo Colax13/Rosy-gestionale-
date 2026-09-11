@@ -13,6 +13,7 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../src/lib/firebase';
+import { funzioneAccesa } from './funzioni';
 
 /** Le pagine su cui si può dare o togliere l'accesso. */
 export const PAGINE = [
@@ -33,6 +34,16 @@ export const PAGINE = [
 
 /** Le pagine che si possono davvero concedere a un'operatrice. */
 export const PAGINE_CONCEDIBILI = PAGINE.filter(p => !('soloTitolare' in p && p.soloTitolare));
+
+/**
+ * Come sopra, ma senza le funzioni riservate che questo salone non ha: non ha
+ * senso far spuntare al titolare un permesso per una pagina che nel suo
+ * gestionale non esiste.
+ */
+export function pagineConcedibili() {
+  const email = corrente?.emailSalone;
+  return PAGINE_CONCEDIBILI.filter(p => funzioneAccesa(p.chiave, email));
+}
 
 export type ChiavePagina = typeof PAGINE[number]['chiave'];
 
@@ -68,16 +79,40 @@ export interface Sessione {
   nome: string;
   /** null = nessun limite. */
   permessi: ChiavePagina[] | null;
+  /**
+   * L'indirizzo del titolare del salone — non quello di chi è entrato.
+   * Da qui si capisce quali funzioni riservate sono accese: vale per il
+   * titolare e per chi lavora con lui, che deve vedere le stesse pagine.
+   */
+  emailSalone: string | null;
 }
 
 let corrente: Sessione | null = null;
 
 /**
+ * L'indirizzo del titolare di quel salone, letto dalla sua scheda.
+ * Se la scheda non c'è o non si legge si risponde "non lo so" (null): le
+ * funzioni riservate restano spente, che è il modo giusto di sbagliare.
+ */
+async function emailDelTitolare(salonId: string): Promise<string | null> {
+  try {
+    const salone = await getDoc(doc(db, 'salons', salonId));
+    return salone.exists() ? ((salone.data() as any).ownerEmail || null) : null;
+  } catch (err) {
+    console.warn('Non sono riuscito a leggere la scheda del salone.', err);
+    return null;
+  }
+}
+
+/**
  * Capisce in che salone è entrata questa persona.
  * Il titolare non ha un documento in `membri`: il salone è il suo.
  */
-export async function apriSessione(uid: string, nome: string): Promise<Sessione> {
-  let sessione: Sessione = { uid, salonId: uid, titolare: true, nome, permessi: null };
+export async function apriSessione(uid: string, nome: string, emailAccesso?: string | null): Promise<Sessione> {
+  let sessione: Sessione = {
+    uid, salonId: uid, titolare: true, nome, permessi: null,
+    emailSalone: emailAccesso || null
+  };
 
   try {
     const membro = await getDoc(doc(db, 'membri', uid));
@@ -92,7 +127,11 @@ export async function apriSessione(uid: string, nome: string): Promise<Sessione>
           salonId: dati.salonId,
           titolare: false,
           nome: dati.nome || nome,
-          permessi: Array.isArray(dati.permessi) ? dati.permessi : ['agenda']
+          permessi: Array.isArray(dati.permessi) ? dati.permessi : ['agenda'],
+          // Chi lavora nel salone entra con il proprio indirizzo, che non dice
+          // niente su quali funzioni ha quel salone: l'indirizzo che conta è
+          // quello del titolare, scritto nella scheda del salone.
+          emailSalone: await emailDelTitolare(dati.salonId)
         };
       }
     }
@@ -125,9 +164,18 @@ export function idSalone(): string | null {
   return corrente?.salonId || null;
 }
 
-/** True se questa persona può aprire quella pagina. */
+/**
+ * True se questa persona può aprire quella pagina.
+ *
+ * Due controlli distinti, e in quest'ordine:
+ * 1. la pagina esiste in questo salone? (funzioni riservate)
+ * 2. a questa persona è concessa? (permessi)
+ * Il primo vale anche per il titolare: una pagina che il suo salone non ha,
+ * non ce l'ha nemmeno lui.
+ */
 export function puoVedere(chiave: ChiavePagina): boolean {
   if (!corrente) return false;
+  if (!funzioneAccesa(chiave, corrente.emailSalone)) return false;
   if (corrente.permessi === null) return true;
   return corrente.permessi.includes(chiave);
 }
@@ -135,17 +183,17 @@ export function puoVedere(chiave: ChiavePagina): boolean {
 /** True se può aprire quel percorso della barra laterale. */
 export function puoAprirePercorso(percorso: string): boolean {
   if (!corrente) return false;
-  if (corrente.permessi === null) return true;
   const pagina = PAGINE.find(p => (p.percorsi as readonly string[]).includes(percorso));
   if (!pagina) return true;
-  return corrente.permessi.includes(pagina.chiave);
+  return puoVedere(pagina.chiave);
 }
 
 /** La prima pagina che questa persona può aprire: dove mandarla dopo l'accesso. */
 export function primaPaginaPermessa(): string {
-  if (!corrente || corrente.permessi === null) return '/';
+  if (!corrente) return '/';
+  if (corrente.permessi === null) return '/';
   for (const pagina of PAGINE) {
-    if (corrente.permessi.includes(pagina.chiave)) return pagina.percorsi[0];
+    if (puoVedere(pagina.chiave)) return pagina.percorsi[0];
   }
   return '/agenda';
 }

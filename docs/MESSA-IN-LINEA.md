@@ -29,11 +29,11 @@ senza niente in mano.
 Alla fine Vercel dà un indirizzo tipo `rosy-gestionale.vercel.app`.
 **Segnarselo: serve al passo 2.**
 
-> Se il deploy fallisce con un errore che parla di `api/index.ts`: quella
-> cartella è il pezzo lato server, che oggi non serve a nessuno — il
-> programma parla direttamente con Firestore. Si risolve cancellando la
-> cartella `api/` e rifacendo il deploy; quando arriveremo agli SMS e ai
-> pagamenti la rimettiamo su come si deve.
+> La cartella `api/` è il pezzo lato server: oggi risponde solo a
+> `/api/salute`, che dice se la chiave di Firebase è a posto. Non serve a far
+> funzionare il salone — il programma parla direttamente con Firestore — ma
+> serve per gli SMS, il messaggio di conferma, Make e Stripe. Come si accende
+> sta in `docs/SERVER-SU-VERCEL.md`.
 
 ---
 
@@ -97,7 +97,7 @@ per te, ma è obbligatorio prima di far entrare qualcun altro.
 1. Apri il file delle regole su GitHub:
    https://github.com/Colax13/rosy-gestionale-/blob/main/firestore.rules
 2. Premi il tasto **Copy raw file** (l'icona dei due fogli, in alto a destra
-   del riquadro del codice). Copia tutte e 245 le righe.
+   del riquadro del codice). Copia tutte le righe, dalla prima all'ultima.
 3. Vai su console.firebase.google.com → progetto **gestionaliparrucchieri**
 4. Menù a sinistra: **Firestore Database**
 5. **ATTENZIONE, è il punto dove si sbaglia:** in alto c'è un menù a tendina
@@ -114,11 +114,16 @@ per te, ma è obbligatorio prima di far entrare qualcun altro.
 Se Firebase segnala un errore di sintassi, non pubblicare: mandami il
 messaggio e lo sistemo.
 
+> **Le regole vanno ripubblicate ogni volta che cambia `firestore.rules`.**
+> Non partono da sole con il deploy del sito: stanno su Firebase, il sito sta
+> su Vercel, e sono due cose separate.
+
 ### Come capisci quale versione è pubblicata
 
-Nella linguetta Sicurezza, cerca la parola **`membri`** (Ctrl+F nella pagina).
-- La trovi → sono già quelle nuove, hai finito.
-- Non la trovi → sono ancora quelle vecchie, vanno incollate.
+Nella linguetta Sicurezza, cerca la parola **`haIBuoni`** (Ctrl+F nella
+pagina).
+- La trovi → sono le ultime, hai finito.
+- Non la trovi → sono vecchie, vanno incollate.
 
 ### In alternativa, da riga di comando
 

@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import '../src/index.css';
 import Layout from '../src/components/Layout';
 import SchermataAccesso from '../src/components/SchermataAccesso';
-import { impostaSessione, PAGINE_CONCEDIBILI } from '@/lib/sessione';
+import { impostaSessione } from '@/lib/sessione';
 
 import DashboardHub from '@/app/(dashboard)/hub/page';
 import RosieHub from '@/app/(dashboard)/rosie/page';
@@ -34,9 +34,13 @@ document.documentElement.classList.toggle('dark', localStorage.getItem('theme') 
 const ruolo = new URLSearchParams(location.search).get('ruolo');
 const permessiFinti = (new URLSearchParams(location.search).get('permessi') || 'agenda,clienti')
   .split(',').filter(Boolean) as any;
+// L'indirizzo del salone decide quali funzioni riservate sono accese: qui si
+// finge quello di RD Salon, altrimenti nell'anteprima i Buoni non si vedono.
+// Con ?salone=altro@esempio.it si guarda com'è il gestionale per gli altri.
+const emailSalone = new URLSearchParams(location.search).get('salone') || 'rdsalon.ceccano@gmail.com';
 impostaSessione(ruolo === 'operatrice'
-  ? { uid: 'u2', salonId: 'salone', titolare: false, nome: 'Giulia', permessi: permessiFinti }
-  : { uid: 'salone', salonId: 'salone', titolare: true, nome: 'Rosanna', permessi: null });
+  ? { uid: 'u2', salonId: 'salone', titolare: false, nome: 'Giulia', permessi: permessiFinti, emailSalone }
+  : { uid: 'salone', salonId: 'salone', titolare: true, nome: 'Rosanna', permessi: null, emailSalone });
 
 /** Solo per guardarla: la schermata di accesso senza Firebase dietro. */
 function AnteprimaAccesso() {
