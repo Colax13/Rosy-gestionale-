@@ -104,7 +104,9 @@ per te, ma è obbligatorio prima di far entrare qualcun altro.
    con il nome del database. Questo progetto **non usa quello predefinito**.
    Scegli:
    `ai-studio-7035b199-a80f-403a-9044-0d7d6c4eb074`
-6. Scheda **Regole** (Rules)
+6. Linguetta **Sicurezza** (in alcune versioni della console si chiama
+   *Regole* / *Rules*; se dentro Sicurezza ci sono più voci, scegli *Regole*).
+   Riconosci il posto giusto perché il testo comincia per `rules_version = '2';`
 7. Seleziona tutto quello che c'è scritto e **incolla sopra** quello che hai
    copiato da GitHub
 8. **Pubblica** (Publish)
@@ -114,7 +116,7 @@ messaggio e lo sistemo.
 
 ### Come capisci quale versione è pubblicata
 
-Nella scheda Regole, cerca la parola **`membri`** (Ctrl+F nella pagina).
+Nella linguetta Sicurezza, cerca la parola **`membri`** (Ctrl+F nella pagina).
 - La trovi → sono già quelle nuove, hai finito.
 - Non la trovi → sono ancora quelle vecchie, vanno incollate.
 
