@@ -474,9 +474,21 @@ Obiettivo dichiarato: far spendere meno al cliente.
 
 ### Buoni
 
-**G18 — Collegare i buoni pagati online** · ALTA
+**G18 — Collegare i buoni pagati online** · ✅ FATTO (import dal foglio)
 Il foglio Google contiene già quanto ha pagato, chi è, e **piega sì / piega
-no** in base all'importo. Da capire se leggere il foglio o passare da Make.
+no** in base all'importo.
+
+*Com'è stato fatto.* In Buoni c'è **Importa dal foglio**: si esporta il foglio
+in CSV (File → Scarica → .csv) e si sceglie il file. Le tredici colonne del
+foglio in uso si riconoscono da sole — Codice Univoco, Nome del beneficiario,
+Pagamento totale, Piega, le due date — e restano correggibili a mano. I buoni
+già in elenco non si duplicano: il confronto è sul codice, ripulito da
+maiuscole e trattini. Si può rifare l'importazione ogni volta: arrivano solo i
+nuovi. *Piega compresa* si vede sulla riga del buono e nella sua scheda.
+
+*Resta da fare quando ci sarà il server:* far scrivere il buono a Make
+nell'istante del pagamento, invece di esportare a mano. Il foglio con le
+automazioni email non va toccato.
 
 ### Nuovo
 

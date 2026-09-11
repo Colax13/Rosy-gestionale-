@@ -230,6 +230,20 @@ export const disponibilitaApi = {
 };
 
 export const buoniApi = {
-  getAll: async () => eco(buoni),
-  create: nulla, update: nulla, delete: nulla,
+  getAll: async () => eco([...buoni]),
+  create: async (dati: any) => {
+    const nuovo = { id: `b${buoni.length + 1}`, ...dati };
+    (buoni as any[]).push(nuovo);
+    return eco(nuovo);
+  },
+  update: async (id: string, dati: any) => {
+    const i = buoni.findIndex(b => b.id === id);
+    if (i >= 0) (buoni as any[])[i] = { ...buoni[i], ...dati };
+    return eco(buoni[i]);
+  },
+  delete: async (id: string) => {
+    const i = buoni.findIndex(b => b.id === id);
+    if (i >= 0) buoni.splice(i, 1);
+    return eco({ success: true });
+  },
 };

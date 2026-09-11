@@ -4,9 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { buoniApi } from '@/lib/api-client';
 import { aNumero, aTesto } from '@/lib/numeri';
 import FloatingActionBar from '@/components/FloatingActionBar';
+import ImportaBuoni from '@/components/ImportaBuoni';
 import {
   Ticket, Plus, Search, X, Edit2, Trash2, Check, AlertCircle,
-  Euro, Calendar, User, Sparkles, Scissors
+  Euro, Calendar, User, Sparkles, Scissors, Upload
 } from 'lucide-react';
 
 interface Buono {
@@ -22,6 +23,8 @@ interface Buono {
   stato: 'attivo' | 'usato' | 'annullato';
   origine?: string;
   note?: string;
+  /** Il buono comprende anche la piega: dipende da quanto è stato pagato. */
+  piega_inclusa?: boolean;
 }
 
 const STATI = {
@@ -69,6 +72,7 @@ export default function BuoniSpa() {
   const [salvataggio, setSalvataggio] = useState(false);
   const [erroreForm, setErroreForm] = useState<string | null>(null);
   const [confermaEliminazione, setConfermaEliminazione] = useState<Buono | null>(null);
+  const [importAperto, setImportAperto] = useState(false);
 
   const [utilizzo, setUtilizzo] = useState<{ buono: Buono; importo: string } | null>(null);
 
@@ -323,6 +327,11 @@ export default function BuoniSpa() {
                             Scaduto
                           </span>
                         )}
+                        {b.piega_inclusa && (
+                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200">
+                            Piega compresa
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-zinc-500 truncate mt-0.5">
                         {b.intestatario || 'Senza intestatario'}
@@ -346,6 +355,12 @@ export default function BuoniSpa() {
 
       <FloatingActionBar>
         <button
+          onClick={() => setImportAperto(true)}
+          className="bg-white hover:bg-zinc-50 text-zinc-800 border border-zinc-200 shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm"
+        >
+          <Upload size={16} /> <span>Importa dal foglio</span>
+        </button>
+        <button
           onClick={apriNuovo}
           className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm"
         >
@@ -353,6 +368,14 @@ export default function BuoniSpa() {
           <span>Nuovo buono</span>
         </button>
       </FloatingActionBar>
+
+      {importAperto && (
+        <ImportaBuoni
+          buoniEsistenti={buoni}
+          onChiudi={() => setImportAperto(false)}
+          onImportato={caricaBuoni}
+        />
+      )}
 
       {/* Dettaglio del buono */}
       {dettaglio && (
@@ -384,6 +407,12 @@ export default function BuoniSpa() {
               <div className="flex items-center justify-between py-2 border-b border-zinc-100">
                 <span className="text-sm text-zinc-500 flex items-center gap-2"><Calendar size={15} className="text-zinc-400" /> Scadenza</span>
                 <span className="text-sm text-zinc-900">{formattaData(dettaglio.data_scadenza)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-zinc-100">
+                <span className="text-sm text-zinc-500 flex items-center gap-2"><Scissors size={15} className="text-zinc-400" /> Piega</span>
+                <span className={`text-sm font-medium ${dettaglio.piega_inclusa ? 'text-fuchsia-700' : 'text-zinc-500'}`}>
+                  {dettaglio.piega_inclusa ? 'compresa nel buono' : 'non compresa'}
+                </span>
               </div>
               {dettaglio.note && (
                 <p className="text-sm text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-lg p-3 whitespace-pre-wrap">{dettaglio.note}</p>

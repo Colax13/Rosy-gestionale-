@@ -14,7 +14,8 @@
     "prova:servizi": "tsx salone-app/frontend/lib/servizi.prova.ts",
     "prova:contatti": "tsx salone-app/frontend/lib/contatti.prova.ts",
     "prova:preconto": "tsx salone-app/frontend/lib/preconto.prova.ts",
-    "prova:vetrina": "tsx salone-app/frontend/lib/vetrina.prova.ts"
+    "prova:vetrina": "tsx salone-app/frontend/lib/vetrina.prova.ts",
+    "prova:buoni": "tsx salone-app/frontend/lib/importa-buoni.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
