@@ -48,7 +48,7 @@ Alla fine Vercel dà un indirizzo tipo `rosy-gestionale.vercel.app`.
    (solo il dominio: `rosy-gestionale.vercel.app`, senza `https://`)
 
 > **Se usi un dominio tuo** (per esempio
-> `gestionaleparrucchieri.colasantiludovico.it`), va aggiunto **anche quello**,
+> `gestionalerosy.colasantiludovico.it`), va aggiunto **anche quello**,
 > come riga a parte. Vale la regola semplice: ogni indirizzo da cui si apre
 > Rosy deve stare in questo elenco, altrimenti da lì l'accesso con Google non
 > parte. Se l'accesso funziona già, vuol dire che c'è.
