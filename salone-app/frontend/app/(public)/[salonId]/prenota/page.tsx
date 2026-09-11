@@ -5,8 +5,9 @@ import { useParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, User, Clock, CheckCircle2, Scissors, ArrowLeft, ArrowRight, MapPin, ChevronRight, Sparkles, X, ChevronDown, Check } from 'lucide-react';
 import { auth, db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
+import { catalogoApi, dipendentiApi, appuntamentiApi, disponibilitaApi } from '@/lib/api-client';
 import { faServizio } from '@/lib/operatori';
+import { occupata, Fascia } from '@/lib/vetrina';
 
 interface Servizio {
   id: string;
@@ -43,7 +44,9 @@ export default function PrenotazionePubblica() {
 
   const [catalog, setCatalog] = useState<Servizio[]>([]);
   const [operatorsData, setOperatorsData] = useState<any[]>([]);
-  const [appointmentsData, setAppointmentsData] = useState<any[]>([]);
+  // Solo gli orari occupati, senza sapere di chi: gli appuntamenti veri non
+  // escono più dal salone.
+  const [fasceOccupate, setFasceOccupate] = useState<Fascia[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,9 +64,11 @@ export default function PrenotazionePubblica() {
       dipendentiApi.getPublic(salonId)
         .then((data) => setOperatorsData(data.filter((d: any) => d.attivo !== false)))
         .catch(err => console.error("Errore dipendenti:", err));
-      appuntamentiApi.getAgendaPublic(salonId)
-        .then((data) => setAppointmentsData(data))
-        .catch(err => console.error("Errore agenda:", err));
+      const oggi = new Date();
+      const daGiorno = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`;
+      disponibilitaApi.getPublic(salonId, daGiorno)
+        .then((elenco) => setFasceOccupate(elenco.flatMap(d => d.fasce || [])))
+        .catch(err => console.error("Errore disponibilità:", err));
     }
   }, [salonId]);
 
@@ -171,13 +176,7 @@ export default function PrenotazionePubblica() {
               const myStartMs = candidateStart.getTime();
               const myEndMs = myStartMs + (duration * 60000);
               
-              const hasOverlap = appointmentsData.some(es => {
-                 if (es.id_dipendente !== op.id) return false;
-                 const esStartMs = new Date(es.data_ora).getTime();
-                 const esDurata = es.righe_appuntamento?.reduce((acc:any, riga:any) => acc + (parseInt(riga.servizi_catalogo?.durata_minuti) || 0), 0) || 30;
-                 const esEndMs = esStartMs + (esDurata * 60000);
-                 return (myStartMs < esEndMs && myEndMs > esStartMs);
-              });
+              const hasOverlap = occupata(fasceOccupate, op.id, myStartMs, myEndMs);
 
               if (!hasOverlap && myStartMs > Date.now()) {
                  const hh = String(Math.floor(currentTimeInMins / 60)).padStart(2, '0');
@@ -191,7 +190,7 @@ export default function PrenotazionePubblica() {
      }
      
      return Array.from(availableSlots).sort();
-  }, [selectedDate, selectedServiceId, selectedOperator, operators, operatorsData, appointmentsData, dates, catalog]);
+  }, [selectedDate, selectedServiceId, selectedOperator, operators, operatorsData, fasceOccupate, dates, catalog]);
 
   
   useEffect(() => {
@@ -231,13 +230,7 @@ export default function PrenotazionePubblica() {
          const myEndMs = myStartMs + (service.durata_minuti * 60000);
          const opIds = operatorsData.map(o => o.id);
          const firstFreeOp = opIds.find(candidateOpId => {
-               return !appointmentsData.some(es => {
-                  if (es.id_dipendente !== candidateOpId) return false;
-                  const esStartMs = new Date(es.data_ora).getTime();
-                  const esDurata = es.righe_appuntamento?.reduce((acc:any, riga:any) => acc + (parseInt(riga.servizi_catalogo?.durata_minuti) || 0), 0) || 30;
-                  const esEndMs = esStartMs + (esDurata * 60000);
-                  return (myStartMs < esEndMs && myEndMs > esStartMs);
-               });
+               return !occupata(fasceOccupate, candidateOpId, myStartMs, myEndMs);
          });
          opId = firstFreeOp || operatorsData[0]?.id; // Fallback
       }

@@ -125,9 +125,11 @@ service cloud.firestore {
     }
 
     match /catalogo/{itemId} {
-      // Il listino è pubblico: serve alla pagina di prenotazione online.
-      allow get: if true;
-      allow list: if true;
+      // NON è più pubblico: qui dentro ci sono le note private, i costi e i
+      // margini. Chi prenota legge la vetrina, che ne porta fuori una copia
+      // ripulita.
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
       allow create: if isValidId(itemId) && isValidCatalogo(incoming()) && nelSaloneCon(incoming().userId, 'catalogo');
       allow update: if isValidId(itemId) && isValidCatalogo(incoming()) && nelSaloneCon(resource.data.userId, 'catalogo');
       allow delete: if isValidId(itemId) && nelSaloneCon(resource.data.userId, 'catalogo');
@@ -149,7 +151,13 @@ service cloud.firestore {
     }
 
     match /appuntamenti/{appuntamentoId} {
-      allow get, list: if true;
+      // NON sono più leggibili da fuori. Era la fuga grossa: dentro ogni
+      // appuntamento ci sono nome, cognome e telefono della cliente, e la
+      // pagina di prenotazione li leggeva tutti solo per sapere quando le
+      // operatrici erano occupate. Adesso quel dato sta in /disponibilita,
+      // che di persone non ne contiene nessuna.
+      allow get: if nelSaloneCon(resource.data.userId, 'agenda');
+      allow list: if nelSaloneCon(resource.data.userId, 'agenda');
       allow create: if isValidId(appuntamentoId) && (
                       (isValidAppuntamento(incoming()) && nelSaloneCon(incoming().userId, 'agenda'))
                       || (incoming().source == 'web_public' && incoming().userId is string)
@@ -176,9 +184,10 @@ service cloud.firestore {
     }
 
     match /dipendenti/{dipendenteId} {
-      // L'elenco è pubblico: la prenotazione online fa scegliere l'operatrice.
-      allow get: if true;
-      allow list: if true;
+      // NON è più pubblico: nella scheda c'è anche l'email. Chi prenota legge
+      // la vetrina, dove restano solo nome, foto, turni e servizi.
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
       allow create: if isValidId(dipendenteId) && isValidDipendente(incoming())
                     && nelSaloneCon(incoming().userId, 'dipendenti')
                     && incoming().createdAt == request.time
@@ -203,6 +212,56 @@ service cloud.firestore {
                     && nelSaloneCon(resource.data.userId, 'buoni')
                     && incoming().userId == resource.data.userId;
       allow delete: if isValidId(buonoId) && nelSaloneCon(resource.data.userId, 'buoni');
+    }
+
+    // ---------------------------------------------------------------------
+    // Quello che vede il mondo esterno
+    // ---------------------------------------------------------------------
+    //
+    // Due sole porte aperte, e da nessuna delle due esce una persona.
+
+    /** Listino e operatrici, ripuliti: niente note private, niente email. */
+    match /vetrina/{salonId} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isSignedIn() && request.auth.uid == salonId
+                            && incoming().userId == salonId;
+      allow delete: if false;
+    }
+
+    /**
+     * Gli orari occupati. Chi la legge sa che qualcuno è preso dalle 15 alle
+     * 16, non chi né per cosa. La pagina di prenotazione può scriverci —
+     * altrimenti due clienti prenderebbero le stesse 15:00 — ma solo righe
+     * fatte di orari: la forma è controllata qui sotto.
+     */
+    match /disponibilita/{appuntamentoId} {
+      allow get: if true;
+      allow list: if true;
+      // Forma ammessa: solo orari, niente altro.
+      function formaDisponibilita() {
+        return incoming().keys().hasOnly(['userId', 'giorno', 'fasce'])
+          && incoming().userId is string
+          && incoming().giorno is string && incoming().giorno.size() <= 10
+          && incoming().fasce is list && incoming().fasce.size() <= 50;
+      }
+
+      // Chi prenota dal sito può creare SOLO la riga dell'appuntamento che ha
+      // appena preso, e solo se quell'appuntamento esiste davvero in quel
+      // salone. Senza questo legame chiunque potrebbe riempire l'agenda di
+      // occupazioni finte e bloccare le prenotazioni.
+      function rigaDiUnAppuntamentoVero() {
+        return exists(/databases/$(database)/documents/appuntamenti/$(appuntamentoId))
+          && get(/databases/$(database)/documents/appuntamenti/$(appuntamentoId)).data.userId == incoming().userId;
+      }
+
+      allow create: if isValidId(appuntamentoId) && formaDisponibilita()
+                    && ( nelSaloneCon(incoming().userId, 'agenda') || rigaDiUnAppuntamentoVero() );
+      // Riscrivere una riga già esistente tocca solo al salone.
+      allow update: if isValidId(appuntamentoId) && formaDisponibilita()
+                    && nelSaloneCon(resource.data.userId, 'agenda')
+                    && incoming().userId == resource.data.userId;
+      allow delete: if nelSaloneCon(resource.data.userId, 'agenda');
     }
 
     // Chi lavora nel salone. Ognuna legge solo la propria riga; a scriverle è

@@ -1,6 +1,7 @@
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { aData } from './tempo';
 import { idSalone } from './sessione';
+import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -205,29 +206,33 @@ export const salonApi = {
 };
 
 export const catalogoApi = {
+  /** Chi prenota legge la vetrina, non il listino vero: lì ci sono le note private. */
   getPublic: async (salonId: string): Promise<any[]> => {
-    const q = query(collection(db, 'catalogo'), where('userId', '==', salonId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const vetrina = await vetrinaApi.getPublic(salonId);
+    return (vetrina?.servizi || []).map(s => ({ ...s, attivo: true }));
   },
   getAll: async (): Promise<any[]> => {
     const q = query(collection(db, 'catalogo'), where('userId', '==', getUserId()));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
+  // Ogni modifica al listino rifà la vetrina: è quella che vede chi prenota.
   create: async (data: any) => {
     const ref = doc(collection(db, 'catalogo'));
     const payload = { ...data, userId: getUserId(), createdAt: serverTimestamp() };
     await setDoc(ref, payload);
+    await vetrinaApi.aggiorna();
     return { id: ref.id, ...payload };
   },
   update: async (id: string, data: any) => {
     const ref = doc(db, 'catalogo', id);
     await updateDoc(ref, { ...data });
+    await vetrinaApi.aggiorna();
     return { id, ...data };
   },
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'catalogo', id));
+    await vetrinaApi.aggiorna();
     return { success: true };
   },
   getCategorie: async () => {
@@ -258,39 +263,43 @@ export const catalogoApi = {
 };
 
 export const dipendentiApi = {
+  /** Chi prenota legge la vetrina: nella scheda vera c'è anche l'email. */
   getPublic: async (salonId: string): Promise<any[]> => {
-    const q = query(collection(db, 'dipendenti'), where('userId', '==', salonId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const vetrina = await vetrinaApi.getPublic(salonId);
+    return (vetrina?.operatori || []).map(o => ({ ...o, attivo: true }));
   },
   getAll: async (): Promise<any[]> => {
     const q = query(collection(db, 'dipendenti'), where('userId', '==', getUserId()));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
+  // Come per il listino: turni e servizi cambiano, la vetrina li segue.
   create: async (data: any) => {
     const ref = doc(collection(db, 'dipendenti'));
     const payload = { ...data, userId: getUserId(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
     await setDoc(ref, payload);
+    await vetrinaApi.aggiorna();
     return { id: ref.id, ...payload };
   },
   update: async (id: string, data: any) => {
     const ref = doc(db, 'dipendenti', id);
     await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+    await vetrinaApi.aggiorna();
     return { id, ...data };
   },
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'dipendenti', id));
+    await vetrinaApi.aggiorna();
     return { success: true };
   },
 };
 
 export const appuntamentiApi = {
-  getAgendaPublic: async (salonId: string): Promise<any[]> => {
-    const q = query(collection(db, 'appuntamenti'), where('userId', '==', salonId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  },
+  // getAgendaPublic è stata tolta di proposito: leggeva gli appuntamenti veri
+  // — con dentro nome, cognome e telefono delle clienti — per sapere quando
+  // le operatrici erano occupate. Adesso quel dato si prende da
+  // disponibilitaApi.getPublic, che contiene solo orari.
+
   createPublic: async (salonId: string, data: any) => {
     const ref = doc(collection(db, 'appuntamenti'));
     const payload = { 
@@ -301,6 +310,8 @@ export const appuntamentiApi = {
       updatedAt: serverTimestamp() 
     };
     await setDoc(ref, payload);
+    // Occupa subito lo slot, altrimenti due clienti prendono le stesse 15:00.
+    await disponibilitaApi.scrivi(salonId, { id: ref.id, ...data });
     return { id: ref.id, ...payload };
   },
   getByCliente: async (clienteId: string): Promise<any[]> => {
@@ -378,22 +389,37 @@ export const appuntamentiApi = {
   },
   create: async (data: any) => {
     const ref = doc(collection(db, 'appuntamenti'));
-    const payload = { 
-      ...data, 
-      userId: getUserId(),
-      createdAt: serverTimestamp(), 
-      updatedAt: serverTimestamp() 
+    const uid = getUserId();
+    const payload = {
+      ...data,
+      userId: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     await setDoc(ref, payload);
+    await disponibilitaApi.scrivi(uid, { id: ref.id, ...data });
     return { id: ref.id, ...payload };
   },
   update: async (id: string, data: any) => {
     const ref = doc(db, 'appuntamenti', id);
     await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+
+    // Gli orari occupati seguono l'appuntamento. Si rilegge il documento
+    // aggiornato perché una modifica parziale (solo l'operatrice, solo l'ora)
+    // da sola non basta a ricalcolare le fasce.
+    try {
+      const aggiornato = await getDoc(ref);
+      if (aggiornato.exists()) {
+        await disponibilitaApi.scrivi(getUserId(), { id, ...aggiornato.data() });
+      }
+    } catch (err) {
+      console.warn('Orari occupati non aggiornati per', id, err);
+    }
     return { id, ...data };
   },
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'appuntamenti', id));
+    await disponibilitaApi.elimina(id);
     return { success: true };
   }
 };
@@ -418,5 +444,110 @@ export const buoniApi = {
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'buoni', id));
     return { success: true };
+  }
+};
+
+
+// ---------------------------------------------------------------------------
+// Quello che vede il mondo esterno
+// ---------------------------------------------------------------------------
+//
+// La pagina di prenotazione gira senza login. Non legge più gli appuntamenti
+// veri — che contengono nome, cognome e telefono delle clienti — ma solo due
+// liste ripulite: la VETRINA (listino e operatrici) e la DISPONIBILITÀ (gli
+// orari occupati, senza dire da chi).
+//
+// Si tengono aggiornate da qui, nello stesso punto in cui passano già tutte le
+// modifiche: così non è una cosa che ci si può dimenticare di fare.
+
+export const vetrinaApi = {
+  /** La rilegge chi prenota, senza essere entrato. */
+  getPublic: async (salonId: string): Promise<Vetrina | null> => {
+    const d = await getDoc(doc(db, 'vetrina', salonId));
+    return d.exists() ? (d.data() as Vetrina) : null;
+  },
+
+  /** Rifà la vetrina da listino e operatrici. Si chiama dopo ogni modifica. */
+  aggiorna: async (): Promise<void> => {
+    try {
+      const uid = getUserId();
+      const [cat, dip] = await Promise.all([
+        getDocs(query(collection(db, 'catalogo'), where('userId', '==', uid))),
+        getDocs(query(collection(db, 'dipendenti'), where('userId', '==', uid)))
+      ]);
+      await setDoc(doc(db, 'vetrina', uid), costruisciVetrina(
+        uid,
+        cat.docs.map(d => ({ id: d.id, ...d.data() })),
+        dip.docs.map(d => ({ id: d.id, ...d.data() }))
+      ));
+    } catch (err) {
+      // La vetrina è uno specchio: se non si aggiorna adesso, il salone
+      // continua a lavorare e la si rifà alla prossima modifica.
+      console.warn('Non sono riuscito ad aggiornare la vetrina:', err);
+    }
+  }
+};
+
+export const disponibilitaApi = {
+  /** Gli orari occupati da una certa data in poi. Nessun nome, nessun numero. */
+  getPublic: async (salonId: string, dalGiorno?: string): Promise<Disponibilita[]> => {
+    const vincoli: any[] = [where('userId', '==', salonId)];
+    if (dalGiorno) vincoli.push(where('giorno', '>=', dalGiorno));
+    try {
+      const snap = await getDocs(query(collection(db, 'disponibilita'), ...vincoli));
+      return snap.docs.map(d => d.data() as Disponibilita);
+    } catch (err) {
+      // Indice non ancora pubblicato: si riparte senza il taglio sulla data.
+      const snap = await getDocs(query(collection(db, 'disponibilita'), where('userId', '==', salonId)));
+      return snap.docs
+        .map(d => d.data() as Disponibilita)
+        .filter(x => !dalGiorno || (x.giorno || '') >= dalGiorno);
+    }
+  },
+
+  /** Rispecchia un appuntamento negli orari occupati. */
+  scrivi: async (salonId: string, app: any): Promise<void> => {
+    try {
+      await setDoc(doc(db, 'disponibilita', app.id), disponibilitaPerAppuntamento(salonId, app));
+    } catch (err) {
+      console.warn('Non sono riuscito ad aggiornare gli orari occupati:', err);
+    }
+  },
+
+  elimina: async (id: string): Promise<void> => {
+    try {
+      await deleteDoc(doc(db, 'disponibilita', id));
+    } catch (err) {
+      console.warn('Non sono riuscito a togliere gli orari occupati:', err);
+    }
+  },
+
+  /**
+   * Allineamento una tantum: gli appuntamenti già in agenda non hanno ancora
+   * la loro riga fra gli orari occupati. Si scrive quella di oggi in avanti,
+   * una volta sola, quando il salone apre l'agenda.
+   */
+  allinea: async (appuntamenti: any[]): Promise<number> => {
+    const uid = getUserId();
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+
+    const futuri = (appuntamenti || []).filter(a => {
+      const d = aData(a.data_ora);
+      return d && d.getTime() >= oggi.getTime();
+    });
+
+    let scritti = 0;
+    for (const app of futuri) {
+      try {
+        const gia = await getDoc(doc(db, 'disponibilita', app.id));
+        if (gia.exists()) continue;
+        await setDoc(doc(db, 'disponibilita', app.id), disponibilitaPerAppuntamento(uid, app));
+        scritti++;
+      } catch (err) {
+        console.warn('Allineamento saltato per', app.id, err);
+      }
+    }
+    return scritti;
   }
 };

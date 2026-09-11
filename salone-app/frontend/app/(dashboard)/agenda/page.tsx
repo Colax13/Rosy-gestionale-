@@ -3,7 +3,7 @@
 // Top of the file imports ...
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
-import { appuntamentiApi, dipendentiApi, salonApi } from '@/lib/api-client';
+import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
@@ -204,6 +204,36 @@ export default function PaginaAgenda() {
     salonApi.getSettings()
       .then(dati => setNomeSalone(dati?.nome || dati?.settings?.nome || ''))
       .catch(() => {});
+  }, []);
+
+  // Allineamento una tantum di quello che vede chi prenota da fuori.
+  //
+  // La pagina pubblica non legge più gli appuntamenti veri — ci sono dentro i
+  // dati delle clienti — ma due liste ripulite. Gli appuntamenti già in agenda
+  // prima di questo cambiamento non hanno ancora la loro riga: si scrive qui,
+  // una volta sola, la prima volta che il salone apre l'agenda.
+  useEffect(() => {
+    if (!puoAprirePercorso('/agenda')) return;
+    // Il segno serve solo a non ripetere l'allineamento degli appuntamenti,
+    // che è la parte lenta.
+    const gia = 'rosy-allineamento-pubblico';
+
+    (async () => {
+      try {
+        // La vetrina si rifà sempre: è una scrittura sola e così non resta mai
+        // indietro, nemmeno se qualcosa era andato storto la volta prima.
+        await vetrinaApi.aggiorna();
+        if (!localStorage.getItem(gia)) {
+          const tutti = await appuntamentiApi.getAgenda();
+          await disponibilitaApi.allinea(tutti);
+          localStorage.setItem(gia, new Date().toISOString());
+        }
+      } catch (err) {
+        // Se non riesce adesso si riproverà alla prossima apertura: non è
+        // una cosa che deve fermare il lavoro in salone.
+        console.warn('Allineamento della parte pubblica rimandato:', err);
+      }
+    })();
   }, []);
 
   useEffect(() => {

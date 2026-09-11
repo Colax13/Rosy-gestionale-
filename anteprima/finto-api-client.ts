@@ -5,6 +5,8 @@
 // trascinamento in agenda, si controlla che i nomi ci stiano.
 // Non finisce nel programma pubblicato: lo carica solo vite.anteprima.config.ts.
 
+import { fascePerDisponibilita } from '@/lib/vetrina';
+
 const oggi = new Date();
 const alle = (h: number, m = 0) => {
   const d = new Date(oggi);
@@ -201,6 +203,30 @@ export const appuntamentiApi = {
     if (i >= 0) appuntamenti.splice(i, 1);
     return eco({ success: true });
   },
+};
+
+// La parte pubblica: la vetrina ripulita e gli orari occupati.
+export const vetrinaApi = {
+  getPublic: async () => eco({
+    userId: 'salone',
+    servizi: catalogo.map(s => ({ ...s })),
+    operatori: dipendenti.map(d => ({ id: d.id, nome: d.nome, cognome: d.cognome, fotoUrl: '', turni: d.turni, servizi: (d as any).servizi || [] })),
+    aggiornato: new Date().toISOString(),
+  }),
+  aggiorna: async () => {},
+};
+
+export const disponibilitaApi = {
+  getPublic: async () => eco(
+    [...appuntamenti, ...appuntamentiVecchi].map(a => ({
+      userId: 'salone',
+      giorno: a.data_ora.slice(0, 10),
+      fasce: fascePerDisponibilita(a),
+    }))
+  ),
+  scrivi: async () => {},
+  elimina: async () => {},
+  allinea: async () => 0,
 };
 
 export const buoniApi = {

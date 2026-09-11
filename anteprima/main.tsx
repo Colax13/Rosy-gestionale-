@@ -65,7 +65,8 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/prenota" element={<PrenotazionePubblica />} />
+        {/* Come nel programma vero: l'indirizzo porta l'identificativo del salone. */}
+        <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
         <Route path="/accesso" element={<AnteprimaAccesso />} />
         <Route path="*" element={
           <Layout>
