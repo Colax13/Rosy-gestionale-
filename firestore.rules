@@ -69,7 +69,10 @@ service cloud.firestore {
     // e due i posti: qui c'è la serratura, là solo la maniglia.
 
     function saloniConIBuoni() {
-      return ['rdsalon.ceccano@gmail.com'];
+      return [
+        'rdsalon.ceccano@gmail.com',
+        'danieledesimone.social@gmail.com'
+      ];
     }
 
     function emailAbilitataAiBuoni(email) {

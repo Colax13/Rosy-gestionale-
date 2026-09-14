@@ -29,7 +29,10 @@ interface FunzioneRiservata {
 export const FUNZIONI_RISERVATE: Record<ChiaveFunzione, FunzioneRiservata> = {
   buoni: {
     etichetta: 'Buoni',
-    saloni: ['rdsalon.ceccano@gmail.com'],
+    saloni: [
+      'rdsalon.ceccano@gmail.com',
+      'danieledesimone.social@gmail.com'
+    ],
     motivo: 'Fatta su misura per RD Salon: buoni spa venduti online, con il loro foglio e la piega inclusa.'
   }
 };

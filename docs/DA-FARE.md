@@ -548,9 +548,10 @@ foglio, la piega compresa secondo l'importo. Agli altri saloni non servono, e
 adesso non li vedono proprio: la voce non compare nel menù, l'indirizzo scritto
 a mano rimanda indietro, e il database rifiuta di leggerli e di scriverli.
 
-L'interruttore è **l'indirizzo del titolare del salone**
-(`rdsalon.ceccano@gmail.com`), non quello di chi sta guardando lo schermo: così
-le operatrici di RD Salon la vedono come la vede lui, e un altro salone no.
+L'interruttore è **l'indirizzo del titolare del salone**, non quello di chi sta
+guardando lo schermo: così le operatrici di RD Salon la vedono come la vede lui,
+e un altro salone no. Oggi è acceso per due indirizzi:
+`rdsalon.ceccano@gmail.com` e `danieledesimone.social@gmail.com`.
 
 Sta scritto in due posti, e vanno cambiati tutti e due insieme:
 - `salone-app/frontend/lib/funzioni.ts` — toglie la voce dal menù;

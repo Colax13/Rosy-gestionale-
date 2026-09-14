@@ -17,6 +17,7 @@ check('i buoni sono riservati',        true,  eRiservata('buoni'));
 check("l'agenda no",                   false, eRiservata('agenda'));
 check('accesa per RD Salon',           true,  funzioneAccesa('buoni', RD));
 check('maiuscole e spazi non contano', true,  funzioneAccesa('buoni', '  RDSalon.Ceccano@Gmail.com '));
+check('accesa anche per Daniele',      true,  funzioneAccesa('buoni', 'danieledesimone.social@gmail.com'));
 check('spenta per un altro salone',    false, funzioneAccesa('buoni', 'parrucchiere.sangiovanni@gmail.com'));
 check('spenta se non si sa di chi è',  false, funzioneAccesa('buoni', null));
 check('una pagina normale è per tutti',true,  funzioneAccesa('agenda', 'chiunque@esempio.it'));
@@ -32,6 +33,9 @@ impostaSessione(titolare(RD));
 check('RD Salon: il titolare vede i buoni',     true, puoVedere('buoni'));
 check('RD Salon: la voce del menù c\'è',        true, puoAprirePercorso('/buoni-spa'));
 check('RD Salon: i buoni si possono concedere', true, pagineConcedibili().some(p => p.chiave === 'buoni'));
+
+impostaSessione(titolare('danieledesimone.social@gmail.com'));
+check('Daniele: vede i buoni',                  true, puoVedere('buoni'));
 
 impostaSessione(titolare('parrucchiere.sangiovanni@gmail.com'));
 check('altro salone: niente buoni',             false, puoVedere('buoni'));
