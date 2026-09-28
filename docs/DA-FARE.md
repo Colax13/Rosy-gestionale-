@@ -561,3 +561,72 @@ Per accendere i Buoni a un altro salone: aggiungere il suo indirizzo in tutti e
 due gli elenchi e ripubblicare le regole. Quando i saloni saranno tanti, questo
 elenco diventa un campo sulla scheda del salone (`funzioni`), che si accende
 dalla console senza toccare il codice — è la *strada A* di cui abbiamo parlato.
+
+---
+
+## Fatto in questo giro
+
+**Chi prenota online diventa una cliente vera** · ✅ FATTO
+Prima nome e telefono restavano attaccati all'appuntamento e basta: niente
+scheda, niente storico, e la rubrica non cresceva mai. Ora, quando il salone
+**conferma** la richiesta, la cliente entra in anagrafica. Se c'era già — stesso
+numero, oppure stesso nome e cognome — ci si aggancia invece di fare un
+doppione, e se prenotando ha lasciato un contatto che in scheda mancava, quello
+si aggiunge. L'appuntamento resta collegato alla scheda, quindi storico e
+*Ricontatta* funzionano come per tutte le altre. Il canale di acquisizione
+risulta "Prenotazione online".
+
+Se la creazione della scheda fallisce, l'appuntamento resta confermato lo
+stesso e compare un avviso: l'agenda viene prima.
+
+**Più servizi nella stessa prenotazione** · ✅ FATTO
+Colore e piega si prendono insieme. Gli orari liberi si calcolano sulla
+**somma** delle durate, così non si offre un buco in cui ci sta solo il primo;
+fra le operatrici restano quelle che sanno fare **tutti** i servizi scelti;
+l'appuntamento nasce con una riga per servizio, come se li avesse segnati il
+salone. Nel riepilogo si vedono uno per riga con il loro prezzo, e in fondo il
+totale.
+
+**I campi del vecchio gestionale** · ✅ FATTO
+Sesso, data di nascita, stato di accettazione, prenotazioni fatte, cliente dal,
+note sugli appuntamenti. Tutti **facoltativi**, dentro una sezione *Altri dati*
+che sta chiusa: chi aggiunge una cliente al volo continua a vedere quattro
+caselle. In scheda si vedono solo quelli riempiti.
+
+Le colonne del foglio che non hanno una casella loro **non si buttano**:
+finiscono sotto *Dal vecchio gestionale*, con il nome che avevano nel file.
+Meglio un dato scritto male che un dato perso.
+
+L'importazione riconosce da sola le colonne nuove, rimette insieme la data di
+nascita anche quando è spezzata in giorno e mese, e legge le date sia
+all'italiana sia all'americana.
+
+**La finestrella del nuovo cliente scorre come deve** · ✅ FATTO
+Intestazione e bottoni restano fermi, scorre solo il centro, e la pagina sotto
+è bloccata finché la finestrella è aperta — era quello a far sembrare che non
+scorresse niente.
+
+---
+
+## In sospeso — nell'ordine in cui conviene farle
+
+**1. Messaggi automatici** · serve la chiave su Vercel
+Alla conferma parte l'email da sola; poi il promemoria il giorno prima. Il
+messaggio su WhatsApp o via SMS costa qualche centesimo l'uno e ha bisogno di
+un numero aziendale verificato: si fa dopo, sulla stessa base.
+Nel frattempo si può aprire WhatsApp a mano dal tasto *Ricontatta*.
+
+**2. G20 — Rifare la schermata di prenotazione** (quella interna)
+Viene da un altro gestionale e si usa peggio del resto.
+
+**3. Pagina di prenotazione pubblica: design e web app**
+Ha ancora i colori di un altro programma. E il `manifest.json` è quello di
+esempio: sistemandolo, la cliente si mette l'icona del salone sulla schermata
+Home del telefono.
+
+**4. G15 — Verifica del numero di telefono** · serve la chiave su Vercel
+Oggi si può prenotare con un numero inventato.
+
+**5. Storico clienti dal vecchio gestionale**
+I dati anagrafici entrano. Lo storico degli appuntamenti no: serve vedere in
+che forma Treatwell lo esporta.

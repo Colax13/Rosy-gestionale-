@@ -50,7 +50,9 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
     }
   };
 
-  const candidati = righe.map(r => aCliente(r, mappatura));
+  // Le intestazioni passano insieme alla riga: le colonne lasciate su "Non
+  // importare" restano salvate sotto `extra`, invece di essere buttate.
+  const candidati = righe.map(r => aCliente(r, mappatura, intestazioni));
   const validi = candidati.filter(c => c.nome || c.cognome);
   const senzaNome = candidati.length - validi.length;
 

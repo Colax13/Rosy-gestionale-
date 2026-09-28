@@ -3,7 +3,7 @@
 // Top of the file imports ...
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
-import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi } from '@/lib/api-client';
+import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
@@ -328,6 +328,20 @@ export default function PaginaAgenda() {
         stato: azione === 'conferma' ? 'confermato' : 'annullato',
         data_ora: richiesta.data_ora
       });
+
+      // Confermata la richiesta, chi ha prenotato dal sito entra in rubrica:
+      // scheda, storico e "Ricontatta" funzionano come per tutte le altre. Se
+      // qualcosa va storto qui, l'appuntamento resta confermato lo stesso —
+      // l'agenda viene prima.
+      if (azione === 'conferma') {
+        try {
+          await clientiApi.assicuraDaAppuntamento(richiesta);
+        } catch (err) {
+          console.error('Non sono riuscito a creare la scheda della cliente:', err);
+          setAvvisoSpostamento('Appuntamento confermato, ma la scheda della cliente non è stata creata. Aggiungila a mano da Clienti.');
+        }
+      }
+
       await caricaRichieste();
       caricaAgenda();
     } catch (err) {

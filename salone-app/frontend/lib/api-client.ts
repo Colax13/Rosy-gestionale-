@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, 
 import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
+import { chiaviCliente } from './importa';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -177,6 +178,65 @@ export const clientiApi = {
   },
   importAi: async (data: any) => {
     throw new Error('Not implemented on frontend yet');
+  },
+
+  /**
+   * La cliente che ha prenotato dal sito diventa una cliente vera.
+   *
+   * Chi prenota online scrive nome e telefono dentro l'appuntamento e basta:
+   * finito lì, non ha una scheda, non ha uno storico, e in rubrica non entra.
+   * Qui si chiude il buco. Si cerca prima se c'è già — stesso numero, o stesso
+   * nome e cognome — e in quel caso si aggancia a quella, invece di fare un
+   * doppione a ogni prenotazione. Se non c'è, si crea.
+   *
+   * Restituisce l'identificativo della cliente, e lo scrive sull'appuntamento
+   * così la scheda e lo storico si tengono per mano da soli.
+   */
+  assicuraDaAppuntamento: async (appuntamento: any): Promise<string | null> => {
+    if (!appuntamento) return null;
+    if (appuntamento.id_cliente) return appuntamento.id_cliente;
+
+    const dati = appuntamento.clienti || {};
+    const nome = (dati.nome || '').trim();
+    const cognome = (dati.cognome || '').trim();
+    if (!nome && !cognome) return null;
+
+    const inArrivo = {
+      nome, cognome,
+      telefono: (dati.telefono || '').trim(),
+      email: (dati.email || '').trim()
+    };
+
+    // Le stesse chiavi dell'importazione da Excel: numero ripulito, nome e
+    // cognome senza maiuscole. Un solo modo di dire "è la stessa persona".
+    const chiaviNuove = chiaviCliente(inArrivo);
+    const esistenti = await clientiApi.getAll();
+    const gia = esistenti.find(c => chiaviCliente(c).some(k => chiaviNuove.includes(k)));
+
+    let clienteId: string;
+    if (gia) {
+      clienteId = gia.id;
+      // Se prenotando ha lasciato un contatto che in scheda mancava, si scrive;
+      // quello che c'è già non si tocca.
+      const daCompletare: any = {};
+      if (!gia.telefono && inArrivo.telefono) daCompletare.telefono = inArrivo.telefono;
+      if (!gia.email && inArrivo.email) daCompletare.email = inArrivo.email;
+      if (Object.keys(daCompletare).length) await clientiApi.update(clienteId, daCompletare);
+    } else {
+      const creato = await clientiApi.create({
+        ...inArrivo,
+        note: '',
+        canale_acquisizione: 'Prenotazione online'
+      });
+      clienteId = creato.id;
+    }
+
+    await updateDoc(doc(db, 'appuntamenti', appuntamento.id), {
+      id_cliente: clienteId,
+      updatedAt: serverTimestamp()
+    });
+
+    return clienteId;
   }
 };
 

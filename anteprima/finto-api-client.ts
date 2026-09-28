@@ -171,7 +171,12 @@ export const dipendentiApi = {
 
 export const appuntamentiApi = {
   getAgendaPublic: async () => eco(appuntamenti),
-  createPublic: nulla,
+  // Nell'anteprima non si salva niente, ma l'ultima prenotazione resta a
+  // portata di mano: serve a controllare che cosa verrebbe scritto davvero.
+  createPublic: async (salonId: string, dati: any) => {
+    (globalThis as any).ultimaPrenotazione = { salonId, ...dati };
+    return eco({ id: 'finto', salonId, ...dati });
+  },
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
   getAgenda: async (data?: string, da?: string, a?: string) => {
     const tutti = [...appuntamenti, ...appuntamentiVecchi];

@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import { clientiApi, appuntamentiApi } from '@/lib/api-client';
 import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2 } from 'lucide-react';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
+import { CAMPI_EXTRA_CLIENTE, haAltriDati, mostra } from '@/lib/cliente';
 
 interface Cliente {
   id: string;
@@ -15,6 +16,8 @@ interface Cliente {
   note: string | null;
   created_at: string;
   canale_acquisizione?: string | null;
+  /** I campi in più: ci sono solo se qualcuno li ha riempiti. */
+  [altro: string]: any;
 }
 
 export default function SchedaCliente() {
@@ -74,6 +77,7 @@ export default function SchedaCliente() {
         email: cliente.email,
         note: cliente.note,
         canale_acquisizione: cliente.canale_acquisizione || 'Instagram',
+        ...Object.fromEntries(CAMPI_EXTRA_CLIENTE.map(c => [c.chiave, cliente[c.chiave] ?? '']))
       });
       setIsEditing(true);
     }
@@ -294,6 +298,69 @@ export default function SchedaCliente() {
                   />
                 )}
               </div>
+
+              {/* Altri dati. In lettura si vedono solo quelli riempiti: una
+                  scheda piena di trattini non dice niente a nessuno. In
+                  modifica ci sono tutti, così si possono aggiungere. */}
+              {(isEditing || haAltriDati(cliente)) && (
+                <div className="pt-4 border-t border-zinc-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText size={16} className="text-zinc-500" />
+                    <span className="text-sm font-semibold text-zinc-900">Altri dati</span>
+                  </div>
+
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                    {CAMPI_EXTRA_CLIENTE.map(campo => {
+                      const valore = cliente[campo.chiave];
+                      if (!isEditing && (valore === undefined || valore === null || `${valore}`.trim() === '')) return null;
+                      return (
+                        <div key={campo.chiave}>
+                          <dt className="text-[11px] uppercase font-bold tracking-wide text-zinc-500 mb-0.5">{campo.etichetta}</dt>
+                          <dd className="text-sm text-zinc-900">
+                            {!isEditing ? mostra(campo, valore) : (
+                              campo.tipo === 'scelta' ? (
+                                <select
+                                  name={campo.chiave}
+                                  value={(formData as any)[campo.chiave] || ''}
+                                  onChange={handleChange}
+                                  className="w-full text-sm bg-white border border-zinc-200 rounded px-2 py-1 outline-none focus:border-fuchsia-500 text-zinc-900"
+                                >
+                                  <option value="">—</option>
+                                  {(campo.scelte || []).map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : (
+                                <input
+                                  name={campo.chiave}
+                                  type={campo.tipo === 'data' ? 'date' : campo.tipo === 'numero' ? 'number' : 'text'}
+                                  value={(formData as any)[campo.chiave] || ''}
+                                  onChange={handleChange}
+                                  className="w-full text-sm bg-white border border-zinc-200 rounded px-2 py-1 outline-none focus:border-fuchsia-500 text-zinc-900"
+                                />
+                              )
+                            )}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+
+                  {/* Quello che il vecchio gestionale aveva e qui non ha una
+                      casella sua. Si conserva e si legge, non si modifica. */}
+                  {cliente.extra && Object.keys(cliente.extra).length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-dashed border-zinc-200">
+                      <p className="text-[11px] uppercase font-bold tracking-wide text-zinc-400 mb-2">Dal vecchio gestionale</p>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                        {Object.entries(cliente.extra as Record<string, string>).map(([chiave, valore]) => (
+                          <div key={chiave}>
+                            <dt className="text-[11px] text-zinc-500">{chiave}</dt>
+                            <dd className="text-sm text-zinc-800">{valore}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>

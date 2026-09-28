@@ -29,8 +29,9 @@ export default function PrenotazionePubblica() {
   const [salonLogo, setSalonLogo] = useState('');
   const [step, setStep] = useState<'welcome' | 'services' | 'operator' | 'datetime' | 'details' | 'success'>('welcome');
   
-  const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [selectedService, setSelectedService] = useState('');
+  // Si può scegliere più di un servizio: colore e piega si prenotano insieme,
+  // come si chiederebbero al telefono.
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   
   const [selectedOperator, setSelectedOperator] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
@@ -104,11 +105,25 @@ export default function PrenotazionePubblica() {
 
   const categories = Object.keys(catalogByCategory);
 
+  // Tutto quello che serve sapere dei servizi scelti, in un posto solo.
+  const serviziScelti = selectedServiceIds
+    .map(id => catalog.find(s => s.id === id))
+    .filter((s): s is Servizio => !!s);
+  const durataTotale = serviziScelti.reduce((somma, s) => somma + (s.durata_minuti || 0), 0);
+  const prezzoTotale = serviziScelti.reduce((somma, s) => somma + (s.prezzo_base || 0), 0);
+  const selectedService = serviziScelti.map(s => s.nome).join(' + ');
+
+  const scegliServizio = (id: string) => {
+    setSelectedServiceIds(prima =>
+      prima.includes(id) ? prima.filter(x => x !== id) : [...prima, id]
+    );
+  };
+
   const [dates, setDates] = useState<{ full: Date; display: string, short: string }[]>([]);
 
   // Fra le operatrici si mostrano solo quelle che sanno fare il servizio
   // scelto: altrimenti la cliente prenota con chi non può farglielo.
-  const operatoriPossibili = operatorsData.filter(o => faServizio(o, selectedServiceId));
+  const operatoriPossibili = operatorsData.filter(o => serviziScelti.every(s => faServizio(o, s.id)));
   const operators = [{ id: 'any', nome: 'Qualsiasi operatore' }, ...operatoriPossibili.map(o => ({ id: o.id, nome: o.nome }))];
 
   // Se cambiando servizio l'operatrice scelta non lo fa, si torna a "qualsiasi"
@@ -116,7 +131,7 @@ export default function PrenotazionePubblica() {
   useEffect(() => {
     if (!selectedOperator) return;
     if (!operators.some(o => o.nome === selectedOperator)) setSelectedOperator('');
-  }, [selectedServiceId, operatorsData]);
+  }, [selectedServiceIds.join(','), operatorsData]);
   // Calculate available times based on date and operator
   const getGiornoString = (d: Date) => {
     const map = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];
@@ -129,8 +144,9 @@ export default function PrenotazionePubblica() {
      const dateObj = dates.find(d => d.display === selectedDate);
      if (!dateObj) return [];
      
-     const service = catalog.find(item => item.id === selectedServiceId);
-     const duration = service ? service.durata_minuti : 30;
+     // La durata è la somma dei servizi scelti: se ne prendi due, serve il
+     // posto per tutti e due di fila, non per il primo soltanto.
+     const duration = durataTotale || 30;
      
      const opId = selectedOperator === 'Qualsiasi operatore' ? 'any' : (operators.find(o => o.nome === selectedOperator)?.id || 'any');
 
@@ -190,7 +206,7 @@ export default function PrenotazionePubblica() {
      }
      
      return Array.from(availableSlots).sort();
-  }, [selectedDate, selectedServiceId, selectedOperator, operators, operatorsData, fasceOccupate, dates, catalog]);
+  }, [selectedDate, durataTotale, selectedOperator, operators, operatorsData, fasceOccupate, dates, catalog]);
 
   
   useEffect(() => {
@@ -215,9 +231,8 @@ export default function PrenotazionePubblica() {
   const handleBook = async () => {
     setIsSubmitting(true);
     try {
-      const service = catalog.find(item => item.id === selectedServiceId);
       const dateObj = dates.find(d => d.display === selectedDate);
-      if (!service || !dateObj) return;
+      if (!serviziScelti.length || !dateObj) return;
 
       const [hours, minutes] = selectedTime.split(':');
       const startDateTime = new Date(dateObj.full);
@@ -227,7 +242,7 @@ export default function PrenotazionePubblica() {
       if (opId === 'any') {
          // assign a free operator
          const myStartMs = startDateTime.getTime();
-         const myEndMs = myStartMs + (service.durata_minuti * 60000);
+         const myEndMs = myStartMs + (durataTotale * 60000);
          const opIds = operatorsData.map(o => o.id);
          const firstFreeOp = opIds.find(candidateOpId => {
                return !occupata(fasceOccupate, candidateOpId, myStartMs, myEndMs);
@@ -250,13 +265,15 @@ export default function PrenotazionePubblica() {
             nome: operators.find(o => o.id === opId)?.nome || selectedOperator,
             cognome: ''
          },
-         righe_appuntamento: [{
+         // Una riga per servizio: in agenda si vedono uno dopo l'altro, come
+         // se li avesse segnati il salone.
+         righe_appuntamento: serviziScelti.map(s => ({
             servizi_catalogo: {
-               nome: service.nome,
-               durata_minuti: service.durata_minuti,
-               prezzo_base: service.prezzo_base
+               nome: s.nome,
+               durata_minuti: s.durata_minuti,
+               prezzo_base: s.prezzo_base
             }
-         }]
+         }))
       });
       setStep('success');
     } catch (e) {
@@ -267,17 +284,9 @@ export default function PrenotazionePubblica() {
     }
   };
 
-  const getPrice = () => {
-    if (!selectedServiceId) return '';
-    const s = catalog.find(item => item.id === selectedServiceId);
-    return s ? `${s.prezzo_base.toFixed(2)}€` : '';
-  };
+  const getPrice = () => (serviziScelti.length ? `${prezzoTotale.toFixed(2)}€` : '');
 
-  const getDuration = () => {
-    if (!selectedServiceId) return '';
-    const s = catalog.find(item => item.id === selectedServiceId);
-    return s ? `${s.durata_minuti} min` : '';
-  };
+  const getDuration = () => (durataTotale ? `${durataTotale} min` : '');
 
   // Header progress logic
   const stepsList = ['services', 'operator', 'datetime', 'details'];
@@ -369,8 +378,8 @@ export default function PrenotazionePubblica() {
         {step === 'services' && (
           <div className="flex-1 min-h-0 flex flex-col pt-4 px-2 pb-6 animate-in slide-in-from-right-8 duration-500 fade-in h-full overflow-hidden">
             <div className="bg-white mx-2 mt-2 rounded-[2rem] shadow-xl p-6 md:p-8 flex-1 min-h-0 border border-slate-100 flex flex-col mb-16 overflow-hidden">
-              <h2 className="text-2xl font-bold tracking-tight mb-1">Quale servizio desideri?</h2>
-              <p className="text-slate-500 text-sm mb-6">Scegli la categoria e seleziona il trattamento.</p>
+              <h2 className="text-2xl font-bold tracking-tight mb-1">Quali servizi desideri?</h2>
+              <p className="text-slate-500 text-sm mb-6">Puoi sceglierne più di uno: li facciamo di seguito, nello stesso appuntamento.</p>
 
               <div className="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar space-y-8 pb-32">
                 {categories.length > 0 ? categories.map((cat) => (
@@ -378,11 +387,11 @@ export default function PrenotazionePubblica() {
                     <h3 className="text-[13px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2.5 px-1">{cat}</h3>
                     <div className="space-y-2.5">
                       {catalogByCategory[cat].map(s => {
-                        const isSelected = selectedServiceId === s.id;
+                        const isSelected = selectedServiceIds.includes(s.id);
                         return (
                           <div 
                             key={s.id}
-                            onClick={() => { setSelectedServiceId(s.id); setSelectedService(s.nome); }}
+                            onClick={() => scegliServizio(s.id)}
                             className={`p-4 rounded-[1.25rem] cursor-pointer transition-all border-2 ${isSelected ? 'bg-indigo-50/50 border-indigo-600 shadow-sm ring-4 ring-indigo-50/50' : 'bg-white border-slate-100 hover:border-slate-300'} flex items-start justify-between gap-4`}
                           >
                             <div className="flex-1">
@@ -399,7 +408,7 @@ export default function PrenotazionePubblica() {
                                 <p className="text-[11px] text-slate-400 mt-2.5 italic leading-snug">{s.note_pubbliche}</p>
                               )}
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 transition-all ${isSelected ? 'border-indigo-600 bg-indigo-600 scale-110' : 'border-slate-300'}`}>
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-1 transition-all ${isSelected ? 'border-indigo-600 bg-indigo-600 scale-110' : 'border-slate-300'}`}>
                               {isSelected && <Check size={14} className="text-white" />}
                             </div>
                           </div>
@@ -421,10 +430,15 @@ export default function PrenotazionePubblica() {
               <div className="w-full max-w-3xl flex gap-3 px-2">
                 <button 
                   onClick={() => setStep('operator')}
-                  disabled={!selectedServiceId}
+                  disabled={!selectedServiceIds.length}
                   className="w-full bg-slate-900 hover:bg-black disabled:opacity-40 disabled:hover:bg-slate-900 text-white px-6 py-4.5 rounded-[1.25rem] font-bold transition-all shadow-xl shadow-slate-900/10 flex justify-center items-center gap-2 text-[15px]"
                 >
-                  {selectedServiceId ? `Continua` : 'Seleziona servizio'}
+                  {serviziScelti.length === 0 && 'Seleziona un servizio'}
+                  {serviziScelti.length === 1 && 'Continua'}
+                  {serviziScelti.length > 1 && `Continua con ${serviziScelti.length} servizi`}
+                  {serviziScelti.length > 0 && (
+                    <span className="font-medium text-white/70 text-[13px]">· {durataTotale} min</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -601,7 +615,22 @@ export default function PrenotazionePubblica() {
                    <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
                    <div className="flex justify-between items-start mb-3">
                      <div className="pl-1">
-                       <h4 className="font-bold text-slate-900 leading-tight">{selectedService}</h4>
+                       {/* Con più servizi si elencano uno per riga, con il loro
+                           prezzo: il totale da solo non si capisce da dove viene. */}
+                       {serviziScelti.length > 1 ? (
+                         <ul className="space-y-1">
+                           {serviziScelti.map(s => (
+                             <li key={s.id} className="flex items-baseline gap-2 text-slate-900">
+                               <span className="font-bold leading-tight">{s.nome}</span>
+                               <span className="text-[12px] text-slate-400 font-medium whitespace-nowrap">
+                                 {s.durata_minuti} min{s.prezzo_base > 0 ? ` · ${s.prezzo_base.toFixed(2)}€` : ''}
+                               </span>
+                             </li>
+                           ))}
+                         </ul>
+                       ) : (
+                         <h4 className="font-bold text-slate-900 leading-tight">{selectedService}</h4>
+                       )}
                        <p className="text-[13px] font-medium text-slate-500 mt-1 inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100"><User size={12}/> {selectedOperator}</p>
                      </div>
                      <div className="text-right">
@@ -757,8 +786,7 @@ export default function PrenotazionePubblica() {
                 <button 
                   onClick={() => {
                     setStep('welcome');
-                    setSelectedService('');
-                    setSelectedServiceId('');
+                    setSelectedServiceIds([]);
                     setSelectedOperator('');
                     setSelectedDate('');
                     setSelectedTime('');
