@@ -68,9 +68,20 @@ export async function mandaEmail(a: string, messaggio: Messaggio): Promise<Esito
  * Il prezzo da pagare è che quel telefono deve restare acceso e connesso: se
  * si spegne, l'SMS non parte, e qui lo si dice invece di far finta di sì.
  */
-/** Da dove esce l'SMS: dal postino a pagamento, o dal telefono in salone. */
-export function postinoSms(): 'skebby' | 'telefono' | null {
+/**
+ * Da dove esce l'SMS. Si usa il primo che ha le chiavi su Vercel:
+ *
+ * - `skebby`   — postino a pagamento, nessun hardware;
+ * - `traccar`  — tablet in salone con l'app *Traccar SMS Gateway* (Play Store);
+ * - `telefono` — tablet in salone con l'app *SMS Gateway for Android* (capcom6).
+ *
+ * Le ultime due fanno la stessa cosa con due app diverse: il messaggio parte
+ * dalla SIM del salone e non costa niente. Ce ne sono due perché non tutte
+ * le app si installano su tutti i tablet.
+ */
+export function postinoSms(): 'skebby' | 'traccar' | 'telefono' | null {
   if (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) return 'skebby';
+  if (process.env.TRACCAR_SMS_TOKEN) return 'traccar';
   if (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) return 'telefono';
   return null;
 }
@@ -110,6 +121,29 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
     return esito.mandato
       ? { mandato: true, canale: 'sms', a: `+${numero}` }
       : { mandato: false, canale: 'sms', motivo: esito.motivo || 'Skebby non ha mandato il messaggio.' };
+  }
+
+  if (postino === 'traccar') {
+    // Traccar fa da passaggio fra il nostro server e il tablet: il gettone che
+    // mostra l'app dice a quale tablet consegnare. Va nell'intestazione così
+    // com'è, senza "Bearer" davanti.
+    try {
+      const risposta = await fetch(process.env.TRACCAR_SMS_URL || 'https://www.traccar.org/sms/', {
+        method: 'POST',
+        headers: {
+          'Authorization': process.env.TRACCAR_SMS_TOKEN as string,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ to: `+${numero}`, message: testo })
+      });
+      if (!risposta.ok) {
+        const dettaglio = await risposta.text().catch(() => '');
+        return { mandato: false, canale: 'sms', motivo: `il tablet del salone non ha accettato il messaggio (${risposta.status}). ${dettaglio}`.trim() };
+      }
+      return { mandato: true, canale: 'sms', a: `+${numero}` };
+    } catch (err: any) {
+      return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il tablet del salone: ${err?.message || 'motivo sconosciuto'}` };
+    }
   }
 
   const indirizzo = process.env.SMS_GATEWAY_URL || 'https://api.sms-gate.app/3rdparty/v1/message';

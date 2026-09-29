@@ -76,51 +76,58 @@ Due cose ancora:
 
 ### 2b. Installare l'app · 5 minuti
 
-1. Play Store → cerca **SMS Gateway for Android** (dello sviluppatore
-   *capcom6*). Se non la trovi, si scarica dal sito ufficiale https://sms-gate.app
-2. Installala e aprila
-3. Dai **tutti** i permessi che chiede, in particolare **invio SMS**
+L'app è **Traccar SMS Gateway**. Si installa dal Play Store, è gratuita.
+
+1. Dal tablet apri:
+   **https://play.google.com/store/apps/details?id=org.traccar.gateway**
+   (il pezzo `org.traccar.gateway` è il codice unico dell'app: con questo link
+   il Play Store apre lei e non una copia)
+2. **Installa** e aprila
+3. Dai **tutti** i permessi che chiede, in particolare gli **SMS**. Se ti chiede
+   di diventare l'app per i messaggi predefinita, puoi dire di sì: è un'app di
+   messaggi completa, con in più la parte che ci serve.
 
 ### 2c. Tenerla sveglia · 5 minuti
 
 Android spegne da solo le app che non usi, per risparmiare batteria. Se spegne
 questa, i messaggi smettono di partire **e nessuno se ne accorge**. Quindi:
 
-1. Impostazioni del tablet → **App** → **SMS Gateway** → **Batteria** →
+1. Impostazioni del tablet → **App** → **Traccar SMS Gateway** → **Batteria** →
    **Senza restrizioni** (a volte si chiama *Non ottimizzare*)
-2. Se c'è la voce **Avvio automatico**, accendila
-3. Il tablet sta **sempre attaccato alla corrente** e **sempre connesso** (Wi-Fi
+2. Il tablet sta **sempre attaccato alla corrente** e **sempre connesso** (Wi-Fi
    del salone o dati della SIM)
-4. Dentro l'app, se c'è un'impostazione per **l'intervallo fra un messaggio e
-   l'altro**, mettila a qualche secondo (5-10): così il giro dei promemoria
-   non parte tutto in un colpo e l'operatore non si insospettisce
 
 Nomi e posizioni cambiano un po' da marca a marca: se non trovi qualcosa,
 mandami una foto della schermata.
 
-### 2d. Accendere la modalità Cloud · 3 minuti
+### 2d. Prendere il gettone · 2 minuti
 
-L'app può lavorare in tre modi. Serve **Cloud**: il nostro server sta su
-internet, il tablet sta dietro il router del salone, e da fuori non lo si
-raggiunge direttamente. Il loro cloud fa da passaggio.
+Il nostro server sta su internet, il tablet sta dietro il router del salone:
+da fuori non lo si raggiunge. Traccar fa da passaggio. Per sapere a quale
+tablet consegnare, usa un **gettone** (token) che l'app ti mostra.
 
-1. Nell'app: sezione **Cloud server**
-2. Accendi l'interruttore
-3. L'app mostra un **nome utente** e una **password**. Scrivili subito.
+1. Nell'app: menù (le tre linee o i tre puntini) → **Gateway** o **Impostazioni
+   gateway**
+2. Accendi il servizio
+3. Compare un **Cloud token**: una sequenza lunga di lettere e numeri. Copialo
+   (tienilo premuto → Copia) e mandatelo per email a te stesso, così lo incolli
+   dal computer
 
-### 2e. Metterli su Vercel · 3 minuti
+### 2e. Metterlo su Vercel · 2 minuti
 
-Vercel → Settings → Environment Variables, due variabili:
+Vercel → Settings → Environment Variables:
 
 | Key | Value |
 |-----|-------|
-| `SMS_GATEWAY_USER` | il nome utente che mostra l'app |
-| `SMS_GATEWAY_PASSWORD` | la password che mostra l'app |
+| `TRACCAR_SMS_TOKEN` | il Cloud token dell'app |
 
 Tutti e tre gli ambienti → **Save**.
 
-**Come controlli:** nell'app c'è un modo per mandare un SMS di prova. Mandalo
-al tuo numero.
+> **Se Traccar non va** c'è l'altra app, *SMS Gateway for Android* (di
+> capcom6), che si scarica da https://github.com/capcom6/android-sms-gateway/releases
+> e dà utente e password invece del gettone: si mettono come
+> `SMS_GATEWAY_USER` e `SMS_GATEWAY_PASSWORD`. Il programma usa quella che
+> trova configurata, non serve cambiare niente nel codice.
 
 ### Le risposte delle clienti
 
@@ -172,7 +179,7 @@ Le variabili valgono **solo dai deploy nuovi**. Dopo averle messe tutte:
 Apri `https://gestionalerosy.colasantiludovico.it/api/salute`. Deve dire:
 
 ```json
-{ "chiave": "a posto", "sms": "a posto (telefono in salone)", "promemoria": "acceso", "email": "spenta" }
+{ "chiave": "a posto", "sms": "a posto (tablet con Traccar)", "promemoria": "acceso", "email": "spenta" }
 ```
 
 `"email": "spenta"` va bene: l'email aspetta `rdsalon.com` (vedi in fondo).
@@ -181,7 +188,7 @@ Apri `https://gestionalerosy.colasantiludovico.it/api/salute`. Deve dire:
 |---|---|
 | `"chiave": "manca"` | `FIREBASE_SERVICE_ACCOUNT`, o il deploy è ancora vecchio |
 | `"chiave": "non valida"` | JSON incollato a metà, o file sbagliato |
-| `"sms": "spento"` | `SMS_GATEWAY_USER` e `SMS_GATEWAY_PASSWORD` |
+| `"sms": "spento"` | `TRACCAR_SMS_TOKEN` |
 | `"promemoria": "spento…"` | `CRON_SECRET` |
 
 ### La prova della conferma

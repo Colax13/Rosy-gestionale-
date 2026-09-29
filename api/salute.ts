@@ -21,7 +21,8 @@ export default async function handler(_req: unknown, res: Risposta) {
 
   const sms =
     (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) ? 'a posto (Skebby)'
-    : (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) ? 'a posto (telefono in salone)'
+    : process.env.TRACCAR_SMS_TOKEN ? 'a posto (tablet con Traccar)'
+    : (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) ? 'a posto (tablet con SMS Gateway)'
     : 'spento';
 
   const promemoria = process.env.CRON_SECRET ? 'acceso' : 'spento (manca CRON_SECRET)';
