@@ -24,7 +24,9 @@ export default async function handler(_req: unknown, res: Risposta) {
     : (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) ? 'a posto (telefono in salone)'
     : 'spento';
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms };
+  const promemoria = process.env.CRON_SECRET ? 'acceso' : 'spento (manca CRON_SECRET)';
+
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({

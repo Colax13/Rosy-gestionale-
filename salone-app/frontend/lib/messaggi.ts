@@ -25,18 +25,66 @@ const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 've
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
               'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
+/**
+ * Il fuso orario del salone.
+ *
+ * Serve perché i messaggi li scrive anche il server, e il server vive in UTC:
+ * chiedendogli l'ora "e basta", un appuntamento alle 15:30 finirebbe nell'SMS
+ * come "13:30" d'estate e "14:30" d'inverno. Qui si dice una volta per tutte
+ * che l'ora da scrivere è quella che legge la cliente sul muro del salone.
+ */
+export const FUSO_SALONE = 'Europe/Rome';
+
+export interface Orologio { giornoSettimana: number; giorno: number; mese: number; anno: number; ore: number; minuti: number }
+
+const SIGLE_INGLESI = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Che ore sono, e che giorno è, sull'orologio del salone in quell'istante. */
+export function orologioDelSalone(d: Date, fuso = FUSO_SALONE): Orologio {
+  // Si chiede in inglese e a numeri solo perché così le parti tornano sempre
+  // uguali, qualunque lingua abbia il computer: le parole le mettiamo noi.
+  const parti = new Intl.DateTimeFormat('en-US', {
+    timeZone: fuso, weekday: 'short', year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(d);
+  const pezzo = (tipo: string) => parti.find(p => p.type === tipo)?.value || '';
+  return {
+    giornoSettimana: SIGLE_INGLESI.indexOf(pezzo('weekday')),
+    giorno: Number(pezzo('day')),
+    mese: Number(pezzo('month')) - 1,
+    anno: Number(pezzo('year')),
+    ore: Number(pezzo('hour')),
+    minuti: Number(pezzo('minute'))
+  };
+}
+
+/** Il giorno sul calendario del salone, scritto 2026-10-01. */
+export function giornoDelSalone(d: Date, fuso = FUSO_SALONE): string {
+  const o = orologioDelSalone(d, fuso);
+  return `${o.anno}-${String(o.mese + 1).padStart(2, '0')}-${String(o.giorno).padStart(2, '0')}`;
+}
+
+/** Il giorno dopo, sul calendario: 2026-10-31 → 2026-11-01. Niente fusi in mezzo. */
+export function giornoDopo(giorno: string): string {
+  const [a, m, g] = giorno.split('-').map(Number);
+  const dopo = new Date(Date.UTC(a, m - 1, g + 1));
+  return dopo.toISOString().slice(0, 10);
+}
+
 /** "giovedì 2 ottobre alle 15:30", scritto come lo direbbe una persona. */
 export function quandoScritto(d: Date): string {
-  return `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} alle ${oraScritta(d)}`;
+  const o = orologioDelSalone(d);
+  return `${GIORNI[o.giornoSettimana]} ${o.giorno} ${MESI[o.mese]} alle ${oraScritta(o)}`;
 }
 
 /** "gio 2/10 alle 15:30": la stessa cosa, ma dentro un SMS si pagano i caratteri. */
 export function quandoCorto(d: Date): string {
-  return `${GIORNI[d.getDay()].slice(0, 3)} ${d.getDate()}/${d.getMonth() + 1} alle ${oraScritta(d)}`;
+  const o = orologioDelSalone(d);
+  return `${GIORNI[o.giornoSettimana].slice(0, 3)} ${o.giorno}/${o.mese + 1} alle ${oraScritta(o)}`;
 }
 
-const oraScritta = (d: Date) =>
-  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const oraScritta = (o: Orologio) =>
+  `${String(o.ore).padStart(2, '0')}:${String(o.minuti).padStart(2, '0')}`;
 
 /** L'elenco dei servizi come si legge: "colore, piega e taglio". */
 export function elencoScritto(servizi: string[]): string {

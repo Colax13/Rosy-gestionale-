@@ -1,4 +1,4 @@
-import { componi, quandoScritto, quandoCorto, elencoScritto, segmentiSms } from './messaggi';
+import { componi, quandoScritto, quandoCorto, elencoScritto, segmentiSms, giornoDelSalone, giornoDopo } from './messaggi';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -7,10 +7,22 @@ const check = (nome: string, atteso: any, avuto: any) => {
   uguale ? ok++ : ko++;
 };
 
-const giovedi = new Date(2026, 9, 1, 15, 30); // 1 ottobre 2026, giovedì
+// Gli istanti si scrivono con il fuso esplicito: la prova deve dare lo stesso
+// risultato sul computer di chiunque e sul server, che vive in UTC.
+const giovedi = new Date('2026-10-01T15:30:00+02:00'); // 1 ottobre 2026, giovedì, ora legale
 
 check('quando, come lo direbbe una persona', 'giovedì 1 ottobre alle 15:30', quandoScritto(giovedi));
-check('mezzanotte e mezza',                  'giovedì 1 ottobre alle 00:30', quandoScritto(new Date(2026, 9, 1, 0, 30)));
+check('mezzanotte e mezza',                  'giovedì 1 ottobre alle 00:30', quandoScritto(new Date('2026-10-01T00:30:00+02:00')));
+
+// --- l'ora giusta anche dal server ----------------------------------------
+// Il server vive in UTC: le 13:30 UTC del primo ottobre sono le 15:30 in
+// salone. Prima di questa prova, l'SMS avrebbe scritto "13:30".
+check("dal server in UTC si scrive l'ora del salone", 'giovedì 1 ottobre alle 15:30', quandoScritto(new Date('2026-10-01T13:30:00Z')));
+check("d'inverno lo scarto cambia, e si segue",       'martedì 1 dicembre alle 15:30', quandoScritto(new Date('2026-12-01T14:30:00Z')));
+check('le 23:30 UTC in salone sono già domani',        '2026-10-02', giornoDelSalone(new Date('2026-10-01T23:30:00Z')));
+check('giorno dopo, a fine mese',                      '2026-11-01', giornoDopo('2026-10-31'));
+check("giorno dopo, a fine anno",                      '2027-01-01', giornoDopo('2026-12-31'));
+check('giorno dopo, il giorno del cambio d\'ora',      '2026-10-26', giornoDopo('2026-10-25'));
 
 check('un servizio solo', 'colore',                  elencoScritto(['colore']));
 check('due servizi',      'colore e piega',          elencoScritto(['colore', 'piega']));

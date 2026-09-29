@@ -16,7 +16,7 @@
 // mano nella barra leggerebbe comunque i dati.
 
 /** Le pagine che non sono per tutti. */
-export type ChiaveFunzione = 'buoni';
+export type ChiaveFunzione = 'buoni' | 'messaggi_automatici';
 
 interface FunzioneRiservata {
   etichetta: string;
@@ -34,6 +34,15 @@ export const FUNZIONI_RISERVATE: Record<ChiaveFunzione, FunzioneRiservata> = {
       'danieledesimone.social@gmail.com'
     ],
     motivo: 'Fatta su misura per RD Salon: buoni spa venduti online, con il loro foglio e la piega inclusa.'
+  },
+  // Non è una pagina: è il permesso di far partire SMS ed email alle clienti.
+  // Il postino (il tablet in salone, o Skebby) è **di un salone solo**: senza
+  // questo controllo, un altro salone che usa il gestionale confermerebbe un
+  // appuntamento e alla sua cliente arriverebbe un SMS dal numero di RD Salon.
+  messaggi_automatici: {
+    etichetta: 'Messaggi automatici',
+    saloni: ['rdsalon.ceccano@gmail.com'],
+    motivo: 'Il tablet che manda gli SMS è di RD Salon: i messaggi partono solo per le sue clienti.'
   }
 };
 

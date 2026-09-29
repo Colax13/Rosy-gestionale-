@@ -646,8 +646,27 @@ perché servono anche al programma: il tasto **Ricontatta** su una richiesta
 apre WhatsApp con **la stessa identica conferma** già scritta. Così, anche a
 server spento, si avvisa con un tocco e la cliente legge sempre la stessa cosa.
 
-**Da fare subito dopo:** il promemoria del giorno prima (il testo è già
-scritto, va deciso a che ora parte).
+**Il promemoria del giorno prima** · ✅ SCRITTO, aspetta le chiavi
+Ogni giorno a mezzogiorno Vercel fa partire `/api/promemoria`, che trova gli
+appuntamenti **confermati** di domani e manda a ciascuna cliente il
+promemoria. "Domani" è quello del calendario del salone, non del server (che
+vive in UTC). Non partono mai due volte, non partono per le richieste in
+attesa né per le pause, e non partono a chi ha ricevuto la conferma da meno di
+dodici ore. È protetto da `CRON_SECRET`.
+
+**Il postino è un tablet Android in salone** con una SIM a messaggi illimitati
+e l'app *SMS Gateway for Android*: zero a messaggio. Skebby resta come
+alternativa senza hardware (~9 centesimi a SMS).
+
+**I messaggi partono solo per RD Salon** (`messaggi_automatici` in
+`lib/funzioni.ts`): il tablet è loro, e un altro salone che usa il gestionale
+non deve mandare SMS dal loro numero.
+
+**Corretto un errore mio prima che facesse danni:** le ore nei messaggi
+venivano dall'orologio del server, che vive in UTC. Un appuntamento alle 15:30
+sarebbe arrivato alla cliente come "13:30". Ora si scrive l'ora del salone
+(`FUSO_SALONE` in `lib/messaggi.ts`), e le prove sono scritte con il fuso
+esplicito così non dipendono più dal computer su cui girano.
 
 **2. G20 — Rifare la schermata di prenotazione** (quella interna)
 Viene da un altro gestionale e si usa peggio del resto.
