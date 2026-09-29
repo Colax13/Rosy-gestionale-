@@ -627,10 +627,19 @@ dice chiaramente che il messaggio non è partito e perché, e si avvisa a mano
 con *Ricontatta*.
 
 **Due canali, non uno.** Si prova sia l'SMS sia l'email, e basta che ne arrivi
-uno. L'SMS passa da un Android acceso in salone con sopra *SMS Gateway for
-Android*: parte dalla SIM del salone, non costa niente a messaggio, e se la
-cliente risponde risponde al salone. L'email è rimandata finché non si possono
-toccare i DNS di `rdsalon.com`.
+uno. L'SMS passa da **Skebby**: nessun telefono da tenere acceso, si paga a
+messaggio, e il mittente è scritto a lettere — "RD SALON". Resta possibile, per
+quando i messaggi diventano tanti, farlo partire da un Android in salone a
+costo zero: si cambiano due variabili su Vercel, il codice è lo stesso.
+L'email è rimandata finché non si possono toccare i DNS di `rdsalon.com`.
+
+**Il testo dell'SMS è scritto apposta.** Un SMS si paga a pezzi da 160
+caratteri, e basta un trattino lungo o un'emoji perché diventino da 70: lo
+stesso messaggio può costare 1 credito o 3. Quindi l'SMS non è l'email
+accorciata, è un'altra frase — 127 caratteri, un credito. Se il nome del salone
+o i servizi fanno sforare, il programma lascia per strada da solo il superfluo
+(prima il telefono, poi l'operatrice, poi accorcia i servizi), ma quando e chi
+manda non si perdono mai.
 
 Le parole stanno in `salone-app/frontend/lib/messaggi.ts`, non nel server,
 perché servono anche al programma: il tasto **Ricontatta** su una richiesta

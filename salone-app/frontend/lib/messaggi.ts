@@ -27,9 +27,16 @@ const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
 
 /** "giovedì 2 ottobre alle 15:30", scritto come lo direbbe una persona. */
 export function quandoScritto(d: Date): string {
-  const ora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} alle ${ora}`;
+  return `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} alle ${oraScritta(d)}`;
 }
+
+/** "gio 2/10 alle 15:30": la stessa cosa, ma dentro un SMS si pagano i caratteri. */
+export function quandoCorto(d: Date): string {
+  return `${GIORNI[d.getDay()].slice(0, 3)} ${d.getDate()}/${d.getMonth() + 1} alle ${oraScritta(d)}`;
+}
+
+const oraScritta = (d: Date) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 /** L'elenco dei servizi come si legge: "colore, piega e taglio". */
 export function elencoScritto(servizi: string[]): string {
@@ -39,7 +46,14 @@ export function elencoScritto(servizi: string[]): string {
   return `${puliti.slice(0, -1).join(', ')} e ${puliti[puliti.length - 1]}`;
 }
 
-export interface Messaggio { oggetto: string; testo: string; html: string }
+export interface Messaggio {
+  oggetto: string;
+  /** Testo disteso: email, e WhatsApp quando si avvisa a mano. */
+  testo: string;
+  html: string;
+  /** Testo corto, pensato per stare in **un** SMS. Vedi `segmentiSms`. */
+  sms: string;
+}
 
 /**
  * Il messaggio, in testo semplice e in HTML.
@@ -81,6 +95,38 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
 
   const testo = righe.join('\n');
 
+  // L'SMS si paga a pezzi da 160 caratteri, e i caratteri strani li dimezzano
+  // (vedi `segmentiSms`). Quindi non è l'email accorciata: è un'altra frase,
+  // scritta per starci dentro una volta sola. Niente trattini lunghi, niente
+  // apostrofi ricci, niente puntini di separazione.
+  // Quando l'elenco è lungo si tiene il primo e si dice che ce n'è dell'altro:
+  // la cliente sa già che cosa ha prenotato, il messaggio serve a ricordarle
+  // quando.
+  const puliti = d.servizi.filter(Boolean);
+  const serviziCorti = puliti.length > 1 ? `${puliti[0]} e altro` : (puliti[0] || '');
+
+  const scrivi = (conTelefono: boolean, conOperatore: boolean, conServizi: 'tutti' | 'corti' | 'no') => {
+    const tel = conTelefono && d.telefonoSalone ? ` Tel ${d.telefonoSalone.replace(/\s+/g, '')}` : '';
+    const chi = conOperatore ? con : '';
+    const elenco = conServizi === 'tutti' ? servizi : conServizi === 'corti' ? serviziCorti : '';
+    const cosa = elenco ? ` (${elenco})` : '';
+    return tipo === 'conferma'
+      ? `${d.nomeSalone}: appuntamento confermato ${quandoCorto(d.quando)}${cosa}${chi}. Se non puoi venire avvisaci.${tel}`
+      : `${d.nomeSalone}: ti ricordiamo l'appuntamento di domani ${quandoCorto(d.quando)}${cosa}${chi}. A domani!`;
+  };
+
+  // Se non ci sta in un SMS solo si lascia per strada qualcosa, partendo da
+  // ciò che la cliente può ricavare da sé: il telefono ce l'ha in rubrica, il
+  // nome dell'operatrice se lo ricorda. Quando e che cosa non si toccano
+  // finché si può. Meglio un messaggio più asciutto che due crediti.
+  const sms = [
+    scrivi(true, true, 'tutti'),
+    scrivi(false, true, 'tutti'),
+    scrivi(false, false, 'tutti'),
+    scrivi(false, false, 'corti'),
+    scrivi(false, false, 'no')
+  ].find(t => segmentiSms(t).segmenti === 1) || scrivi(false, false, 'no');
+
   const oggetto = tipo === 'conferma'
     ? `Appuntamento confermato — ${quandoScritto(d.quando)}`
     : `Promemoria: domani ${quandoScritto(d.quando)}`;
@@ -89,7 +135,56 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
 ${righe.map(r => (r === '' ? '<div style="height:12px"></div>' : `<div>${scappa(r)}</div>`)).join('\n')}
 </div>`;
 
-  return { oggetto, testo, html };
+  return { oggetto, testo, html, sms };
+}
+
+/**
+ * Quanti SMS si paga davvero un messaggio.
+ *
+ * Un SMS non è "un messaggio": è un pezzo da **160 caratteri**, ma solo se
+ * tutte le lettere stanno nell'alfabeto che i telefoni usano da sempre
+ * (GSM 03.38). Basta un carattere fuori — un trattino lungo, un apostrofo
+ * ricco, un'emoji — e si passa all'alfabeto largo, dove i pezzi sono da
+ * **70 caratteri**. Un messaggio da 150 lettere può quindi costare 1 credito
+ * o 3, a seconda di un solo apostrofo.
+ *
+ * Serve a controllarlo prima di mandare, non dopo aver visto la bolletta.
+ */
+export interface ContoSms { alfabeto: 'normale' | 'largo'; caratteri: number; segmenti: number }
+
+const GSM =
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡' +
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+/** Questi ci sono, ma contano doppio. */
+const GSM_DOPPI = '^{}\\[~]|€';
+
+export function segmentiSms(testo: string): ContoSms {
+  let caratteri = 0;
+  let largo = false;
+
+  for (const c of testo) {
+    if (GSM.includes(c)) caratteri += 1;
+    else if (GSM_DOPPI.includes(c)) caratteri += 2;
+    else { largo = true; break; }
+  }
+
+  if (largo) {
+    // Nell'alfabeto largo si contano le unità da 16 bit, non i "caratteri"
+    // come li vede una persona: un'emoji ne occupa due, ed è così che la
+    // conta anche il telefono.
+    const lunghezza = testo.length;
+    return {
+      alfabeto: 'largo',
+      caratteri: lunghezza,
+      segmenti: lunghezza <= 70 ? 1 : Math.ceil(lunghezza / 67)
+    };
+  }
+
+  return {
+    alfabeto: 'normale',
+    caratteri,
+    segmenti: caratteri <= 160 ? 1 : Math.ceil(caratteri / 153)
+  };
 }
 
 /** Niente HTML per sbaglio dentro un nome scritto dalla cliente. */

@@ -7,6 +7,8 @@
 
 import { Messaggio } from '../salone-app/frontend/lib/messaggi';
 import { numeroInternazionale } from '../salone-app/frontend/lib/contatti';
+import { segmentiSms } from '../salone-app/frontend/lib/messaggi';
+import { mandaConSkebby } from './_skebby';
 
 export { componi, quandoScritto, elencoScritto } from '../salone-app/frontend/lib/messaggi';
 export type { TipoMessaggio, DatiMessaggio, Messaggio } from '../salone-app/frontend/lib/messaggi';
@@ -66,18 +68,52 @@ export async function mandaEmail(a: string, messaggio: Messaggio): Promise<Esito
  * Il prezzo da pagare è che quel telefono deve restare acceso e connesso: se
  * si spegne, l'SMS non parte, e qui lo si dice invece di far finta di sì.
  */
+/** Da dove esce l'SMS: dal postino a pagamento, o dal telefono in salone. */
+export function postinoSms(): 'skebby' | 'telefono' | null {
+  if (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) return 'skebby';
+  if (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) return 'telefono';
+  return null;
+}
+
+/**
+ * Manda l'SMS, per la strada che è accesa.
+ *
+ * Due strade possibili, e il codice non cambia a seconda di quale si usa:
+ *
+ * - **Skebby**, un postino a pagamento: non serve nessun telefono, si paga a
+ *   messaggio, e il mittente può essere scritto a lettere ("RD SALON").
+ * - **Il telefono in salone**, un Android con l'app che fa da ponte: non si
+ *   paga niente a messaggio, ma quel telefono deve restare acceso.
+ *
+ * Si usa il testo corto (`messaggio.sms`), non quello dell'email: un SMS si
+ * paga a pezzi da 160 caratteri e l'email ne fa quattro.
+ */
 export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<EsitoInvio> {
-  const utente = process.env.SMS_GATEWAY_USER;
-  const password = process.env.SMS_GATEWAY_PASSWORD;
-  if (!utente || !password) {
-    return { mandato: false, canale: 'sms', motivo: "l'SMS non è ancora acceso (mancano SMS_GATEWAY_USER e SMS_GATEWAY_PASSWORD)." };
+  const postino = postinoSms();
+  if (!postino) {
+    return { mandato: false, canale: 'sms', motivo: "l'SMS non è ancora acceso (mancano le chiavi su Vercel)." };
   }
 
   const numero = numeroInternazionale(telefono);
   if (!numero) return { mandato: false, canale: 'sms', motivo: 'la cliente non ha lasciato un numero utilizzabile.' };
 
+  const testo = messaggio.sms;
+  const conto = segmentiSms(testo);
+  if (conto.segmenti > 1) {
+    // Non blocca niente: è un avviso nei registri, perché due pezzi si pagano
+    // due volte e in genere vuol dire che qualcosa è cresciuto troppo.
+    console.warn(`SMS da ${conto.segmenti} pezzi (${conto.caratteri} caratteri, alfabeto ${conto.alfabeto}).`);
+  }
+
+  if (postino === 'skebby') {
+    const esito = await mandaConSkebby(`+${numero}`, testo);
+    return esito.mandato
+      ? { mandato: true, canale: 'sms', a: `+${numero}` }
+      : { mandato: false, canale: 'sms', motivo: esito.motivo || 'Skebby non ha mandato il messaggio.' };
+  }
+
   const indirizzo = process.env.SMS_GATEWAY_URL || 'https://api.sms-gate.app/3rdparty/v1/message';
-  const credenziali = Buffer.from(`${utente}:${password}`).toString('base64');
+  const credenziali = Buffer.from(`${process.env.SMS_GATEWAY_USER}:${process.env.SMS_GATEWAY_PASSWORD}`).toString('base64');
 
   try {
     const risposta = await fetch(indirizzo, {
@@ -87,7 +123,7 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        textMessage: { text: messaggio.testo },
+        textMessage: { text: testo },
         phoneNumbers: [`+${numero}`]
       })
     });

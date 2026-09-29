@@ -1,4 +1,4 @@
-import { componi, quandoScritto, elencoScritto } from './messaggi';
+import { componi, quandoScritto, quandoCorto, elencoScritto, segmentiSms } from './messaggi';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -51,6 +51,44 @@ check('niente doppi spazi',             false, scarno.testo.includes('  '));
 // Un nome con un carattere strano non deve rompere l'HTML.
 const cattivo = componi('conferma', { ...dati, nomeCliente: '<script>ciao' });
 check("l'HTML non si fa scrivere da fuori", false, cattivo.html.includes('<script>'));
+
+// --- quanto costa un SMS ----------------------------------------------------
+check('data corta per l\'SMS', 'gio 1/10 alle 15:30', quandoCorto(giovedi));
+
+check('testo corto sta in un pezzo',   { alfabeto: 'normale', caratteri: 5, segmenti: 1 }, segmentiSms('Ciao!'));
+check('160 caratteri: ancora uno',     1, segmentiSms('a'.repeat(160)).segmenti);
+check('161: diventano due',            2, segmentiSms('a'.repeat(161)).segmenti);
+check('le accentate italiane non costano', 'normale', segmentiSms('perché è così però').alfabeto);
+check('il trattino lungo raddoppia il prezzo', 'largo', segmentiSms('colore — piega').alfabeto);
+check("l'apostrofo riccio pure",       'largo', segmentiSms('l\u2019appuntamento').alfabeto);
+check("l'emoji pure",                  'largo', segmentiSms('a domani 💇').alfabeto);
+check('alfabeto largo: 70 per pezzo',  1, segmentiSms('ā'.repeat(70)).segmenti);
+check('alfabeto largo: 71 sono due',   2, segmentiSms('ā'.repeat(71)).segmenti);
+check("un'emoji occupa due posti",     2, segmentiSms('💇').caratteri);
+check('le parentesi graffe contano doppio', 6, segmentiSms('a{b}').caratteri);
+
+// --- l'SMS vero, quello che paghi ------------------------------------------
+const smsConferma = componi('conferma', dati).sms;
+check('la conferma sta in un SMS solo', 1, segmentiSms(smsConferma).segmenti);
+check('e usa l\'alfabeto che non costa', 'normale', segmentiSms(smsConferma).alfabeto);
+check('dice il salone, quando e cosa', true,
+  smsConferma.startsWith('RD Salon:') && smsConferma.includes('gio 1/10 alle 15:30') && smsConferma.includes('Colore e Piega'));
+
+const smsPromemoria = componi('promemoria', dati).sms;
+check('anche il promemoria sta in uno', 1, segmentiSms(smsPromemoria).segmenti);
+check('e dice che è domani', true, smsPromemoria.includes('domani'));
+
+// Se non ci sta tutto, si lascia per strada il superfluo invece di pagare due
+// crediti: prima il telefono, poi l'operatrice, poi l'elenco dei servizi.
+const pieno = componi('conferma', {
+  ...dati,
+  nomeSalone: 'RD Salon Parrucchieri Ceccano',
+  servizi: ['Colore', 'Piega', 'Taglio donna', 'Trattamento ricostruzione']
+});
+check('anche col nome lungo resta un SMS', 1, segmentiSms(pieno.sms).segmenti);
+check('ma quando e dove non si perdono', true,
+  pieno.sms.includes('gio 1/10 alle 15:30') && pieno.sms.includes('RD Salon Parrucchieri Ceccano'));
+check('i servizi si accorciano, non spariscono', true, pieno.sms.includes('Colore e altro'));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

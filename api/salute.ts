@@ -19,8 +19,9 @@ export default async function handler(_req: unknown, res: Risposta) {
     ? 'spenta'
     : (process.env.MITTENTE_EMAIL ? 'a posto' : 'manca il mittente');
 
-  const sms = (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD)
-    ? 'a posto'
+  const sms =
+    (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) ? 'a posto (Skebby)'
+    : (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) ? 'a posto (telefono in salone)'
     : 'spento';
 
   const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms };

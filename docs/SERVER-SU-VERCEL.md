@@ -126,72 +126,86 @@ email nella posta in arrivo invece che nello spam.
 
 ---
 
-## 2-bis. L'SMS dal telefono del salone · 15 minuti · CONSIGLIATO OGGI
+## 2-bis. Gli SMS con Skebby · 20 minuti · DA FARE OGGI
 
-Invece dell'email, l'SMS. Serve **un telefono Android** lasciato acceso in
-salone: ci sta sopra un'app che fa da ponte, il server le dice che cosa
-scrivere e a chi, e l'SMS parte dalla SIM del salone.
+Il canale che arriva a tutte. Nessun telefono, nessun hardware, niente da
+tenere acceso: Skebby è solo il postino, riceve "manda questo testo a questo
+numero" e lo manda. **Quando mandarlo, a chi e che cosa c'è scritto lo decide
+il gestionale** — Skebby di appuntamenti non sa niente.
 
-**Perché conviene:**
-- Non si paga niente a messaggio: si consuma il piano che il salone ha già.
-- Alla cliente arriva **dal numero del salone**. Se risponde, risponde lì.
-- L'SMS lo leggono tutte. L'email finisce fra le promozioni.
-- Non serve nessun dominio, quindi si può fare **oggi**.
+### 2-bis a. Aprire l'account
 
-**Il prezzo da pagare, detto chiaro:**
-- Quel telefono deve restare **acceso, connesso e con l'app viva**. Se si
-  spegne, l'SMS non parte — il programma lo dice, ma nessuno lo manda al posto
-  suo.
-- Gli "illimitati" hanno quasi sempre un limite di uso corretto. Venti messaggi
-  al giorno non sono un problema; trecento sì.
-- Funziona **solo con Android**. Da iPhone non si può, è il sistema che non lo
-  permette.
-- Un telefono vecchio va benissimo, purché prenda la rete e abbia una SIM con
-  gli SMS.
+1. https://www.skebby.it → **Registrati**
+2. Conferma l'email e completa i dati dell'azienda (servono per il passo dopo)
 
-### 2-bis a. Installare l'app
+### 2-bis b. Registrare il mittente "RD SALON"
 
-1. Sul telefono Android del salone, apri il Play Store e cerca
-   **SMS Gateway for Android** (di *capcom6*). In alternativa si scarica da
-   https://sms-gate.app
-2. Installa e apri l'app.
-3. Dà i permessi che chiede: **invio SMS** e, se lo chiede, **avvio
-   automatico** e **batteria senza restrizioni**. Senza l'ultimo, Android
-   spegne l'app dopo qualche ora e i messaggi smettono di partire senza dire
-   niente.
+È il passo che fa la differenza fra un SMS che sembra del salone e uno che
+sembra spam. Il mittente scritto a lettere va autorizzato: Skebby è abilitato
+a farlo per AGCOM, ma serve la richiesta.
 
-### 2-bis b. Accenderla in modalità Cloud
+1. Nel pannello: **Mittenti** (o *Alias mittente*) → **Nuovo mittente**
+2. Scrivi `RD SALON` — **massimo 11 caratteri**, solo lettere, numeri e spazi
+3. Carica i documenti che chiedono (visura o documento del titolare) e manda
+4. L'approvazione richiede in genere **qualche ora, al massimo un giorno**
 
-L'app può funzionare in tre modi. A noi serve **Cloud**, perché il nostro
-server sta su internet e il telefono sta dietro il router del salone: da fuori
-non lo si raggiunge.
+> Finché non è approvato l'SMS parte lo stesso, ma da un numero generico.
+> Funziona: è solo meno bello.
 
-1. Nell'app, sezione **Cloud server** (o *Server mode → Cloud*)
-2. Attiva l'interruttore
-3. L'app mostra **un nome utente e una password**. Sono quelli che servono a
-   noi. Scrivili da qualche parte adesso, che poi non si rivedono.
+### 2-bis c. Comprare i messaggi
 
-### 2-bis c. Metterli su Vercel
+1. **Acquista** → prendi il **pacchetto più piccolo** per la prova
+2. Scegli **SMS Classic Plus** (nel nostro codice è il tipo `GP`): è quello con
+   il mittente a lettere e la conferma di consegna
 
-Vercel → Settings → Environment Variables, due variabili nuove:
+> Se compri un tipo diverso, dimmelo: si cambia una variabile su Vercel
+> (`SKEBBY_TIPO`), non una riga di codice. `TI` = Classic, `SI` = Basic.
+
+### 2-bis d. Le chiavi su Vercel
+
+Non serve nessuna chiave API da generare: bastano l'utente e la password con
+cui entri nel loro pannello.
+
+Vercel → Settings → Environment Variables:
 
 | Key | Value |
 |-----|-------|
-| `SMS_GATEWAY_USER` | il nome utente che mostra l'app |
-| `SMS_GATEWAY_PASSWORD` | la password che mostra l'app |
+| `SKEBBY_USER` | l'utente Skebby |
+| `SKEBBY_PASSWORD` | la password Skebby |
+| `SKEBBY_MITTENTE` | `RD SALON` |
 
-Spunta tutti e tre gli ambienti → **Save**, e poi rifai il deploy (passo 3).
+Spunta tutti e tre gli ambienti → **Save**, poi rifai il deploy (passo 3).
 
-> Se un domani preferisci non passare dal loro server, si può far girare il
-> ponte per conto proprio: basta aggiungere `SMS_GATEWAY_URL` con il proprio
-> indirizzo. Il codice è già pronto per questo, non cambia altro.
+> **Non mandarmele in chat.** Le metti tu su Vercel, come tutte le altre.
 
-### 2-bis d. La prova
+### 2-bis e. Quanto costa davvero un messaggio
 
-Nell'app c'è un tasto per mandare un SMS di prova: mandalo al tuo numero. Se
-arriva, il ponte funziona e il resto lo fa il programma.
+Un SMS non è "un messaggio": è un pezzo da **160 caratteri** — ma solo se tutte
+le lettere stanno nell'alfabeto che i telefoni usano da sempre. Basta un
+trattino lungo o un'emoji e si passa all'alfabeto largo, dove i pezzi sono da
+**70 caratteri**: lo stesso messaggio può costare 1 credito o 3.
 
----
+Per questo il testo dell'SMS **non è l'email accorciata**: è un'altra frase,
+scritta per starci dentro una volta sola.
+
+```
+RD Salon: appuntamento confermato gio 1/10 alle 15:30 (Colore e Piega)
+con Rosanna. Se non puoi venire avvisaci. Tel 0775123456
+```
+127 caratteri, **1 credito**.
+
+Se il nome del salone o l'elenco dei servizi fanno sforare, il programma lascia
+per strada da solo il superfluo — prima il telefono, poi il nome
+dell'operatrice, poi accorcia i servizi in "Colore e altro" — **ma quando e chi
+manda il messaggio non si perdono mai**. Meglio un messaggio asciutto che due
+crediti.
+
+### 2-bis f. Il conto della serva
+
+Conferma + promemoria = **2 crediti per appuntamento**. Moltiplica per gli
+appuntamenti del mese e hai la bolletta. Se un domani diventa troppa, si mette
+il telefono Android come postino (vedi in fondo) e si scende a zero: si
+cambiano due variabili, il codice è lo stesso.
 
 ## 3. Rifare il deploy · 2 minuti
 
@@ -217,7 +231,7 @@ https://gestionalerosy.colasantiludovico.it/api/salute
 Deve rispondere così:
 
 ```json
-{ "servizio": "rosy", "chiave": "a posto", "sms": "a posto", "email": "spenta" }
+{ "servizio": "rosy", "chiave": "a posto", "sms": "a posto (Skebby)", "email": "spenta" }
 ```
 
 `"email": "spenta"` va benissimo finché l'email è rimandata: quello che conta
@@ -229,7 +243,7 @@ oggi è `"chiave": "a posto"` e `"sms": "a posto"`.
 | `"chiave": "non valida"` | Il JSON è incollato a metà, o è il file sbagliato: serve quello dell'**Account di servizio**. |
 | `"email": "spenta"` | Manca `RESEND_API_KEY`. Normale finché l'email è rimandata. |
 | `"email": "manca il mittente"` | C'è la chiave ma non `MITTENTE_EMAIL`. |
-| `"sms": "spento"` | Mancano `SMS_GATEWAY_USER` e `SMS_GATEWAY_PASSWORD`. |
+| `"sms": "spento"` | Mancano `SKEBBY_USER` e `SKEBBY_PASSWORD`. |
 | Pagina bianca o 404 | Il deploy non ha preso la cartella `api/`: mandami lo screenshot del log di Vercel. |
 
 La pagina non mostra mai le chiavi né un pezzo di esse: dice solo se funzionano.
@@ -254,8 +268,27 @@ messaggio dopo i due punti dice esattamente cosa manca.
 
 - **Promemoria il giorno prima.** Il testo è già scritto, va solo deciso a che
   ora parte e acceso il timer.
-- **SMS dal telefono del salone.** Un Android acceso in salone fa da ponte e
-  l'SMS parte dal piano illimitato: costo zero a messaggio. Da valutare
-  insieme, perché il telefono deve restare acceso e connesso.
-- **Verifica del numero** in prenotazione: stesso motore, appena c'è un canale
-  che arriva sul telefono.
+- **Verifica del numero** in prenotazione: adesso che c'è un canale che arriva
+  sul telefono, si può fare.
+- **WhatsApp**, se il salone prende un numero dedicato o passa da un
+  intermediario. Si aggiunge come terzo canale, non sostituisce niente.
+
+---
+
+## Appendice: l'SMS a costo zero, con un telefono
+
+Alternativa a Skebby, per quando i messaggi diventano tanti. Serve **un
+Android** (anche vecchio, anche da 40 euro) acceso in salone con una SIM con
+gli SMS: l'app *SMS Gateway for Android* (di *capcom6*, da
+https://sms-gate.app) fa da ponte, e il messaggio parte dalla SIM del salone.
+
+Zero a messaggio, e alla cliente arriva **dal numero del salone**, così se
+risponde risponde lì. In cambio quel telefono deve restare acceso, connesso e
+con l'app viva — e va tolta la restrizione della batteria, altrimenti Android
+la spegne dopo qualche ora senza dirlo a nessuno. **Da iPhone non si può**: è
+il sistema che non lo permette.
+
+Si accende in modalità **Cloud**, si copiano le due credenziali che mostra
+l'app, e si mettono su Vercel come `SMS_GATEWAY_USER` e
+`SMS_GATEWAY_PASSWORD`. Il codice sceglie da sé: se ci sono le chiavi di
+Skebby usa quelle, altrimenti il telefono.
