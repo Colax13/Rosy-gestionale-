@@ -240,6 +240,38 @@ export const clientiApi = {
   }
 };
 
+/**
+ * I messaggi alle clienti passano dal server, non dal browser.
+ *
+ * Non è un capriccio: per mandare un'email serve una chiave, e una chiave
+ * messa nel programma se la prende chiunque apra il sito. Il browser si limita
+ * a dire "manda la conferma di questo appuntamento", allegando il tesserino di
+ * chi è entrato; a controllare che l'appuntamento sia davvero di quel salone,
+ * e a mandare, ci pensa il server.
+ */
+export const messaggiApi = {
+  manda: async (appuntamentoId: string, tipo: 'conferma' | 'promemoria' = 'conferma') => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+
+    const risposta = await fetch('/api/messaggi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ appuntamentoId, tipo })
+    });
+
+    const dati = await risposta.json().catch(() => ({}));
+
+    // 202 vuol dire "ricevuto, ma non è partito niente": manca la chiave,
+    // oppure la cliente non ha lasciato un indirizzo. Non è un errore da
+    // fermare tutto, è una cosa da dire.
+    if (!risposta.ok && risposta.status !== 202) {
+      throw new Error(dati?.errore || 'Il server non ha risposto come doveva.');
+    }
+    return dati as { mandato: boolean; canale?: string; a?: string; motivo?: string };
+  }
+};
+
 export const salonApi = {
   getSettings: async (): Promise<any> => {
     const ref = doc(db, 'salons', getUserId());

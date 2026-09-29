@@ -3,7 +3,7 @@
 // Top of the file imports ...
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
-import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi } from '@/lib/api-client';
+import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi, messaggiApi } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
@@ -339,6 +339,20 @@ export default function PaginaAgenda() {
         } catch (err) {
           console.error('Non sono riuscito a creare la scheda della cliente:', err);
           setAvvisoSpostamento('Appuntamento confermato, ma la scheda della cliente non è stata creata. Aggiungila a mano da Clienti.');
+        }
+
+        // E la cliente lo viene a sapere. Se il messaggio non parte — manca
+        // l'indirizzo, o il server non è ancora acceso — si dice com'è andata
+        // invece di far finta di niente: c'è una persona che aspetta una
+        // risposta.
+        try {
+          const esito = await messaggiApi.manda(richiesta.id, 'conferma');
+          setAvvisoSpostamento(esito.mandato
+            ? `Confermato. Conferma inviata a ${esito.a}.`
+            : `Confermato, ma alla cliente non è partito niente: ${esito.motivo} Avvisala tu con Ricontatta.`);
+        } catch (err: any) {
+          console.error('Messaggio di conferma non partito:', err);
+          setAvvisoSpostamento(`Confermato, ma alla cliente non è partito niente: ${err?.message || 'il server non risponde.'} Avvisala tu con Ricontatta.`);
         }
       }
 

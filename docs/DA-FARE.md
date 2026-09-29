@@ -610,11 +610,24 @@ scorresse niente.
 
 ## In sospeso — nell'ordine in cui conviene farle
 
-**1. Messaggi automatici** · serve la chiave su Vercel
-Alla conferma parte l'email da sola; poi il promemoria il giorno prima. Il
-messaggio su WhatsApp o via SMS costa qualche centesimo l'uno e ha bisogno di
-un numero aziendale verificato: si fa dopo, sulla stessa base.
-Nel frattempo si può aprire WhatsApp a mano dal tasto *Ricontatta*.
+**1. Messaggi automatici** · ✅ SCRITTO, aspetta le chiavi su Vercel
+Alla conferma della richiesta parte l'email alla cliente, da sola. Il testo
+dice quando, che cosa e con chi, e ricorda di avvisare se non può venire.
+
+Il codice c'è tutto: `api/messaggi.ts` (chi chiama deve dimostrare chi è, e
+l'appuntamento dev'essere del suo salone), `api/_messaggi.ts` (il testo, in
+email e in testo semplice — lo stesso che servirà per l'SMS). Quello che parte
+resta segnato sull'appuntamento, sotto `messaggi`, così non si manda due volte
+e si capisce perché una cliente dice che non le è arrivato niente.
+
+**Manca solo la configurazione**, ed è in mano al titolare:
+`FIREBASE_SERVICE_ACCOUNT`, `RESEND_API_KEY` e `MITTENTE_EMAIL` su Vercel.
+Passo per passo in `docs/SERVER-SU-VERCEL.md`. Finché non ci sono, l'agenda
+dice chiaramente che il messaggio non è partito e perché, e si avvisa a mano
+con *Ricontatta*.
+
+**Da fare subito dopo:** il promemoria del giorno prima (il testo è già
+scritto, va deciso a che ora parte) e l'SMS dal telefono del salone.
 
 **2. G20 — Rifare la schermata di prenotazione** (quella interna)
 Viene da un altro gestionale e si usa peggio del resto.
