@@ -5,7 +5,7 @@
 // salone. Senza, chiunque potrebbe far partire messaggi a nome del salone.
 
 import { database, chiEntra, saloneDi } from './_firebase';
-import { componi, mandaEmail, TipoMessaggio } from './_messaggi';
+import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio } from './_messaggi';
 
 interface Richiesta {
   method?: string;
@@ -77,31 +77,49 @@ export default async function handler(req: Richiesta, res: Risposta) {
     const scheda = await db.collection('salons').doc(salone).get();
     const dettagli = (scheda.data() as any)?.salonDetails || {};
 
-    const esito = await mandaEmail(
-      (app.clienti?.email || '').trim(),
-      componi(quale, {
-        nomeCliente: `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim(),
-        nomeSalone: dettagli.nomeSalone || 'il salone',
-        indirizzo: dettagli.indirizzo || '',
-        telefonoSalone: dettagli.telefono || '',
-        quando: new Date(app.data_ora),
-        servizi: (app.righe_appuntamento || []).map((r: any) => r?.servizi_catalogo?.nome).filter(Boolean),
-        operatore: app.dipendenti?.nome || ''
-      })
-    );
+    const messaggio = componi(quale, {
+      nomeCliente: `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim(),
+      nomeSalone: dettagli.nomeSalone || 'il salone',
+      indirizzo: dettagli.indirizzo || '',
+      telefonoSalone: dettagli.telefono || '',
+      quando: new Date(app.data_ora),
+      servizi: (app.righe_appuntamento || []).map((r: any) => r?.servizi_catalogo?.nome).filter(Boolean),
+      operatore: app.dipendenti?.nome || ''
+    });
+
+    // Si prova su tutte e due le strade. Non è ridondanza inutile: l'SMS lo
+    // leggono tutte ma non tutte lasciano il numero giusto, l'email resta
+    // scritta ma finisce fra le promozioni. Se ne arriva una, è andata.
+    const esiti: EsitoInvio[] = await Promise.all([
+      mandaSms((app.clienti?.telefono || '').trim(), messaggio),
+      mandaEmail((app.clienti?.email || '').trim(), messaggio)
+    ]);
+
+    const riusciti = esiti.filter(e => e.mandato) as Extract<EsitoInvio, { mandato: true }>[];
 
     // Resta scritto sull'appuntamento che cosa è partito e quando: serve a non
     // mandare due volte la stessa cosa, e a capire perché una cliente dice che
     // non le è arrivato niente.
-    if (esito.mandato) {
+    if (riusciti.length) {
       await db.collection('appuntamenti').doc(appuntamentoId).update({
-        [`messaggi.${quale}`]: { canale: esito.canale, a: esito.a, quando: new Date().toISOString() }
+        [`messaggi.${quale}`]: {
+          quando: new Date().toISOString(),
+          arrivati: riusciti.map(e => ({ canale: e.canale, a: e.a }))
+        }
       });
     }
 
     // 202 = ricevuto, ma non è partito niente (manca una chiave, o la cliente
-    // non ha lasciato l'indirizzo). Non è un errore: è una cosa da dire.
-    res.status(esito.mandato ? 200 : 202).json(esito);
+    // non ha lasciato né numero né indirizzo). Non è un errore: è una cosa da
+    // dire, perché c'è una persona che aspetta una risposta.
+    res.status(riusciti.length ? 200 : 202).json({
+      mandato: riusciti.length > 0,
+      canali: riusciti.map(e => e.canale),
+      a: riusciti.map(e => e.a),
+      motivo: riusciti.length
+        ? undefined
+        : esiti.filter(e => !e.mandato).map(e => `${e.canale}: ${(e as { motivo: string }).motivo}`).join(' ')
+    });
   } catch (err: any) {
     console.error('Errore mandando il messaggio:', err);
     res.status(500).json({ errore: 'Qualcosa è andato storto lato server.', dettaglio: err?.message || '' });

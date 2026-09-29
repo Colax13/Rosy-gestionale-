@@ -268,7 +268,7 @@ export const messaggiApi = {
     if (!risposta.ok && risposta.status !== 202) {
       throw new Error(dati?.errore || 'Il server non ha risposto come doveva.');
     }
-    return dati as { mandato: boolean; canale?: string; a?: string; motivo?: string };
+    return dati as { mandato: boolean; canali?: string[]; a?: string[]; motivo?: string };
   }
 };
 

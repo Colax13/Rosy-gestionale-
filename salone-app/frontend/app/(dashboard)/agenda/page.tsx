@@ -8,6 +8,7 @@ import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLe
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
+import { componi } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import { puoAprirePercorso } from '@/lib/sessione';
 import {
@@ -187,6 +188,9 @@ export default function PaginaAgenda() {
   const [dipendenti, setDipendenti] = useState<any[]>([]);
   // Il nome che va in cima al preconto stampato.
   const [nomeSalone, setNomeSalone] = useState<string>('');
+  // Nome, indirizzo e telefono del salone: finiscono dentro il messaggio che
+  // legge la cliente, quindi servono anche qui e non solo in Impostazioni.
+  const [dettagliSalone, setDettagliSalone] = useState<any>({});
   const [selectedDipendenteId, setSelectedDipendenteId] = useState<string>('tutti');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +206,12 @@ export default function PaginaAgenda() {
   // Sync picker date when opening and when selectedDate changes
   useEffect(() => {
     salonApi.getSettings()
-      .then(dati => setNomeSalone(dati?.nome || dati?.settings?.nome || ''))
+      .then(dati => {
+        // Il nome sta sotto `salonDetails`: è lì che lo scrive Impostazioni.
+        const dettagli = dati?.salonDetails || {};
+        setDettagliSalone(dettagli);
+        setNomeSalone(dettagli.nomeSalone || dati?.nome || dati?.settings?.nome || '');
+      })
       .catch(() => {});
   }, []);
 
@@ -320,6 +329,23 @@ export default function PaginaAgenda() {
     }
   };
 
+  /**
+   * La conferma da mandare a mano, con le stesse parole dell'email.
+   *
+   * Finché il server non è configurato — o quando la cliente non ha lasciato
+   * un indirizzo — si avvisa su WhatsApp con un tocco. Il testo è lo stesso,
+   * così la cliente legge la stessa cosa qualunque strada abbia preso.
+   */
+  const testoConferma = (r: any) => componi('conferma', {
+    nomeCliente: `${r.clienti?.nome || ''} ${r.clienti?.cognome || ''}`.trim(),
+    nomeSalone: dettagliSalone.nomeSalone || nomeSalone || 'il salone',
+    indirizzo: dettagliSalone.indirizzo || '',
+    telefonoSalone: dettagliSalone.telefono || '',
+    quando: new Date(r.data_ora),
+    servizi: (r.righe_appuntamento || []).map((x: any) => x?.servizi_catalogo?.nome).filter(Boolean),
+    operatore: r.dipendenti?.nome || ''
+  }).testo;
+
   /** Conferma o rifiuta una richiesta arrivata dal sito. */
   const rispondiARichiesta = async (richiesta: any, azione: 'conferma' | 'rifiuta') => {
     setRichiestaInCorso(richiesta.id);
@@ -347,9 +373,10 @@ export default function PaginaAgenda() {
         // risposta.
         try {
           const esito = await messaggiApi.manda(richiesta.id, 'conferma');
+          const come = (esito.canali || []).map(c => (c === 'sms' ? 'SMS' : 'email')).join(' e ');
           setAvvisoSpostamento(esito.mandato
-            ? `Confermato. Conferma inviata a ${esito.a}.`
-            : `Confermato, ma alla cliente non è partito niente: ${esito.motivo} Avvisala tu con Ricontatta.`);
+            ? `Confermato. Conferma inviata per ${come} a ${(esito.a || []).join(', ')}.`
+            : `Confermato, ma alla cliente non è partito niente — ${esito.motivo} Avvisala tu con Ricontatta.`);
         } catch (err: any) {
           console.error('Messaggio di conferma non partito:', err);
           setAvvisoSpostamento(`Confermato, ma alla cliente non è partito niente: ${err?.message || 'il server non risponde.'} Avvisala tu con Ricontatta.`);
@@ -1644,7 +1671,7 @@ export default function PaginaAgenda() {
                       <BottoneRicontatta
                         telefono={telefono}
                         className="flex-1 min-w-[110px]"
-                        messaggio={`Buongiorno ${r.clienti?.nome || ''}, la ricontatto per la sua richiesta di appuntamento.`.replace(/\s+/g, ' ')}
+                        messaggio={testoConferma(r)}
                       />
                       <button
                         disabled={occupato}

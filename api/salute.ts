@@ -19,7 +19,11 @@ export default async function handler(_req: unknown, res: Risposta) {
     ? 'spenta'
     : (process.env.MITTENTE_EMAIL ? 'a posto' : 'manca il mittente');
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email };
+  const sms = (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD)
+    ? 'a posto'
+    : 'spento';
+
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({

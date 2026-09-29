@@ -1,4 +1,4 @@
-import { componi, quandoScritto, elencoScritto } from './_messaggi';
+import { componi, quandoScritto, elencoScritto } from './messaggi';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {

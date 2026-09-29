@@ -626,8 +626,19 @@ Passo per passo in `docs/SERVER-SU-VERCEL.md`. Finché non ci sono, l'agenda
 dice chiaramente che il messaggio non è partito e perché, e si avvisa a mano
 con *Ricontatta*.
 
+**Due canali, non uno.** Si prova sia l'SMS sia l'email, e basta che ne arrivi
+uno. L'SMS passa da un Android acceso in salone con sopra *SMS Gateway for
+Android*: parte dalla SIM del salone, non costa niente a messaggio, e se la
+cliente risponde risponde al salone. L'email è rimandata finché non si possono
+toccare i DNS di `rdsalon.com`.
+
+Le parole stanno in `salone-app/frontend/lib/messaggi.ts`, non nel server,
+perché servono anche al programma: il tasto **Ricontatta** su una richiesta
+apre WhatsApp con **la stessa identica conferma** già scritta. Così, anche a
+server spento, si avvisa con un tocco e la cliente legge sempre la stessa cosa.
+
 **Da fare subito dopo:** il promemoria del giorno prima (il testo è già
-scritto, va deciso a che ora parte) e l'SMS dal telefono del salone.
+scritto, va deciso a che ora parte).
 
 **2. G20 — Rifare la schermata di prenotazione** (quella interna)
 Viene da un altro gestionale e si usa peggio del resto.
