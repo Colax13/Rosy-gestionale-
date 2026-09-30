@@ -1643,9 +1643,18 @@ export default function PaginaAgenda() {
                     </div>
 
                     {(telefono || r.dipendenti?.nome) && (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
                         {r.dipendenti?.nome && <span>Con {r.dipendenti.nome}</span>}
                         {telefono && <span className="font-mono">{telefono}</span>}
+                        {/* Il codice SMS non è partito (tablet spento?) e la
+                            cliente ha prenotato lo stesso: il numero va
+                            controllato prima di confermare. */}
+                        {r.telefono_verificato === false && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">numero non verificato</span>
+                        )}
+                        {r.telefono_verificato === true && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">numero verificato</span>
+                        )}
                       </div>
                     )}
 

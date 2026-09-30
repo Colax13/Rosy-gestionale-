@@ -107,7 +107,7 @@ export default function AggiungiCalendarioSidebar({
   const [selectedDipendenteId, setSelectedDipendenteId] = useState('');
 
   // Expandable Note
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(true);
   const [noteText, setNoteText] = useState('');
 
   // --- BLOCCA TAB STATE ---
@@ -505,6 +505,23 @@ export default function AggiungiCalendarioSidebar({
 
   if (!isOpen) return null;
 
+  // Prima di salvare si vede com'è venuto: da che ora a che ora, quanto dura,
+  // quanto costa. Prima bisognava fare il conto a mente.
+  const riepilogo = (() => {
+    if (activeTab !== 'appuntamento' || selectedServices.length === 0) return null;
+    const righe = selectedServices.map((s: any) => {
+      const t = tempiServizio(s);
+      return { servizi_catalogo: { durata_minuti: t.totale, tempo_lavorazione_minuti: t.lavorazione, tempo_posa_minuti: t.posa, tempo_finitura_minuti: t.finitura } };
+    });
+    const minuti = durataTotale(righe);
+    const [h, m] = (oraInizio || '00:00').split(':').map(Number);
+    const fine = h * 60 + m + minuti;
+    const due = (n: number) => String(n).padStart(2, '0');
+    const prezzo = selectedServices.reduce((t, s) => t + (Number(s.prezzo_base) || 0), 0);
+    const durata = minuti >= 60 ? `${Math.floor(minuti / 60)} h${minuti % 60 ? ` ${minuti % 60} min` : ''}` : `${minuti} min`;
+    return { da: oraInizio, a: `${due(Math.floor(fine / 60) % 24)}:${due(fine % 60)}`, durata, prezzo };
+  })();
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-200" onClick={onClose} />
@@ -548,8 +565,8 @@ export default function AggiungiCalendarioSidebar({
             {/* Header */}
             <div>
               <div className="p-6 pb-2 flex justify-between items-center border-b border-zinc-200">
-                <h2 className="text-xl font-bold font-playfair text-zinc-900">{appuntamentoEdit ? 'Modifica appuntamento' : 'Aggiungi al calendario'}</h2>
-                <button onClick={onClose} className="p-1 px-2 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-850 transition-colors">
+                <h2 className="text-xl font-bold font-playfair text-zinc-900">{appuntamentoEdit ? 'Modifica appuntamento' : 'Nuovo appuntamento'}</h2>
+                <button onClick={onClose} className="p-1 px-2 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-100 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -560,8 +577,8 @@ export default function AggiungiCalendarioSidebar({
                   onClick={() => setActiveTab('appuntamento')}
                   className={`py-3 px-4 font-sans text-sm font-semibold border-b-2 transition-all transition-colors ${
                     activeTab === 'appuntamento'
-                      ? 'border-fuchsia-500 text-fuchsia-400'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-250'
+                      ? 'border-fuchsia-500 text-fuchsia-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   Appuntamento
@@ -570,8 +587,8 @@ export default function AggiungiCalendarioSidebar({
                   onClick={() => setActiveTab('blocca')}
                   className={`py-3 px-4 font-sans text-sm font-semibold border-b-2 transition-all transition-colors ${
                     activeTab === 'blocca'
-                      ? 'border-fuchsia-500 text-fuchsia-400'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-250'
+                      ? 'border-fuchsia-500 text-fuchsia-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   Blocca
@@ -585,31 +602,269 @@ export default function AggiungiCalendarioSidebar({
               {/* --- APPUNTAMENTO TAB VIEW --- */}
               {activeTab === 'appuntamento' && (
                 <>
+                  {/* CLIENT SECTION */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-zinc-900">Cliente</h3>
+
+                    {/* Client display or search */}
+                    {selectedClient ? (
+                      <>
+                        <div className="p-4 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/25 flex justify-between items-center animate-in zoom-in-95 duration-150">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-fuchsia-600/20 text-fuchsia-700 font-semibold flex items-center justify-center text-sm">
+                              {selectedClient.nome.charAt(0)}{selectedClient.cognome.charAt(0)}
+                            </div>
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-800">
+                              {selectedClient.nome} {selectedClient.cognome}
+                            </p>
+                            {selectedClient.telefono && (
+                              <p className="text-xs text-zinc-500">{selectedClient.telefono}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedClient(null)}
+                          className="px-2 py-1 text-xs font-semibold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/40 rounded transition-all shrink-0"
+                        >
+                          Rimuovi
+                        </button>
+                      </div>
+                      {selectedClient.note && (
+                        <div className="mt-2 p-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl flex gap-2 animate-in fade-in zoom-in-95 duration-200">
+                          <FileText size={16} className="text-fuchsia-700 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-bold text-fuchsia-800 uppercase tracking-wider mb-0.5 font-mono">Nota cliente</p>
+                            <p className="text-sm text-zinc-700 leading-relaxed italic pr-2">{selectedClient.note}</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                    ) : isCreatingClient ? (
+                      /* Create customer directly in menu! */
+                      <form onSubmit={handleCreateClient} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/40 space-y-3 animate-in fade-in duration-150">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-fuchsia-700 font-bold font-sans uppercase">Nuovo cliente</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsCreatingClient(false)}
+                            className="text-[10px] text-zinc-500 hover:text-zinc-700 uppercase"
+                          >
+                            Annulla
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Nome *"
+                            value={newClientNome}
+                            onChange={(e) => setNewClientNome(e.target.value)}
+                            className="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500"
+                            required
+                          />
+                          <input
+                            type="text"
+                            placeholder="Cognome *"
+                            value={newClientCognome}
+                            onChange={(e) => setNewClientCognome(e.target.value)}
+                            className="bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500"
+                            required
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Telefono"
+                          value={newClientTelefono}
+                          onChange={(e) => setNewClientTelefono(e.target.value)}
+                          className="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 font-mono"
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email (opzionale)"
+                          value={newClientEmail}
+                          onChange={(e) => setNewClientEmail(e.target.value)}
+                          className="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 mt-1"
+                        />
+                        <div className="flex items-center gap-2 py-1">
+                          <input
+                            type="checkbox"
+                            id="marketing-consent"
+                            checked={newClientConsensoMarketing}
+                            onChange={(e) => setNewClientConsensoMarketing(e.target.checked)}
+                            className="bg-white border-zinc-200 rounded w-4 h-4 text-fuchsia-600 focus:ring-fuchsia-500  cursor-pointer"
+                          />
+                          <label htmlFor="marketing-consent" className="text-[11px] text-zinc-500 cursor-pointer select-none">
+                            Acconsento all'invio di comunicazioni marketing
+                          </label>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-zinc-600 block">Canale di acquisizione</label>
+                          <select
+                            value={newClientCanale}
+                            onChange={(e) => setNewClientCanale(e.target.value)}
+                            className="w-full bg-white border border-zinc-300 rounded-xl px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500"
+                          >
+                            <option value="Instagram">Instagram</option>
+                            <option value="Facebook">Facebook</option>
+                            <option value="Google">Google</option>
+                            <option value="Passaparola">Passaparola</option>
+                            <option value="Altro">Altro / Passante</option>
+                          </select>
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors"
+                        >
+                          Aggiungi e seleziona cliente
+                        </button>
+                      </form>
+                    ) : (
+                      /* Classic search input */
+                      <div className="relative">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-3.5 text-zinc-500" size={14} />
+                          <input
+                            type="text"
+                            placeholder="Aggiungi o cerca cliente..."
+                            value={searchClientQuery}
+                            onChange={(e) => {
+                              setSearchClientQuery(e.target.value);
+                              setIsClientDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsClientDropdownOpen(true)}
+                            className="w-full bg-white border border-zinc-300 rounded-xl py-2.5 pl-9 pr-4 text-[15px] text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors"
+                          />
+                        </div>
+
+                        {/* Search overlay dropdown */}
+                        {isClientDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsClientDropdownOpen(false)} />
+                            <div className="absolute z-20 left-0 right-0 mt-1.5 border border-zinc-200 bg-white rounded-xl max-h-56 overflow-y-auto shadow-2xl divide-y divide-zinc-200/80">
+                            
+                            {/* Create Client Option */}
+                            <button
+                              onClick={() => {
+                                setIsCreatingClient(true);
+                                setIsClientDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-fuchsia-700 hover:bg-white text-sm font-semibold transition-colors"
+                            >
+                              <UserPlus size={14} />
+                              + Crea un nuovo cliente
+                            </button>
+
+                            {/* Anonymous Client Option */}
+                            <button
+                              onClick={() => {
+                                setSelectedClient({
+                                  id: 'walkin',
+                                  nome: 'Cliente',
+                                  cognome: 'Occasionale',
+                                  telefono: '-'
+                                });
+                                setIsClientDropdownOpen(false);
+                                setSearchClientQuery('');
+                              }}
+                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-zinc-600 hover:bg-white text-sm font-medium transition-colors"
+                            >
+                              <User size={14} />
+                              Cliente di passaggio (senza scheda)
+                            </button>
+
+                            {/* Filtered customers */}
+                            {filteredClients.length > 0 ? (
+                              filteredClients.map(cli => (
+                                <button
+                                  key={cli.id}
+                                  onClick={() => {
+                                    setSelectedClient(cli);
+                                    setIsClientDropdownOpen(false);
+                                    setSearchClientQuery('');
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-white transition-colors flex justify-between items-center"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-zinc-900">{cli.nome} {cli.cognome}</p>
+                                    {cli.telefono && (
+                                      <p className="text-xs text-zinc-500 mt-0.5">{cli.telefono}</p>
+                                    )}
+                                  </div>
+                                </button>
+                              ))
+                            ) : searchClientQuery.trim() !== '' ? (
+                              <div className="px-4 py-3 text-xs text-zinc-500 italic select-none">
+                                Nessun cliente trovato per "{searchClientQuery}"
+                              </div>
+                            ) : null}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SERVICES SECTION */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-zinc-900">Servizi</h3>
+
+                    {/* List selected services */}
+                    {selectedServices.length > 0 && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {selectedServices.map(ser => (
+                          <div key={ser.id} className="p-3 bg-zinc-50/60 border border-zinc-200/80 rounded-xl flex justify-between items-center hover:border-zinc-300 transition-all">
+                            <div>
+                              <p className="text-sm font-semibold text-zinc-900">{ser.nome}</p>
+                              <p className="text-xs text-zinc-500 mt-0.5">
+                                {ser.prezzo_base} € <span className="ml-1 border-l border-zinc-200 pl-1.5">{ser.durata_minuti} min</span>
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setSelectedServices(selectedServices.filter(s => s.id !== ser.id))}
+                              className="p-1 text-zinc-500 hover:text-red-400 rounded-md transition-colors"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add service button */}
+                    <button
+                      onClick={() => setIsAddingServiceView(true)}
+                      className="w-full flex items-center justify-center gap-2 bg-zinc-50/40 hover:bg-fuchsia-500/10 hover:border-fuchsia-200 text-fuchsia-700 hover:text-fuchsia-800 font-semibold border border-dashed border-zinc-200 rounded-xl py-3 text-sm transition-all cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      Aggiungi servizio
+                    </button>
+                  </div>
+
                   {/* QUANDO SECTION */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Quando</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900">Quando e con chi</h3>
                     
                     <div className="grid grid-cols-2 gap-4">
                       {/* Data */}
                       <div>
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Data</label>
+                        <label className="text-sm font-medium text-zinc-600 block mb-1">Data</label>
                         <div className="relative">
                           <input
                             type="date"
                             value={data}
                             onChange={(e) => setData(e.target.value)}
-                            className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                            className="w-full bg-white border border-zinc-300 rounded-xl py-2.5 px-3 text-[15px] text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors tabular-nums"
                           />
                         </div>
                       </div>
 
                       {/* Ora di inizio */}
                       <div>
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Ora di inizio</label>
+                        <label className="text-sm font-medium text-zinc-600 block mb-1">Ora di inizio</label>
                         <select
                           value={oraInizio}
                           onChange={(e) => setOraInizio(e.target.value)}
-                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-white border border-zinc-300 rounded-xl py-2.5 px-3 text-[15px] text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer tabular-nums"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
                             <option key={time} value={time} className="bg-white text-zinc-900">{time}</option>
@@ -620,11 +875,11 @@ export default function AggiungiCalendarioSidebar({
 
                     {/* Operator collaborator mapping */}
                     <div className="pt-1">
-                      <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Operatore / Collaboratore</label>
+                      <label className="text-sm font-medium text-zinc-600 block mb-1">Operatrice</label>
                       <select
                         value={selectedDipendenteId}
                         onChange={(e) => setSelectedDipendenteId(e.target.value)}
-                        className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer"
+                        className="w-full bg-white border border-zinc-300 rounded-xl py-2.5 px-3 text-[15px] text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer"
                       >
                         {dipendenti.map(emp => (
                           <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
@@ -636,7 +891,7 @@ export default function AggiungiCalendarioSidebar({
 
                     {/* Repeating Appt Toggle */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50/30 border border-zinc-200/40 select-none">
-                      <span className="text-xs text-zinc-350 font-sans">Ripeti questo appuntamento</span>
+                      <span className="text-sm text-zinc-700">Si ripete</span>
                       <button
                         onClick={() => setRipeti(!ripeti)}
                         className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-100 justify-start'}`}
@@ -650,7 +905,7 @@ export default function AggiungiCalendarioSidebar({
                         <div className="grid grid-cols-2 gap-4">
                           {/* Si ripete ogni */}
                           <div>
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Si ripete ogni</label>
+                            <label className="text-sm font-medium text-zinc-600 block mb-1.5">Si ripete ogni</label>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
@@ -679,7 +934,7 @@ export default function AggiungiCalendarioSidebar({
 
                           {/* Termina dopo */}
                           <div>
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Termina dopo</label>
+                            <label className="text-sm font-medium text-zinc-600 block mb-1.5">Termina dopo</label>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
@@ -708,268 +963,30 @@ export default function AggiungiCalendarioSidebar({
                         </div>
 
                         {/* Calculated repetition date preview */}
-                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
-                          <RotateCw size={13} className="text-fuchsia-400 animate-spin" style={{ animationDuration: '3s' }} />
-                          <span>Si ripete fino a <span className="text-fuchsia-400 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
+                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-200 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
+                          <RotateCw size={13} className="text-fuchsia-700" />
+                          <span>Si ripete fino a <span className="text-fuchsia-700 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  {/* CLIENT SECTION */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Cliente</h3>
-
-                    {/* Client display or search */}
-                    {selectedClient ? (
-                      <>
-                        <div className="p-4 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/25 flex justify-between items-center animate-in zoom-in-95 duration-150">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-fuchsia-600/20 text-fuchsia-400 font-semibold flex items-center justify-center text-sm">
-                              {selectedClient.nome.charAt(0)}{selectedClient.cognome.charAt(0)}
-                            </div>
-                          <div>
-                            <p className="text-sm font-semibold text-zinc-800">
-                              {selectedClient.nome} {selectedClient.cognome}
-                            </p>
-                            {selectedClient.telefono && (
-                              <p className="text-[11px] text-zinc-500 font-mono italic">{selectedClient.telefono}</p>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setSelectedClient(null)}
-                          className="px-2 py-1 text-xs font-semibold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/40 rounded transition-all shrink-0"
-                        >
-                          Rimuovi
-                        </button>
-                      </div>
-                      {selectedClient.note && (
-                        <div className="mt-2 p-3 bg-fuchsia-900/20 border border-fuchsia-500/30 rounded-xl flex gap-2 animate-in fade-in zoom-in-95 duration-200">
-                          <FileText size={16} className="text-fuchsia-400 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-bold text-fuchsia-300 uppercase tracking-wider mb-0.5 font-mono">Nota cliente</p>
-                            <p className="text-sm text-zinc-700 leading-relaxed italic pr-2">{selectedClient.note}</p>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                    ) : isCreatingClient ? (
-                      /* Create customer directly in menu! */
-                      <form onSubmit={handleCreateClient} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/40 space-y-3 animate-in fade-in duration-150">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-fuchsia-400 font-bold font-sans uppercase">Nuovo cliente</span>
-                          <button
-                            type="button"
-                            onClick={() => setIsCreatingClient(false)}
-                            className="text-[10px] text-zinc-500 hover:text-zinc-700 uppercase"
-                          >
-                            Annulla
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="text"
-                            placeholder="Nome *"
-                            value={newClientNome}
-                            onChange={(e) => setNewClientNome(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
-                            required
-                          />
-                          <input
-                            type="text"
-                            placeholder="Cognome *"
-                            value={newClientCognome}
-                            onChange={(e) => setNewClientCognome(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
-                            required
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Filtro Telefono"
-                          value={newClientTelefono}
-                          onChange={(e) => setNewClientTelefono(e.target.value)}
-                          className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 font-mono"
-                        />
-                        <input
-                          type="email"
-                          placeholder="Email (opzionale)"
-                          value={newClientEmail}
-                          onChange={(e) => setNewClientEmail(e.target.value)}
-                          className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 font-mono mt-1"
-                        />
-                        <div className="flex items-center gap-2 py-1">
-                          <input
-                            type="checkbox"
-                            id="marketing-consent"
-                            checked={newClientConsensoMarketing}
-                            onChange={(e) => setNewClientConsensoMarketing(e.target.checked)}
-                            className="bg-white border-zinc-200 rounded w-4 h-4 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-zinc-900 cursor-pointer"
-                          />
-                          <label htmlFor="marketing-consent" className="text-[11px] text-zinc-500 cursor-pointer select-none">
-                            Acconsento all'invio di comunicazioni marketing
-                          </label>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase block">Canale di acquisizione</label>
-                          <select
-                            value={newClientCanale}
-                            onChange={(e) => setNewClientCanale(e.target.value)}
-                            className="w-full bg-white border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500"
-                          >
-                            <option value="Instagram">Instagram</option>
-                            <option value="Facebook">Facebook</option>
-                            <option value="Google">Google</option>
-                            <option value="Passaparola">Passaparola</option>
-                            <option value="Altro">Altro / Passante</option>
-                          </select>
-                        </div>
-                        <button
-                          type="submit"
-                          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold text-xs py-1.5 rounded transition-colors"
-                        >
-                          Aggiungi e seleziona cliente
-                        </button>
-                      </form>
-                    ) : (
-                      /* Classic search input */
-                      <div className="relative">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-3.5 text-zinc-500" size={14} />
-                          <input
-                            type="text"
-                            placeholder="Aggiungi o cerca cliente..."
-                            value={searchClientQuery}
-                            onChange={(e) => {
-                              setSearchClientQuery(e.target.value);
-                              setIsClientDropdownOpen(true);
-                            }}
-                            onFocus={() => setIsClientDropdownOpen(true)}
-                            className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2.5 pl-9 pr-4 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 transition-colors"
-                          />
-                        </div>
-
-                        {/* Search overlay dropdown */}
-                        {isClientDropdownOpen && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsClientDropdownOpen(false)} />
-                            <div className="absolute z-20 left-0 right-0 mt-1.5 border border-zinc-200 bg-white rounded-xl max-h-56 overflow-y-auto shadow-2xl divide-y divide-zinc-200/80">
-                            
-                            {/* Create Client Option */}
-                            <button
-                              onClick={() => {
-                                setIsCreatingClient(true);
-                                setIsClientDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-fuchsia-400 hover:bg-white text-xs font-semibold font-sans transition-colors"
-                            >
-                              <UserPlus size={14} />
-                              + Crea un nuovo cliente
-                            </button>
-
-                            {/* Anonymous Client Option */}
-                            <button
-                              onClick={() => {
-                                setSelectedClient({
-                                  id: 'walkin',
-                                  nome: 'Cliente',
-                                  cognome: 'Occasionale',
-                                  telefono: '-'
-                                });
-                                setIsClientDropdownOpen(false);
-                                setSearchClientQuery('');
-                              }}
-                              className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-zinc-350 hover:bg-white text-xs font-medium font-sans transition-colors"
-                            >
-                              <User size={14} />
-                              Cliente occasionale (senza appuntamento)
-                            </button>
-
-                            {/* Filtered customers */}
-                            {filteredClients.length > 0 ? (
-                              filteredClients.map(cli => (
-                                <button
-                                  key={cli.id}
-                                  onClick={() => {
-                                    setSelectedClient(cli);
-                                    setIsClientDropdownOpen(false);
-                                    setSearchClientQuery('');
-                                  }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-white transition-colors flex justify-between items-center"
-                                >
-                                  <div>
-                                    <p className="text-xs font-medium text-zinc-800">{cli.nome} {cli.cognome}</p>
-                                    {cli.telefono && (
-                                      <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cli.telefono}</p>
-                                    )}
-                                  </div>
-                                </button>
-                              ))
-                            ) : searchClientQuery.trim() !== '' ? (
-                              <div className="px-4 py-3 text-xs text-zinc-500 italic select-none">
-                                Nessun cliente trovato per "{searchClientQuery}"
-                              </div>
-                            ) : null}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SERVICES SECTION */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Servizi</h3>
-
-                    {/* List selected services */}
-                    {selectedServices.length > 0 && (
-                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                        {selectedServices.map(ser => (
-                          <div key={ser.id} className="p-3 bg-zinc-50/60 border border-zinc-200/80 rounded-xl flex justify-between items-center hover:border-zinc-300 transition-all">
-                            <div>
-                              <p className="text-xs font-semibold text-zinc-800">{ser.nome}</p>
-                              <p className="text-[10.5px] text-fuchsia-400 font-semibold mt-0.5">
-                                {ser.prezzo_base} € <span className="text-zinc-500 font-normal ml-1 border-l border-zinc-200 pl-1.5">{ser.durata_minuti} min</span>
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setSelectedServices(selectedServices.filter(s => s.id !== ser.id))}
-                              className="p-1 text-zinc-500 hover:text-red-400 rounded-md transition-colors"
-                            >
-                              <X size={15} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add service button */}
-                    <button
-                      onClick={() => setIsAddingServiceView(true)}
-                      className="w-full flex items-center justify-center gap-2 bg-zinc-50/40 hover:bg-fuchsia-500/10 hover:border-fuchsia-500/30 text-fuchsia-400 hover:text-fuchsia-300 font-semibold border border-dashed border-zinc-200 rounded-xl py-3.5 text-xs transition-all cursor-pointer"
-                    >
-                      <Plus size={14} />
-                      Aggiungi servizio
-                    </button>
                   </div>
 
                   {/* NOTES EXPNADABLE */}
                   <div className="pt-2">
                     {noteOpen ? (
                       <div className="space-y-2 animate-in fade-in duration-250">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Note appuntamento</label>
+                        <label className="text-sm font-semibold text-zinc-900 block mb-1">Note <span className="font-normal text-zinc-400">· facoltative</span></label>
                         <textarea
                           placeholder="Aggiungi dettagli o note speciali per il trattamento..."
                           value={noteText}
                           onChange={(e) => setNoteText(e.target.value)}
-                          className="w-full h-20 bg-zinc-50/60 border border-zinc-200 rounded-lg p-2.5 text-xs text-zinc-800 outline-none focus:border-fuchsia-500 resize-none font-sans"
+                          className="w-full h-20 bg-white border border-zinc-300 rounded-xl p-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 resize-none"
                         />
                       </div>
                     ) : (
                       <button
                         onClick={() => setNoteOpen(true)}
-                        className="flex items-center gap-1.5 text-fuchsia-400 hover:text-fuchsia-300 text-xs font-semibold select-none cursor-pointer"
+                        className="flex items-center gap-1.5 text-fuchsia-700 hover:text-fuchsia-800 text-xs font-semibold select-none cursor-pointer"
                       >
                         <Plus size={14} />
                         Aggiungi nota appuntamento
@@ -985,7 +1002,7 @@ export default function AggiungiCalendarioSidebar({
                 <>
                   {/* TYPE OF BLOCK (Screenshot 2) */}
                   <div className="space-y-2.5">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Tipo di blocco</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900">Tipo di blocco</h3>
                     <div className="flex flex-wrap gap-1.5">
                       {(['Pausa', 'Pranzo', 'Riunione', 'Tempo libero', 'Personalizza'] as const).map(pType => (
                         <button
@@ -994,7 +1011,7 @@ export default function AggiungiCalendarioSidebar({
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-sans transition-all cursor-pointer ${
                             blockType === pType
                               ? 'bg-fuchsia-600 text-white shadow-sm font-bold scale-[1.02]'
-                              : 'bg-white hover:bg-zinc-850 text-zinc-700 border border-zinc-200/30'
+                              : 'bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200/30'
                           }`}
                         >
                           {pType}
@@ -1015,27 +1032,27 @@ export default function AggiungiCalendarioSidebar({
 
                   {/* QUANDO (BLOCK) */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Quando</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900">Quando e con chi</h3>
                     
                     <div className="grid grid-cols-3 gap-2">
                       {/* Data */}
                       <div className="col-span-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Data</label>
+                        <label className="text-sm font-medium text-zinc-600 block mb-1">Data</label>
                         <input
                           type="date"
                           value={data}
                           onChange={(e) => setData(e.target.value)}
-                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors tabular-nums"
                         />
                       </div>
 
                       {/* Ora di inizio */}
                       <div className="col-span-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Inizio</label>
+                        <label className="text-sm font-medium text-zinc-600 block mb-1">Inizio</label>
                         <select
                           value={oraInizio}
                           onChange={(e) => setOraInizio(e.target.value)}
-                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer tabular-nums"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
                             <option key={time} value={time}>{time}</option>
@@ -1045,11 +1062,11 @@ export default function AggiungiCalendarioSidebar({
 
                       {/* Ora di fine */}
                       <div className="col-span-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Ora fine</label>
+                        <label className="text-sm font-medium text-zinc-600 block mb-1">Ora fine</label>
                         <select
                           value={blockTimeFine}
                           onChange={(e) => setBlockTimeFine(e.target.value)}
-                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer font-mono"
+                          className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-2 text-[11.5px] text-zinc-150 outline-none focus:border-fuchsia-500 transition-colors cursor-pointer tabular-nums"
                         >
                           {HOUR_SELECT_OPTIONS.map(time => (
                             <option key={time} value={time}>{time}</option>
@@ -1060,7 +1077,7 @@ export default function AggiungiCalendarioSidebar({
 
                     {/* Repeate Block switch */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50/30 border border-zinc-200/40 select-none">
-                      <span className="text-xs text-zinc-350 font-sans">Ripeti questo blocco</span>
+                      <span className="text-xs text-zinc-600 font-sans">Ripeti questo blocco</span>
                       <button
                         onClick={() => setRipeti(!ripeti)}
                         className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${ripeti ? 'bg-fuchsia-600 justify-end' : 'bg-zinc-100 justify-start'}`}
@@ -1074,7 +1091,7 @@ export default function AggiungiCalendarioSidebar({
                         <div className="grid grid-cols-2 gap-4">
                           {/* Si ripete ogni */}
                           <div>
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Si ripete ogni</label>
+                            <label className="text-sm font-medium text-zinc-600 block mb-1.5">Si ripete ogni</label>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
@@ -1103,7 +1120,7 @@ export default function AggiungiCalendarioSidebar({
 
                           {/* Termina dopo */}
                           <div>
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold block mb-1.5">Termina dopo</label>
+                            <label className="text-sm font-medium text-zinc-600 block mb-1.5">Termina dopo</label>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center bg-white border border-zinc-200 rounded-lg overflow-hidden h-9">
                                 <button
@@ -1132,9 +1149,9 @@ export default function AggiungiCalendarioSidebar({
                         </div>
 
                         {/* Calculated repetition date preview */}
-                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-850 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
-                          <RotateCw size={13} className="text-fuchsia-400 animate-spin" style={{ animationDuration: '3s' }} />
-                          <span>Si ripete fino a <span className="text-fuchsia-400 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
+                        <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-200 px-3.5 py-3 rounded-xl text-xs text-zinc-700 font-sans select-none shadow-sm">
+                          <RotateCw size={13} className="text-fuchsia-700" />
+                          <span>Si ripete fino a <span className="text-fuchsia-700 font-semibold">{calcolaDataFineRipetizione(data, ogniSettimane, terminaDopoVolte)}</span></span>
                         </div>
                       </div>
                     )}
@@ -1142,13 +1159,13 @@ export default function AggiungiCalendarioSidebar({
 
                   {/* COMPONENTE TEAM */}
                   <div className="space-y-3">
-                    <h3 className="text-xs uppercase font-extrabold text-zinc-500 tracking-wider font-mono">Componente del team</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900">Componente del team</h3>
                     <div>
                       <label className="text-[10.5px] text-zinc-500 mb-1 block">Collaboratore</label>
                       <select
                         value={selectedDipendenteId}
                         onChange={(e) => setSelectedDipendenteId(e.target.value)}
-                        className="w-full bg-zinc-50/60 border border-zinc-200 rounded-lg py-2 px-3 text-sm text-zinc-900 outline-none focus:border-fuchsia-500 cursor-pointer"
+                        className="w-full bg-white border border-zinc-300 rounded-xl py-2.5 px-3 text-[15px] text-zinc-900 outline-none focus:border-fuchsia-500 cursor-pointer"
                       >
                         {dipendenti.map(emp => (
                           <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
@@ -1165,16 +1182,27 @@ export default function AggiungiCalendarioSidebar({
 
             {/* Bottom Sticky Action Footer */}
             <div className="p-6 border-t border-zinc-200 bg-white">
+              {riepilogo && (
+                <div className="mb-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-2 text-zinc-700">
+                    <Clock size={15} className="text-fuchsia-600 shrink-0" />
+                    <span><strong className="tabular-nums">{riepilogo.da}–{riepilogo.a}</strong> · {riepilogo.durata}</span>
+                  </span>
+                  {riepilogo.prezzo > 0 && (
+                    <span className="font-semibold text-zinc-900 tabular-nums">{riepilogo.prezzo.toFixed(2).replace('.', ',')} €</span>
+                  )}
+                </div>
+              )}
               {validationError && (
-                <div className="mb-3 text-red-500 text-xs font-bold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20 text-center animate-in fade-in zoom-in-95">
+                <div className="mb-3 text-red-700 text-sm bg-red-50 p-3 rounded-xl border border-red-200 animate-in fade-in">
                   {validationError}
                 </div>
               )}
               <button
                 onClick={saveAppointment}
-                className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold font-sans py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center cursor-pointer hover:scale-[1.01] active:translate-y-px"
+                className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center"
               >
-                Salva
+                {activeTab === 'blocca' ? 'Blocca l\'orario' : appuntamentoEdit ? 'Salva le modifiche' : 'Salva appuntamento'}
               </button>
             </div>
           </>
@@ -1196,7 +1224,7 @@ export default function AggiungiCalendarioSidebar({
               </button>
               <button
                 onClick={onClose}
-                className="p-1 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-850"
+                className="p-1 text-zinc-500 hover:text-zinc-900 rounded-lg hover:bg-zinc-100"
               >
                 <X size={20} />
               </button>
@@ -1271,7 +1299,7 @@ export default function AggiungiCalendarioSidebar({
                             }`}
                           >
                             <div>
-                              <p className="text-xs font-semibold text-zinc-800 flex items-center gap-1.5">
+                              <p className="text-sm font-semibold text-zinc-900 flex items-center gap-1.5">
                                 {ser.nome}
                                 {filtroPossibile && !faServizio(operatoreScelto, ser.id) && (
                                   <span className="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-[1px] leading-none">
@@ -1308,9 +1336,9 @@ export default function AggiungiCalendarioSidebar({
                   setIsAddingServiceView(false);
                   setSearchServiceQuery('');
                 }}
-                className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold font-sans py-3.5 rounded-xl transition-all shadow-md text-xs text-center cursor-pointer"
+                className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold py-3.5 rounded-xl transition-colors text-center"
               >
-                Conferma {selectedServices.length > 0 && `(${selectedServices.length})`}
+                {selectedServices.length > 0 ? `Fatto · ${selectedServices.length} ${selectedServices.length === 1 ? 'servizio' : 'servizi'}` : 'Fatto'}
               </button>
             </div>
 

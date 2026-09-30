@@ -682,3 +682,50 @@ Oggi si può prenotare con un numero inventato.
 **5. Storico clienti dal vecchio gestionale**
 I dati anagrafici entrano. Lo storico degli appuntamenti no: serve vedere in
 che forma Treatwell lo esporta.
+
+
+---
+
+## Fatto il 30 settembre
+
+**Numero progressivo sul preconto** · ✅
+"Preconto N. 12/2026", per salone e per anno. Lo dà il server dentro una
+transazione: due stampe insieme non prendono lo stesso numero, e ristampare
+lo stesso conto non ne consuma uno nuovo. Se il server non risponde si stampa
+lo stesso, senza numero, con un avviso.
+
+**Verifica del numero con codice SMS (G15)** · ✅
+Chi prenota dal sito riceve un codice di 6 cifre e lo scrive. La prenotazione
+la crea il server, e solo se il codice è giusto; nelle regole la porta per
+scrivere dal browser è chiusa. Limiti: 10 minuti, 5 tentativi, un codice al
+minuto, 5 all'ora per numero, 40 all'ora per salone. Se il tablet è spento la
+cliente prenota lo stesso e in agenda compare "numero non verificato".
+
+**Pagina di prenotazione pubblica rifatta, e web app** · ✅
+Stile del gestionale, niente schermata di benvenuto, quattro passi con la
+barra in fondo che dice che cosa si è scelto. Si aggiunge alla schermata Home
+e si apre come un'app sulla prenotazione del salone (manifest per salone,
+icone nuove).
+
+**G20 — Pannello "Nuovo appuntamento"** · ✅ prima passata
+Era la copia di un altro programma, e si vedeva:
+- l'ordine era data → ora → operatrice → cliente → servizi. Ora è **cliente →
+  servizi → quando e con chi**, come si chiede al telefono (data, ora e
+  operatrice sono già scritte, il pannello si apre dal buco in agenda);
+- scritte da 10-11 pixel in maiuscoletto: ora sono della misura del resto;
+- colori rimasti dal tema scuro dell'altro programma: fucsia chiaro su bianco
+  che non si leggeva, e classi inesistenti che non facevano niente;
+- nessun riepilogo: ora in fondo c'è **10:00–11:45 · 1 h 45 min · 65,00 €**
+  prima di salvare;
+- le note stavano dietro un link: ora si vedono subito;
+- "Filtro Telefono" come etichetta del telefono, "Cliente occasionale (senza
+  appuntamento)" dentro un appuntamento, un'icona che girava: sistemati.
+
+Da provare in salone: se c'è ancora qualcosa di scomodo, adesso è più facile
+vederlo.
+
+## In sospeso
+
+- **Email** — aspetta l'accesso ai DNS di rdsalon.com
+- **WhatsApp Business** — fermo finché non lo decide il titolare
+- **Stampantina** — che modello è, per la stampa diretta
