@@ -272,6 +272,26 @@ export const messaggiApi = {
   }
 };
 
+/**
+ * Il numero progressivo del preconto. Lo dà il server, dentro una
+ * transazione: due stampe nello stesso momento non prendono lo stesso numero,
+ * e una ristampa riceve il numero che il conto aveva già.
+ */
+export const precontoApi = {
+  numero: async (appuntamentoId: string): Promise<{ anno: number; numero: number }> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+    const risposta = await fetch('/api/preconto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ appuntamentoId })
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok) throw new Error(dati?.errore || 'Il server non ha dato il numero.');
+    return dati;
+  }
+};
+
 export const salonApi = {
   getSettings: async (): Promise<any> => {
     const ref = doc(db, 'salons', getUserId());

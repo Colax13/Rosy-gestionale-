@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, Plus, Printer, Trash2, ArrowLeft, CheckCircle2, AlertCircle, Receipt } from 'lucide-react';
-import { catalogoApi, clientiApi, appuntamentiApi } from '@/lib/api-client';
+import { catalogoApi, clientiApi, appuntamentiApi, precontoApi } from '@/lib/api-client';
 import { righeDaAppuntamento, contiPreconto, prezzoDiListino, euro, RigaPreconto } from '@/lib/preconto';
 import { aNumero } from '@/lib/numeri';
 
@@ -125,7 +125,30 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
     setCercaServizio('');
   };
 
-  const stampa = () => window.print();
+  // Il numero progressivo si prende alla prima stampa e resta sul conto: una
+  // ristampa riusa lo stesso. Se il server non risponde si stampa lo stesso,
+  // senza numero, e lo si dice: il cliente davanti alla cassa non aspetta.
+  const [numero, setNumero] = useState<{ anno: number; numero: number } | null>(app?.preconto_numero || null);
+  const [avvisoStampa, setAvvisoStampa] = useState<string | null>(null);
+  const [stampaInCorso, setStampaInCorso] = useState(false);
+
+  const stampa = async () => {
+    setAvvisoStampa(null);
+    setStampaInCorso(true);
+    try {
+      if (!numero && app?.id) {
+        try {
+          setNumero(await precontoApi.numero(app.id));
+        } catch (err: any) {
+          setAvvisoStampa(`Stampato senza numero progressivo: ${err?.message || 'il server non risponde.'}`);
+        }
+      }
+    } finally {
+      setStampaInCorso(false);
+      // Si lascia al foglio il tempo di scriversi con il numero, poi si stampa.
+      setTimeout(() => window.print(), 80);
+    }
+  };
 
   const salva = async () => {
     setSalvataggio(true);
@@ -192,6 +215,12 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
         {errore && (
           <div className="mx-6 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2 shrink-0">
             <AlertCircle size={16} className="shrink-0 mt-0.5" /> <span>{errore}</span>
+          </div>
+        )}
+
+        {avvisoStampa && (
+          <div className="mx-6 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2 shrink-0">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" /> <span>{avvisoStampa}</span>
           </div>
         )}
 
@@ -323,10 +352,10 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
             <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50/60 flex flex-wrap justify-end gap-3 shrink-0 rounded-b-2xl">
               <button
                 onClick={stampa}
-                disabled={righe.filter(r => r.scelta).length === 0}
+                disabled={righe.filter(r => r.scelta).length === 0 || stampaInCorso}
                 className="px-5 py-2.5 font-bold text-zinc-900 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                <Printer size={16} /> Stampa preconto
+                <Printer size={16} /> {stampaInCorso ? 'Preparo…' : numero ? `Ristampa N. ${numero.numero}` : 'Stampa preconto'}
               </button>
               <button
                 onClick={() => setPasso(2)}
@@ -420,6 +449,7 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
       {createPortal(
       <div className="foglio-preconto" aria-hidden="true">
         <h1>{nomeSalone || 'Preconto'}</h1>
+        {numero?.numero ? <p className="numero">Preconto N. {numero.numero}/{numero.anno}</p> : null}
         <p className="intestazione">
           {nomeCliente}<br />
           {quando.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}

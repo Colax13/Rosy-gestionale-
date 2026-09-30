@@ -138,6 +138,19 @@ export const clientiApi = {
     return eco(clienti[i]);
   },
   delete: nulla, importAi: nulla,
+  assicuraDaAppuntamento: async (app: any) => eco(app?.id_cliente || 'c-nuova'),
+};
+
+// Nell'anteprima non parte niente: si finge che sia arrivato, così si vede
+// che cosa dice l'agenda quando va bene.
+export const messaggiApi = {
+  manda: async (_id: string, _tipo?: string) =>
+    eco({ mandato: true, canali: ['sms'], a: ['+39 333 000 0000'] }),
+};
+
+let ultimoNumeroFinto = 41;
+export const precontoApi = {
+  numero: async (_id: string) => eco({ anno: new Date().getFullYear(), numero: ++ultimoNumeroFinto }),
 };
 
 export const salonApi = {

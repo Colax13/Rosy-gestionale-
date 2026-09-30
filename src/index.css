@@ -420,6 +420,14 @@ body {
     letter-spacing: 0.04em;
   }
 
+  .foglio-preconto .numero {
+    text-align: center;
+    font-size: 10pt;
+    font-weight: 700;
+    margin: 0 0 2mm;
+    letter-spacing: 0.02em;
+  }
+
   .foglio-preconto .intestazione {
     text-align: center;
     margin: 0 0 4mm;
