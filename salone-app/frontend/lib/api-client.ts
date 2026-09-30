@@ -277,6 +277,32 @@ export const messaggiApi = {
  * transazione: due stampe nello stesso momento non prendono lo stesso numero,
  * e una ristampa riceve il numero che il conto aveva già.
  */
+/**
+ * La prenotazione dalla pagina pubblica, in due tempi.
+ *
+ * Prima si chiede il codice: se il salone ha gli SMS accesi arriva un codice
+ * di 6 cifre al numero della cliente, altrimenti si risponde che non serve.
+ * Poi si prenota, allegando il codice. A scrivere l'appuntamento è il server:
+ * un controllo fatto solo qui nel browser si potrebbe saltare.
+ */
+async function chiamaPrenota(corpo: any) {
+  const risposta = await fetch('/api/prenota', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo)
+  });
+  const dati = await risposta.json().catch(() => ({}));
+  if (!risposta.ok) throw new Error(dati?.errore || 'Non riesco a raggiungere il salone. Riprova fra poco.');
+  return dati;
+}
+
+export const prenotazioneApi = {
+  chiediCodice: (salonId: string, telefono: string): Promise<{ serveCodice: boolean; a?: string; avviso?: string }> =>
+    chiamaPrenota({ azione: 'codice', salonId, telefono }),
+  prenota: (salonId: string, appuntamento: any, codice?: string): Promise<{ id: string; verificato: boolean }> =>
+    chiamaPrenota({ azione: 'prenota', salonId, appuntamento, codice: codice || '' })
+};
+
 export const precontoApi = {
   numero: async (appuntamentoId: string): Promise<{ anno: number; numero: number }> => {
     const token = await auth.currentUser?.getIdToken();
@@ -412,20 +438,9 @@ export const appuntamentiApi = {
   // le operatrici erano occupate. Adesso quel dato si prende da
   // disponibilitaApi.getPublic, che contiene solo orari.
 
-  createPublic: async (salonId: string, data: any) => {
-    const ref = doc(collection(db, 'appuntamenti'));
-    const payload = { 
-      ...data, 
-      userId: salonId,
-      source: 'web_public',
-      createdAt: serverTimestamp(), 
-      updatedAt: serverTimestamp() 
-    };
-    await setDoc(ref, payload);
-    // Occupa subito lo slot, altrimenti due clienti prendono le stesse 15:00.
-    await disponibilitaApi.scrivi(salonId, { id: ref.id, ...data });
-    return { id: ref.id, ...payload };
-  },
+  // La prenotazione dal sito non si scrive più da qui: passa dal server, che
+  // controlla il codice SMS prima di scriverla. Vedi `prenotazioneApi`.
+
   getByCliente: async (clienteId: string): Promise<any[]> => {
     const q = query(collection(db, 'appuntamenti'), where('userId', '==', getUserId()), where('id_cliente', '==', clienteId));
     const snap = await getDocs(q);

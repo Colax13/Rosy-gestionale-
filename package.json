@@ -20,7 +20,9 @@
     "prova:messaggi": "tsx salone-app/frontend/lib/messaggi.prova.ts",
     "prova:skebby": "tsx salone-app/frontend/lib/skebby.prova.ts",
     "prova:promemoria": "tsx salone-app/frontend/lib/promemoria.prova.ts",
-    "prova:numerazione": "tsx salone-app/frontend/lib/numerazione.prova.ts"
+    "prova:numerazione": "tsx salone-app/frontend/lib/numerazione.prova.ts",
+    "prova:otp": "tsx salone-app/frontend/lib/otp.prova.ts",
+    "prova:prenotazione": "tsx salone-app/frontend/lib/prenotazione.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -202,10 +202,13 @@ service cloud.firestore {
       // che di persone non ne contiene nessuna.
       allow get: if nelSaloneCon(resource.data.userId, 'agenda');
       allow list: if nelSaloneCon(resource.data.userId, 'agenda');
-      allow create: if isValidId(appuntamentoId) && (
-                      (isValidAppuntamento(incoming()) && nelSaloneCon(incoming().userId, 'agenda'))
-                      || (incoming().source == 'web_public' && incoming().userId is string)
-                    );
+      // Da fuori non si crea più niente: la prenotazione dal sito passa dal
+      // server (api/prenota.ts), che prima controlla il codice arrivato per
+      // SMS. Se questa porta restasse aperta, il controllo si scavalcherebbe
+      // scrivendo direttamente qui.
+      allow create: if isValidId(appuntamentoId)
+                    && isValidAppuntamento(incoming())
+                    && nelSaloneCon(incoming().userId, 'agenda');
       allow update: if isValidId(appuntamentoId) && isValidAppuntamento(incoming()) && nelSaloneCon(resource.data.userId, 'agenda');
       allow delete: if isValidId(appuntamentoId) && nelSaloneCon(resource.data.userId, 'agenda');
     }
@@ -300,17 +303,10 @@ service cloud.firestore {
           && incoming().fasce is list && incoming().fasce.size() <= 50;
       }
 
-      // Chi prenota dal sito può creare SOLO la riga dell'appuntamento che ha
-      // appena preso, e solo se quell'appuntamento esiste davvero in quel
-      // salone. Senza questo legame chiunque potrebbe riempire l'agenda di
-      // occupazioni finte e bloccare le prenotazioni.
-      function rigaDiUnAppuntamentoVero() {
-        return exists(/databases/$(database)/documents/appuntamenti/$(appuntamentoId))
-          && get(/databases/$(database)/documents/appuntamenti/$(appuntamentoId)).data.userId == incoming().userId;
-      }
-
+      // La riga delle prenotazioni dal sito la scrive il server insieme
+      // all'appuntamento. Da qui scrive solo il salone.
       allow create: if isValidId(appuntamentoId) && formaDisponibilita()
-                    && ( nelSaloneCon(incoming().userId, 'agenda') || rigaDiUnAppuntamentoVero() );
+                    && nelSaloneCon(incoming().userId, 'agenda');
       // Riscrivere una riga già esistente tocca solo al salone.
       allow update: if isValidId(appuntamentoId) && formaDisponibilita()
                     && nelSaloneCon(resource.data.userId, 'agenda')

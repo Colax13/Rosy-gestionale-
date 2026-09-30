@@ -1,16 +1,16 @@
 {
-  "name": "Salone App",
-  "short_name": "Salone",
-  "description": "Gestionale per salone di parrucchiere",
+  "id": "/",
+  "name": "Rosy — gestionale del salone",
+  "short_name": "Rosy",
+  "description": "Agenda, clienti e cassa del salone",
+  "lang": "it",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F9F6F0",
-  "theme_color": "#2C1E16",
+  "background_color": "#fafafa",
+  "theme_color": "#c026d3",
   "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    }
+    { "src": "/icone/icona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icone/icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icone/icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -1,12 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rosy</title>
     <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 font-family=%22serif%22>R</text></svg>">
-    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icone/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icone/apple-touch-icon.png" />
+    <meta name="theme-color" content="#c026d3" />
+    <script>
+      // La pagina di prenotazione di un salone ha il suo manifest: così,
+      // aggiunta alla schermata Home, si apre sulla prenotazione di quel
+      // salone e non sul gestionale. Si sceglie qui, prima che il telefono
+      // lo legga, non dopo.
+      (function() {
+        var m = location.pathname.match(/^\/([A-Za-z0-9_-]{1,128})\/prenota\/?$/);
+        if (m) document.querySelector('link[rel="manifest"]').href = '/api/manifest?salone=' + m[1];
+      })();
+    </script>
     <script>
       (function() {
         try {

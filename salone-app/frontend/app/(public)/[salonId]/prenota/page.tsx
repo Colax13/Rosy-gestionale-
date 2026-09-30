@@ -1,13 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+// La pagina con cui le clienti prenotano da sole: quella che finisce su
+// Instagram, sul sito e su Google.
+//
+// Quattro passi, sempre nello stesso ordine in cui si prenota al telefono —
+// che cosa, con chi, quando, chi sei — più la verifica del numero quando il
+// salone manda gli SMS. Niente schermata di benvenuto: chi apre il link è già
+// lì per prenotare, ogni tocco in più è una cliente in meno.
+//
+// Lo stile è quello del gestionale: stessi colori, stessi bottoni, stesse
+// distanze. E la pagina si può aggiungere alla schermata Home del telefono:
+// da lì si apre come un'app, direttamente su questo salone.
+
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calendar as CalendarIcon, User, Clock, CheckCircle2, Scissors, ArrowLeft, ArrowRight, MapPin, ChevronRight, Sparkles, X, ChevronDown, Check } from 'lucide-react';
-import { auth, db } from '../../../../../../src/lib/firebase';
+import {
+  Check, ChevronLeft, Clock, Phone, MapPin, Scissors, CalendarDays,
+  ShieldCheck, AlertCircle, Loader2, Share, PlusSquare, Sparkles
+} from 'lucide-react';
+import { db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { catalogoApi, dipendentiApi, appuntamentiApi, disponibilitaApi } from '@/lib/api-client';
+import { catalogoApi, dipendentiApi, disponibilitaApi, prenotazioneApi } from '@/lib/api-client';
 import { faServizio } from '@/lib/operatori';
-import { occupata, Fascia } from '@/lib/vetrina';
+import { Fascia } from '@/lib/vetrina';
+import { orariLiberi, operatoreLibero, chiaveGiorno, istante } from '@/lib/prenotazione';
 
 interface Servizio {
   id: string;
@@ -19,791 +35,666 @@ interface Servizio {
   attivo?: boolean;
 }
 
+interface Salone { nome: string; indirizzo: string; telefono: string; logo: string }
+
+type Passo = 'servizi' | 'operatore' | 'quando' | 'dati' | 'verifica' | 'fatto';
+const PASSI: { chiave: Passo; etichetta: string }[] = [
+  { chiave: 'servizi', etichetta: 'Servizi' },
+  { chiave: 'operatore', etichetta: 'Con chi' },
+  { chiave: 'quando', etichetta: 'Quando' },
+  { chiave: 'dati', etichetta: 'I tuoi dati' }
+];
+
+const QUALSIASI = 'qualsiasi';
+const GIORNI_AVANTI = 30;
+
+const euro = (n: number) => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+const durataScritta = (min: number) => {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+};
+
+/** Il telefono da chiamare, ripulito per il link `tel:`. */
+const linkTelefono = (t: string) => `tel:${(t || '').replace(/[^\d+]/g, '')}`;
+
 export default function PrenotazionePubblica() {
-  const params = useParams();
-  const salonId = params?.salonId as string;
+  const { salonId = '' } = useParams();
 
-  const [salonName, setSalonName] = useState('Salone Predefinito');
-  // In a real flow, this would come from the salon's configuration.
-  const [salonImage, setSalonImage] = useState('https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1974&auto=format&fit=crop');
-  const [salonLogo, setSalonLogo] = useState('');
-  const [step, setStep] = useState<'welcome' | 'services' | 'operator' | 'datetime' | 'details' | 'success'>('welcome');
-  
-  // Si può scegliere più di un servizio: colore e piega si prenotano insieme,
-  // come si chiederebbero al telefono.
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  
-  const [selectedOperator, setSelectedOperator] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  
-  const [customerName, setCustomerName] = useState('');
-  const [customerSurname, setCustomerSurname] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerNotes, setCustomerNotes] = useState('');
-
-  const [catalog, setCatalog] = useState<Servizio[]>([]);
-  const [operatorsData, setOperatorsData] = useState<any[]>([]);
-  // Solo gli orari occupati, senza sapere di chi: gli appuntamenti veri non
-  // escono più dal salone.
+  const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '' });
+  const [catalogo, setCatalogo] = useState<Servizio[]>([]);
+  const [operatori, setOperatori] = useState<any[]>([]);
   const [fasceOccupate, setFasceOccupate] = useState<Fascia[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [caricamento, setCaricamento] = useState(true);
+
+  const [passo, setPasso] = useState<Passo>('servizi');
+  const [serviziScelti, setServiziScelti] = useState<string[]>([]);
+  const [operatoreScelto, setOperatoreScelto] = useState<string>(QUALSIASI);
+  const [giornoScelto, setGiornoScelto] = useState<string>('');
+  const [oraScelta, setOraScelta] = useState<string>('');
+
+  const [nome, setNome] = useState('');
+  const [cognome, setCognome] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
+  const [note, setNote] = useState('');
+
+  const [codice, setCodice] = useState('');
+  const [codiceMandatoA, setCodiceMandatoA] = useState('');
+  const [attesaRinvio, setAttesaRinvio] = useState(0);
+  const [inCorso, setInCorso] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const [smsAttivi, setSmsAttivi] = useState(false);
+
+  const cima = useRef<HTMLDivElement>(null);
+
+  // --- Caricamento ---------------------------------------------------------
 
   useEffect(() => {
-    if (salonId) {
-      // Clean fallback if nomeSalone is not found
-      setSalonName('Il Tuo Salone');
-    }
+    if (!salonId) return;
+    const oggi = chiaveGiorno(new Date());
+    Promise.all([
+      catalogoApi.getPublic(salonId).then(d => setCatalogo(d.filter((s: Servizio) => s.attivo))).catch(() => {}),
+      dipendentiApi.getPublic(salonId).then(d => setOperatori(d.filter((o: any) => o.attivo !== false))).catch(() => {}),
+      disponibilitaApi.getPublic(salonId, oggi).then(el => setFasceOccupate(el.flatMap(d => d.fasce || []))).catch(() => {}),
+      getDoc(doc(db, 'salons', salonId)).then(snap => {
+        const d = (snap.data() as any)?.salonDetails || {};
+        setSalone({ nome: d.nomeSalone || '', indirizzo: d.indirizzo || '', telefono: d.telefono || '', logo: d.logoUrl || '' });
+      }).catch(() => {})
+    ]).finally(() => setCaricamento(false));
   }, [salonId]);
 
+  // La pagina si presenta col nome del salone: nella scheda del browser, e
+  // quando la si aggiunge alla schermata Home del telefono.
   useEffect(() => {
-    if (salonId) {
-      catalogoApi.getPublic(salonId)
-        .then((data) => setCatalog(data.filter((s: Servizio) => s.attivo)))
-        .catch(err => console.error("Errore catalogo:", err));
-      dipendentiApi.getPublic(salonId)
-        .then((data) => setOperatorsData(data.filter((d: any) => d.attivo !== false)))
-        .catch(err => console.error("Errore dipendenti:", err));
-      const oggi = new Date();
-      const daGiorno = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`;
-      disponibilitaApi.getPublic(salonId, daGiorno)
-        .then((elenco) => setFasceOccupate(elenco.flatMap(d => d.fasce || [])))
-        .catch(err => console.error("Errore disponibilità:", err));
-    }
-  }, [salonId]);
+    if (!salonId) return;
+    document.title = salone.nome ? `${salone.nome} · Prenota` : 'Prenota';
+    impostaMeta('apple-mobile-web-app-title', salone.nome || 'Prenota');
+    impostaMeta('apple-mobile-web-app-capable', 'yes');
+    impostaMeta('theme-color', '#c026d3');
+    // Il manifest dice al telefono che cosa aprire dall'icona: questa pagina,
+    // di questo salone. Quello generico aprirebbe il gestionale.
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
+    link.href = `/api/manifest?salone=${encodeURIComponent(salonId)}`;
+  }, [salonId, salone.nome]);
 
+  // Il conto alla rovescia per rimandare il codice.
   useEffect(() => {
-    if (salonId) {
-      const loadRealSalon = async () => {
-        try {
-          const docRef = doc(db, 'salons', salonId);
-          const snap = await getDoc(docRef);
-          if (snap.exists() && snap.data().salonDetails) {
-            const details = snap.data().salonDetails;
-            if (details.nomeSalone) {
-              setSalonName(details.nomeSalone);
-            }
-            if (details.logoUrl) {
-              setSalonLogo(details.logoUrl);
-            }
-          }
-        } catch(e) {
-          console.error("Error fetching salon details: ", e);
-        }
-      };
-      loadRealSalon();
-    }
-  }, [salonId]);
+    if (attesaRinvio <= 0) return;
+    const t = setTimeout(() => setAttesaRinvio(a => a - 1), 1000);
+    return () => clearTimeout(t);
+  }, [attesaRinvio]);
 
-  const catalogByCategory = catalog.reduce((acc, current) => {
-    const cat = current.categoria || 'Altro';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(current);
-    return acc;
-  }, {} as Record<string, Servizio[]>);
-
-  const categories = Object.keys(catalogByCategory);
-
-  // Tutto quello che serve sapere dei servizi scelti, in un posto solo.
-  const serviziScelti = selectedServiceIds
-    .map(id => catalog.find(s => s.id === id))
-    .filter((s): s is Servizio => !!s);
-  const durataTotale = serviziScelti.reduce((somma, s) => somma + (s.durata_minuti || 0), 0);
-  const prezzoTotale = serviziScelti.reduce((somma, s) => somma + (s.prezzo_base || 0), 0);
-  const selectedService = serviziScelti.map(s => s.nome).join(' + ');
-
-  const scegliServizio = (id: string) => {
-    setSelectedServiceIds(prima =>
-      prima.includes(id) ? prima.filter(x => x !== id) : [...prima, id]
-    );
+  const vaiA = (p: Passo) => {
+    setErrore(null);
+    setPasso(p);
+    window.scrollTo({ top: 0 });
   };
 
-  const [dates, setDates] = useState<{ full: Date; display: string, short: string }[]>([]);
+  // --- Quello che si è scelto ----------------------------------------------
 
-  // Fra le operatrici si mostrano solo quelle che sanno fare il servizio
-  // scelto: altrimenti la cliente prenota con chi non può farglielo.
-  const operatoriPossibili = operatorsData.filter(o => serviziScelti.every(s => faServizio(o, s.id)));
-  const operators = [{ id: 'any', nome: 'Qualsiasi operatore' }, ...operatoriPossibili.map(o => ({ id: o.id, nome: o.nome }))];
+  const categorie = useMemo(() => {
+    const gruppi: Record<string, Servizio[]> = {};
+    for (const s of catalogo) (gruppi[s.categoria || 'Altro'] ||= []).push(s);
+    return gruppi;
+  }, [catalogo]);
 
-  // Se cambiando servizio l'operatrice scelta non lo fa, si torna a "qualsiasi"
-  // invece di lasciare un nome che non è più fra le scelte.
+  const scelti = serviziScelti.map(id => catalogo.find(s => s.id === id)).filter((s): s is Servizio => !!s);
+  const durata = scelti.reduce((t, s) => t + (s.durata_minuti || 0), 0);
+  const prezzo = scelti.reduce((t, s) => t + (s.prezzo_base || 0), 0);
+
+  // Solo chi sa fare tutti i servizi scelti: altrimenti la cliente prenota
+  // con chi non può farglieli. Vale anche per "prima disponibile".
+  const operatoriAdatti = operatori.filter(o => scelti.every(s => faServizio(o, s.id)));
+  const operatoriPerOrari = operatoreScelto === QUALSIASI
+    ? operatoriAdatti
+    : operatoriAdatti.filter(o => o.id === operatoreScelto);
+
+  // Se cambiando servizi l'operatrice scelta non li fa più, si torna a
+  // "prima disponibile" invece di tenere una scelta impossibile.
   useEffect(() => {
-    if (!selectedOperator) return;
-    if (!operators.some(o => o.nome === selectedOperator)) setSelectedOperator('');
-  }, [selectedServiceIds.join(','), operatorsData]);
-  // Calculate available times based on date and operator
-  const getGiornoString = (d: Date) => {
-    const map = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];
-    return map[d.getDay()];
+    if (operatoreScelto !== QUALSIASI && !operatoriAdatti.some(o => o.id === operatoreScelto)) {
+      setOperatoreScelto(QUALSIASI);
+    }
+  }, [serviziScelti.join(','), operatori]);
+
+  const giorni = useMemo(() => {
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    return Array.from({ length: GIORNI_AVANTI }, (_, i) => {
+      const d = new Date(oggi);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  const chiaveOperatori = operatoriPerOrari.map(o => o.id).join(',');
+  const liberiPerGiorno = useMemo(() => {
+    const mappa: Record<string, string[]> = {};
+    for (const g of giorni) mappa[chiaveGiorno(g)] = orariLiberi(g, operatoriPerOrari, durata, fasceOccupate);
+    return mappa;
+  }, [giorni, chiaveOperatori, durata, fasceOccupate]);
+
+  // Si apre sul primo giorno che ha posto, non su un "oggi" già pieno.
+  useEffect(() => {
+    if (passo !== 'quando') return;
+    if (giornoScelto && liberiPerGiorno[giornoScelto]?.length) return;
+    const primo = giorni.find(g => liberiPerGiorno[chiaveGiorno(g)]?.length);
+    setGiornoScelto(primo ? chiaveGiorno(primo) : chiaveGiorno(giorni[0]));
+    setOraScelta('');
+  }, [passo, liberiPerGiorno]);
+
+  const giornoData = giorni.find(g => chiaveGiorno(g) === giornoScelto) || giorni[0];
+  const orari = liberiPerGiorno[giornoScelto] || [];
+  const nomeOperatore = operatoreScelto === QUALSIASI
+    ? 'Prima disponibile'
+    : (operatori.find(o => o.id === operatoreScelto)?.nome || '');
+
+  const quandoScritto = giornoData && oraScelta
+    ? `${giornoData.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} alle ${oraScelta}`
+    : '';
+
+  // --- Prenotazione --------------------------------------------------------
+
+  const appuntamento = () => {
+    const id = operatoreScelto === QUALSIASI
+      ? operatoreLibero(giornoData, oraScelta, operatoriAdatti, durata, fasceOccupate)
+      : operatoreScelto;
+    const op = operatori.find(o => o.id === id);
+    return {
+      data_ora: istante(giornoData, oraScelta).toISOString(),
+      note,
+      clienti: { nome, cognome, telefono, email },
+      id_dipendente: id || '',
+      dipendenti: { nome: op?.nome || '', cognome: '' },
+      righe_appuntamento: scelti.map(s => ({
+        servizi_catalogo: { nome: s.nome, durata_minuti: s.durata_minuti, prezzo_base: s.prezzo_base }
+      }))
+    };
   };
 
-  const availableTimes = React.useMemo(() => {
-     if (!selectedDate || operatorsData.length === 0) return [];
-     
-     const dateObj = dates.find(d => d.display === selectedDate);
-     if (!dateObj) return [];
-     
-     // La durata è la somma dei servizi scelti: se ne prendi due, serve il
-     // posto per tutti e due di fila, non per il primo soltanto.
-     const duration = durataTotale || 30;
-     
-     const opId = selectedOperator === 'Qualsiasi operatore' ? 'any' : (operators.find(o => o.nome === selectedOperator)?.id || 'any');
+  const datiCompleti = !!(nome.trim() && cognome.trim() && telefono.replace(/\D/g, '').length >= 6);
 
-     const giornoStr = getGiornoString(dateObj.full);
-     const availableSlots = new Set<string>();
+  const prenotaDavvero = async (conCodice: string) => {
+    await prenotazioneApi.prenota(salonId, appuntamento(), conCodice);
+    vaiA('fatto');
+  };
 
-     let opsToCheck = operatorsData;
-     if (opId !== 'any') {
-        opsToCheck = operatorsData.filter(o => o.id === opId);
-     }
-
-     for (let op of opsToCheck) {
-        const turni = op.turni || {};
-        let turnoOggi = turni[giornoStr];
-        
-        // Se non ci sono turni configurati affatto per questo operatore, assumiamo un orario di default 09:00 - 18:00
-        if (!op.turni || Object.keys(op.turni).length === 0) {
-           // Domenica e Lunedì chiusi di default
-           if (giornoStr !== 'domenica' && giornoStr !== 'lunedi') {
-              turnoOggi = {
-                 attivo: true,
-                 tipo: 'lavoro',
-                 fasce: [{ inizio: '09:00', fine: '18:00' }]
-              };
-           }
-        }
-
-        if (!turnoOggi || !turnoOggi.attivo || turnoOggi.tipo !== 'lavoro') continue;
-        
-        for (let fascia of (turnoOggi.fasce || [])) {
-           if (!fascia.inizio || !fascia.fine) continue;
-           
-           let [hIn, mIn] = fascia.inizio.split(':').map(Number);
-           let [hOut, mOut] = fascia.fine.split(':').map(Number);
-           
-           let currentTimeInMins = hIn * 60 + mIn;
-           const endTimeInMins = hOut * 60 + mOut;
-
-           while (currentTimeInMins + duration <= endTimeInMins) {
-              const candidateStart = new Date(dateObj.full);
-              candidateStart.setHours(Math.floor(currentTimeInMins / 60), currentTimeInMins % 60, 0, 0);
-              
-              const myStartMs = candidateStart.getTime();
-              const myEndMs = myStartMs + (duration * 60000);
-              
-              const hasOverlap = occupata(fasceOccupate, op.id, myStartMs, myEndMs);
-
-              if (!hasOverlap && myStartMs > Date.now()) {
-                 const hh = String(Math.floor(currentTimeInMins / 60)).padStart(2, '0');
-                 const mm = String(currentTimeInMins % 60).padStart(2, '0');
-                 availableSlots.add(`${hh}:${mm}`);
-              }
-
-              currentTimeInMins += 30;
-           }
-        }
-     }
-     
-     return Array.from(availableSlots).sort();
-  }, [selectedDate, durataTotale, selectedOperator, operators, operatorsData, fasceOccupate, dates, catalog]);
-
-  
-  useEffect(() => {
-    if (operatorsData.length === 0) return;
-    const arr = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    for (let i = 0; i < 30; i++) {
-       const d = new Date(today);
-       d.setDate(d.getDate() + i);
-       
-       arr.push({
-         full: d,
-         display: i === 0 ? 'Oggi' : i === 1 ? 'Domani' : d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }),
-         short: i === 0 ? 'Oggi' : i === 1 ? 'Domani' : d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })
-       });
-    }
-    setDates(arr);
-  }, [operatorsData]);
-
-  const handleBook = async () => {
-    setIsSubmitting(true);
+  /** Primo tocco su "Conferma": si chiede il codice, se il salone lo usa. */
+  const conferma = async () => {
+    if (!datiCompleti) { setErrore('Servono nome, cognome e un numero di cellulare.'); return; }
+    setInCorso(true);
+    setErrore(null);
     try {
-      const dateObj = dates.find(d => d.display === selectedDate);
-      if (!serviziScelti.length || !dateObj) return;
-
-      const [hours, minutes] = selectedTime.split(':');
-      const startDateTime = new Date(dateObj.full);
-      startDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-
-      let opId = operators.find(o => o.nome === selectedOperator)?.id;
-      if (opId === 'any') {
-         // assign a free operator
-         const myStartMs = startDateTime.getTime();
-         const myEndMs = myStartMs + (durataTotale * 60000);
-         const opIds = operatorsData.map(o => o.id);
-         const firstFreeOp = opIds.find(candidateOpId => {
-               return !occupata(fasceOccupate, candidateOpId, myStartMs, myEndMs);
-         });
-         opId = firstFreeOp || operatorsData[0]?.id; // Fallback
+      const risposta = await prenotazioneApi.chiediCodice(salonId, telefono);
+      if (risposta.serveCodice) {
+        setSmsAttivi(true);
+        setCodiceMandatoA(risposta.a || telefono);
+        setCodice('');
+        setAttesaRinvio(60);
+        vaiA('verifica');
+      } else {
+        await prenotaDavvero('');
       }
-
-      await appuntamentiApi.createPublic(salonId, {
-         data_ora: startDateTime.toISOString(),
-         note: customerNotes,
-         stato: 'in_attesa',
-         clienti: {
-            nome: customerName,
-            cognome: customerSurname,
-            telefono: customerPhone,
-            email: customerEmail
-         },
-         id_dipendente: opId,
-         dipendenti: {
-            nome: operators.find(o => o.id === opId)?.nome || selectedOperator,
-            cognome: ''
-         },
-         // Una riga per servizio: in agenda si vedono uno dopo l'altro, come
-         // se li avesse segnati il salone.
-         righe_appuntamento: serviziScelti.map(s => ({
-            servizi_catalogo: {
-               nome: s.nome,
-               durata_minuti: s.durata_minuti,
-               prezzo_base: s.prezzo_base
-            }
-         }))
-      });
-      setStep('success');
-    } catch (e) {
-      console.error(e);
-      alert('Errore durante la prenotazione.');
+    } catch (err: any) {
+      setErrore(err?.message || 'Qualcosa non è andato. Riprova.');
     } finally {
-      setIsSubmitting(false);
+      setInCorso(false);
     }
   };
 
-  const getPrice = () => (serviziScelti.length ? `${prezzoTotale.toFixed(2)}€` : '');
+  const verifica = async () => {
+    setInCorso(true);
+    setErrore(null);
+    try {
+      await prenotaDavvero(codice);
+    } catch (err: any) {
+      setErrore(err?.message || 'Codice non valido.');
+    } finally {
+      setInCorso(false);
+    }
+  };
 
-  const getDuration = () => (durataTotale ? `${durataTotale} min` : '');
+  const rimanda = async () => {
+    setInCorso(true);
+    setErrore(null);
+    try {
+      const risposta = await prenotazioneApi.chiediCodice(salonId, telefono);
+      if (!risposta.serveCodice) { await prenotaDavvero(''); return; }
+      setAttesaRinvio(60);
+    } catch (err: any) {
+      setErrore(err?.message || 'Non sono riuscito a rimandare il codice.');
+    } finally {
+      setInCorso(false);
+    }
+  };
 
-  // Header progress logic
-  const stepsList = ['services', 'operator', 'datetime', 'details'];
-  const currentStepIndex = stepsList.indexOf(step as any);
+  const ricomincia = () => {
+    setServiziScelti([]); setOperatoreScelto(QUALSIASI); setGiornoScelto(''); setOraScelta('');
+    setNote(''); setCodice(''); setErrore(null);
+    vaiA('servizi');
+  };
+
+  const avanti = () => {
+    if (passo === 'servizi') vaiA('operatore');
+    else if (passo === 'operatore') vaiA('quando');
+    else if (passo === 'quando') vaiA('dati');
+    else if (passo === 'dati') conferma();
+    else if (passo === 'verifica') verifica();
+  };
+
+  // --- Disegno -------------------------------------------------------------
+
+  const indicePasso = PASSI.findIndex(p => p.chiave === passo);
+  const indietro: Record<Passo, Passo | null> = {
+    servizi: null, operatore: 'servizi', quando: 'operatore', dati: 'quando', verifica: 'dati', fatto: null
+  };
+  const bloccato =
+    (passo === 'servizi' && scelti.length === 0) ||
+    (passo === 'quando' && !oraScelta) ||
+    (passo === 'dati' && !datiCompleti) ||
+    (passo === 'verifica' && codice.length !== 6);
 
   return (
-    <div className="h-[100dvh] bg-[#f8f8fb] font-sans text-slate-900 flex flex-col relative w-full overflow-hidden">
-      
-      {/* Dynamic Background Image - Glassmorphism style */}
-      {['welcome', 'success'].includes(step) && (
-        <div className="absolute inset-0 z-0 pointer-events-none h-[40dvh] md:h-[50dvh] w-full origin-top">
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-[#f8f8fb] z-10"></div>
-          <img src={salonImage} alt="Salon Background" className="w-full h-full object-cover object-top opacity-90" />
+    <div className="min-h-[100dvh] bg-zinc-50 text-zinc-900 font-sans" ref={cima}>
+
+      {/* Il salone: chi è, dove sta, come si chiama. */}
+      <header className="bg-white border-b border-zinc-200">
+        <div className="max-w-xl mx-auto px-4 pt-[max(env(safe-area-inset-top),1.25rem)] pb-4 flex items-center gap-3">
+          {salone.logo ? (
+            <img src={salone.logo} alt="" className="w-12 h-12 rounded-xl object-cover border border-zinc-200 shrink-0" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-fuchsia-600 text-white flex items-center justify-center font-playfair font-bold text-lg shrink-0">
+              {(salone.nome || 'S').trim().charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="font-playfair font-bold text-lg leading-tight truncate">{salone.nome || 'Prenota il tuo appuntamento'}</h1>
+            {salone.indirizzo && (
+              <p className="text-xs text-zinc-500 flex items-center gap-1 truncate"><MapPin size={12} className="shrink-0" /> {salone.indirizzo}</p>
+            )}
+          </div>
+          {salone.telefono && (
+            <a href={linkTelefono(salone.telefono)} className="shrink-0 w-10 h-10 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-zinc-50" aria-label="Chiama il salone">
+              <Phone size={18} />
+            </a>
+          )}
         </div>
-      )}
 
-      {/* Persistent Elegant Header (Hidden on welcome/success) */}
-      {!['welcome', 'success'].includes(step) && (
-        <header className="relative z-20 w-full pt-6 pb-2 px-4 md:px-8 max-w-3xl mx-auto flex flex-col pt-[max(env(safe-area-inset-top),1.5rem)]">
-          <div className="flex items-center justify-between text-slate-800 mb-4">
-            <button 
-              onClick={() => {
-                if (step === 'services') setStep('welcome');
-                else if (step === 'operator') setStep('services');
-                else if (step === 'datetime') setStep('operator');
-                else if (step === 'details') setStep('datetime');
-              }}
-              className="p-2 -ml-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-all border border-slate-300/50"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="text-center">
-              <h1 className="text-sm font-semibold tracking-wide uppercase opacity-90">{salonName}</h1>
-            </div>
-            <div className="w-9 h-9"></div> {/* Spacer to center the title */}
-          </div>
-          
-          {/* Minimalist Progress Indicator */}
-          <div className="w-full flex gap-1.5 px-4 animate-in fade-in duration-500">
-            {stepsList.map((s, idx) => (
-              <div 
-                key={s} 
-                className={`h-1.5 rounded-full flex-1 transition-all duration-500 ease-out ${idx <= currentStepIndex ? 'bg-indigo-600' : 'bg-slate-200'}`} 
-              />
-            ))}
-          </div>
-        </header>
-      )}
+        {indicePasso >= 0 && (
+          <nav className="max-w-xl mx-auto px-4 pb-3" aria-label="Passi della prenotazione">
+            <ol className="grid grid-cols-4 gap-2">
+              {PASSI.map((p, i) => (
+                <li key={p.chiave} className="flex flex-col gap-1.5">
+                  <span className={`h-1 rounded-full ${i <= indicePasso ? 'bg-fuchsia-600' : 'bg-zinc-200'}`} />
+                  <span className={`text-[11px] font-medium ${i === indicePasso ? 'text-zinc-900' : 'text-zinc-400'}`}>{p.etichetta}</span>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col relative z-20 h-full">
-        
-        {step === 'welcome' && (
-          <div className="flex-1 flex flex-col justify-end p-6 pb-[max(env(safe-area-inset-bottom),2rem)] animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-white/80 backdrop-blur-xl border border-white/40 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden ring-1 ring-black/5">
-              <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                <Sparkles size={120} />
-              </div>
-              
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-xl -rotate-2 overflow-hidden">
-                {salonLogo ? (
-                  <img src={salonLogo} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  <Scissors size={28} />
-                )}
-              </div>
-              
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 text-slate-900 leading-tight">
-                Prenota da<br/>{salonName}
-              </h2>
-              <p className="text-slate-600 mb-8 text-base leading-relaxed max-w-sm">
-                Scegli il tuo trattamento, l'operatore che preferisci e goditi l'esperienza.
-              </p>
-              
-              <button 
-                onClick={() => setStep('services')}
-                className="w-full bg-slate-900 hover:bg-black text-white px-8 py-5 rounded-[1.25rem] font-semibold transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98] flex items-center justify-between group overflow-hidden relative"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                <span className="relative z-10 text-lg">Inizia prenotazione</span>
-                <div className="relative z-10 bg-white/20 p-2 rounded-full backdrop-blur-sm">
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </div>
-              </button>
-            </div>
+      <main className="max-w-xl mx-auto px-4 py-5 pb-40">
+        {indietro[passo] && (
+          <button onClick={() => vaiA(indietro[passo]!)} className="mb-3 -ml-1 inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-900">
+            <ChevronLeft size={16} /> Indietro
+          </button>
+        )}
+
+        {errore && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2" role="alert">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" /> <span>{errore}</span>
           </div>
         )}
 
-        {step === 'services' && (
-          <div className="flex-1 min-h-0 flex flex-col pt-4 px-2 pb-6 animate-in slide-in-from-right-8 duration-500 fade-in h-full overflow-hidden">
-            <div className="bg-white mx-2 mt-2 rounded-[2rem] shadow-xl p-6 md:p-8 flex-1 min-h-0 border border-slate-100 flex flex-col mb-16 overflow-hidden">
-              <h2 className="text-2xl font-bold tracking-tight mb-1">Quali servizi desideri?</h2>
-              <p className="text-slate-500 text-sm mb-6">Puoi sceglierne più di uno: li facciamo di seguito, nello stesso appuntamento.</p>
+        {caricamento && (
+          <div className="py-16 flex justify-center text-zinc-400"><Loader2 className="animate-spin" /></div>
+        )}
 
-              <div className="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar space-y-8 pb-32">
-                {categories.length > 0 ? categories.map((cat) => (
-                  <div key={cat} className="space-y-4">
-                    <h3 className="text-[13px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2.5 px-1">{cat}</h3>
-                    <div className="space-y-2.5">
-                      {catalogByCategory[cat].map(s => {
-                        const isSelected = selectedServiceIds.includes(s.id);
-                        return (
-                          <div 
-                            key={s.id}
-                            onClick={() => scegliServizio(s.id)}
-                            className={`p-4 rounded-[1.25rem] cursor-pointer transition-all border-2 ${isSelected ? 'bg-indigo-50/50 border-indigo-600 shadow-sm ring-4 ring-indigo-50/50' : 'bg-white border-slate-100 hover:border-slate-300'} flex items-start justify-between gap-4`}
+        {/* ---------- 1. Servizi ---------- */}
+        {!caricamento && passo === 'servizi' && (
+          <section>
+            <h2 className="font-playfair font-bold text-2xl mb-1">Che cosa ti facciamo?</h2>
+            <p className="text-sm text-zinc-500 mb-5">Puoi sceglierne più di uno: li facciamo di seguito, nello stesso appuntamento.</p>
+
+            {catalogo.length === 0 && (
+              <div className="p-8 bg-white border border-dashed border-zinc-300 rounded-2xl text-center text-sm text-zinc-500">
+                <Scissors size={24} className="mx-auto mb-2 text-zinc-300" />
+                Il listino online non è ancora pronto.
+                {salone.telefono && <> Chiamaci al <a className="text-fuchsia-700 font-semibold" href={linkTelefono(salone.telefono)}>{salone.telefono}</a>.</>}
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {Object.entries(categorie).map(([categoria, servizi]) => (
+                <div key={categoria}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">{categoria}</h3>
+                  <ul className="bg-white border border-zinc-200 rounded-2xl divide-y divide-zinc-100 overflow-hidden">
+                    {servizi.map(s => {
+                      const scelto = serviziScelti.includes(s.id);
+                      return (
+                        <li key={s.id}>
+                          <button
+                            onClick={() => setServiziScelti(p => scelto ? p.filter(x => x !== s.id) : [...p, s.id])}
+                            className={`w-full text-left px-4 py-3.5 flex items-start gap-3 transition-colors ${scelto ? 'bg-fuchsia-50' : 'hover:bg-zinc-50'}`}
+                            aria-pressed={scelto}
                           >
-                            <div className="flex-1">
-                              <h4 className={`font-semibold text-[15px] ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>{s.nome}</h4>
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                                  <Clock size={12} /> {s.durata_minuti} min
-                                </span>
-                                <span className={`text-xs font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-900'}`}>
-                                  {s.prezzo_base > 0 ? `€ ${s.prezzo_base.toFixed(2)}` : 'Variabile'}
-                                </span>
-                              </div>
-                              {s.note_pubbliche && (
-                                <p className="text-[11px] text-slate-400 mt-2.5 italic leading-snug">{s.note_pubbliche}</p>
-                              )}
-                            </div>
-                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-1 transition-all ${isSelected ? 'border-indigo-600 bg-indigo-600 scale-110' : 'border-slate-300'}`}>
-                              {isSelected && <Check size={14} className="text-white" />}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-12 px-6 bg-slate-50 rounded-3xl text-center text-slate-500 border border-slate-100 border-dashed m-4">
-                    <Scissors size={32} className="mx-auto mb-4 opacity-30" />
-                    <p className="font-medium text-sm">Nessun servizio disponibile nel listino online.</p>
-                  </div>
-                )}
-              </div>
+                            <span className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${scelto ? 'bg-fuchsia-600 border-fuchsia-600' : 'border-zinc-300'}`}>
+                              {scelto && <Check size={13} className="text-white" strokeWidth={3} />}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block font-semibold text-[15px]">{s.nome}</span>
+                              <span className="block text-xs text-zinc-500 mt-0.5">{durataScritta(s.durata_minuti)}</span>
+                              {s.note_pubbliche && <span className="block text-xs text-zinc-400 mt-1">{s.note_pubbliche}</span>}
+                            </span>
+                            <span className="text-sm font-semibold text-zinc-700 shrink-0">{s.prezzo_base > 0 ? euro(s.prezzo_base) : 'da definire'}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
             </div>
-
-            {/* Fixed Bottom Bar Action */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 flex justify-center z-30 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-              <div className="w-full max-w-3xl flex gap-3 px-2">
-                <button 
-                  onClick={() => setStep('operator')}
-                  disabled={!selectedServiceIds.length}
-                  className="w-full bg-slate-900 hover:bg-black disabled:opacity-40 disabled:hover:bg-slate-900 text-white px-6 py-4.5 rounded-[1.25rem] font-bold transition-all shadow-xl shadow-slate-900/10 flex justify-center items-center gap-2 text-[15px]"
-                >
-                  {serviziScelti.length === 0 && 'Seleziona un servizio'}
-                  {serviziScelti.length === 1 && 'Continua'}
-                  {serviziScelti.length > 1 && `Continua con ${serviziScelti.length} servizi`}
-                  {serviziScelti.length > 0 && (
-                    <span className="font-medium text-white/70 text-[13px]">· {durataTotale} min</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+          </section>
         )}
 
-        {step === 'operator' && (
-          <div className="flex-1 min-h-0 flex flex-col pt-4 px-2 pb-6 animate-in slide-in-from-right-8 duration-500 fade-in h-full overflow-hidden">
-            <div className="bg-white mx-2 mt-2 rounded-[2rem] shadow-xl p-6 md:p-8 flex-1 min-h-0 border border-slate-100 flex flex-col mb-16 overflow-hidden">
-              
-              {/* Selected Recap Chip */}
-              <div className="inline-flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl mb-6 self-start text-xs font-semibold text-slate-600 border border-slate-200/80 shadow-sm">
-                <span className="truncate max-w-[150px] sm:max-w-xs">{selectedService}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                <span className="text-slate-500 font-medium">{getDuration()}</span>
-                <button onClick={() => setStep('services')} className="ml-2 text-slate-400 hover:text-slate-800 bg-white shadow-sm p-1 rounded-full transition-all"><X size={12}/></button>
-              </div>
-
-              <h2 className="text-2xl font-bold tracking-tight mb-2">Chi preferisci?</h2>
-              <p className="text-slate-500 text-sm mb-6">Scegli il tuo collaboratore di fiducia o lascia fare a noi.</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto pb-32 pr-2 -mr-2 custom-scrollbar">
-                {operators.map((opObj, i) => {
-                  const op = opObj.nome;
-                  const isSelected = selectedOperator === op;
-                  const isAny = op === 'Qualsiasi operatore';
-                  return (
-                    <button 
-                      key={opObj.id} 
-                      onClick={() => setSelectedOperator(op)}
-                      className={`p-4 rounded-[1.25rem] cursor-pointer transition-all border-2 flex items-center gap-4 text-left ${isSelected ? 'bg-indigo-50/50 border-indigo-600 shadow-sm ring-4 ring-indigo-50/50' : 'bg-white border-slate-100 hover:border-slate-300'} ${i === 0 ? 'sm:col-span-2 bg-slate-50/50' : ''}`}
-                    >
-                      <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center shrink-0 shadow-inner ${isAny ? 'bg-gradient-to-br from-slate-200 to-slate-300 text-slate-600' : 'bg-gradient-to-br from-indigo-100 to-fuchsia-100 text-indigo-900 border border-indigo-200/50'}`}>
-                        {isAny ? <Sparkles size={20} /> : <span className="text-xl font-bold font-serif">{op.charAt(0)}</span>}
-                      </div>
-                      <div className="flex-1">
-                        <div className={`text-[15px] font-semibold ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>{op}</div>
-                        {!isAny && <div className="text-[11px] uppercase tracking-wider text-slate-400 font-bold mt-0.5">Operatore</div>}
-                        {isAny && <div className="text-[12px] text-slate-500 leading-tight mt-0.5">La prima disponibilità utile per te.</div>}
-                      </div>
-                      
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-indigo-600 bg-indigo-600 scale-110' : 'border-slate-300'}`}>
-                         {isSelected && <Check size={14} className="text-white" />}
-                      </div>
+        {/* ---------- 2. Con chi ---------- */}
+        {!caricamento && passo === 'operatore' && (
+          <section>
+            <h2 className="font-playfair font-bold text-2xl mb-1">Con chi?</h2>
+            <p className="text-sm text-zinc-500 mb-5">Se non hai preferenze, ti diamo il primo orario libero.</p>
+            <ul className="bg-white border border-zinc-200 rounded-2xl divide-y divide-zinc-100 overflow-hidden">
+              {[{ id: QUALSIASI, nome: 'Prima disponibile', sotto: 'Il primo orario libero, con chiunque' },
+                ...operatoriAdatti.map(o => ({ id: o.id, nome: o.nome || '', sotto: o.ruolo || '' }))].map(o => {
+                const scelta = operatoreScelto === o.id;
+                return (
+                  <li key={o.id}>
+                    <button onClick={() => setOperatoreScelto(o.id)} className={`w-full text-left px-4 py-3.5 flex items-center gap-3 ${scelta ? 'bg-fuchsia-50' : 'hover:bg-zinc-50'}`} aria-pressed={scelta}>
+                      <span className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${o.id === QUALSIASI ? 'bg-zinc-100 text-zinc-500' : 'bg-fuchsia-100 text-fuchsia-700'}`}>
+                        {o.id === QUALSIASI ? <Sparkles size={16} /> : o.nome.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-semibold">{o.nome}</span>
+                        {o.sotto && <span className="block text-xs text-zinc-500">{o.sotto}</span>}
+                      </span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${scelta ? 'bg-fuchsia-600 border-fuchsia-600' : 'border-zinc-300'}`}>
+                        {scelta && <Check size={12} className="text-white" strokeWidth={3} />}
+                      </span>
                     </button>
-                  )
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* ---------- 3. Quando ---------- */}
+        {!caricamento && passo === 'quando' && (
+          <section>
+            <h2 className="font-playfair font-bold text-2xl mb-1">Quando ti va bene?</h2>
+            <p className="text-sm text-zinc-500 mb-4">{durataScritta(durata)} · {nomeOperatore}</p>
+
+            {/* I giorni scorrono di lato: si vede subito quali hanno posto. */}
+            <div className="-mx-4 px-4 overflow-x-auto pb-2">
+              <div className="flex gap-2 w-max">
+                {giorni.map((g, i) => {
+                  const chiave = chiaveGiorno(g);
+                  const pieno = !(liberiPerGiorno[chiave]?.length);
+                  const scelto = chiave === giornoScelto;
+                  return (
+                    <button
+                      key={chiave}
+                      onClick={() => { setGiornoScelto(chiave); setOraScelta(''); }}
+                      disabled={pieno}
+                      className={`w-16 py-2.5 rounded-xl border text-center transition-colors ${
+                        scelto ? 'bg-fuchsia-600 border-fuchsia-600 text-white'
+                        : pieno ? 'bg-zinc-50 border-zinc-200 text-zinc-300'
+                        : 'bg-white border-zinc-200 text-zinc-800 hover:border-fuchsia-400'}`}
+                    >
+                      <span className="block text-[11px] uppercase font-semibold">{i === 0 ? 'Oggi' : i === 1 ? 'Domani' : g.toLocaleDateString('it-IT', { weekday: 'short' })}</span>
+                      <span className="block text-lg font-bold leading-tight">{g.getDate()}</span>
+                      <span className="block text-[11px]">{g.toLocaleDateString('it-IT', { month: 'short' })}</span>
+                    </button>
+                  );
                 })}
               </div>
             </div>
 
-            {/* Fixed Bottom Bar */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 flex justify-center z-30 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-              <div className="w-full max-w-3xl flex gap-3 px-2">
-                <button 
-                  onClick={() => setStep('datetime')}
-                  disabled={!selectedOperator}
-                  className="w-full bg-slate-900 hover:bg-black disabled:opacity-40 text-white px-6 py-4.5 rounded-[1.25rem] font-bold transition-all shadow-xl text-[15px]"
-                >
-                  Scegli orario
-                </button>
+            <h3 className="mt-5 mb-2 text-sm font-semibold text-zinc-700 capitalize">
+              {giornoData?.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </h3>
+            {orari.length === 0 ? (
+              <div className="p-6 bg-white border border-dashed border-zinc-300 rounded-2xl text-center text-sm text-zinc-500">
+                In questo giorno non c'è posto. Prova un altro giorno{operatoreScelto !== QUALSIASI ? ', o scegli "Prima disponibile"' : ''}.
               </div>
-            </div>
-          </div>
-        )}
-
-        {step === 'datetime' && (
-          <div className="flex-1 min-h-0 flex flex-col pt-4 px-2 pb-0 animate-in slide-in-from-right-8 duration-500 fade-in h-full overflow-hidden">
-            <div className="bg-white mx-2 mt-2 rounded-[2rem] shadow-xl p-6 md:p-8 flex-1 min-h-0 border border-slate-100 flex flex-col pb-32 overflow-hidden">
-              
-              <div className="flex flex-wrap gap-2 mb-6">
-                <div className="inline-flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200/80 shadow-sm">
-                  <span className="truncate max-w-[120px]">{selectedService}</span>
-                  <button onClick={() => setStep('services')} className="ml-1 text-slate-400 hover:text-slate-800 bg-white shadow-sm p-1 rounded-full"><X size={12}/></button>
-                </div>
-                <div className="inline-flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200/80 shadow-sm">
-                  <span className="truncate max-w-[120px]">{selectedOperator}</span>
-                  <button onClick={() => setStep('operator')} className="ml-1 text-slate-400 hover:text-slate-800 bg-white shadow-sm p-1 rounded-full"><X size={12}/></button>
-                </div>
-              </div>
-
-              <h2 className="text-2xl font-bold tracking-tight mb-2">Quando ti fa comodo?</h2>
-              
-              {/* DATE SCROLLER */}
-              <div className="mt-6 mb-8 -mx-6 md:-mx-8">
-                 <div className="flex gap-3 overflow-x-auto px-6 md:px-8 pb-4 pt-2 custom-scrollbar snap-x">
-                   {dates.map(d => {
-                     const isSelected = selectedDate === d.display;
-                     return (
-                       <button 
-                         key={d.full.toISOString()} 
-                         onClick={() => { setSelectedDate(d.display); setSelectedTime(''); }}
-                         className={`snap-start relative shrink-0 flex flex-col items-center justify-center p-3 w-[76px] h-[92px] rounded-[1.25rem] transition-all border-2 ${isSelected ? 'bg-slate-900 border-slate-900 shadow-md text-white scale-105' : 'bg-white border-slate-100 hover:border-slate-200 text-slate-800'}`}
-                       >
-                         {['Oggi', 'Domani'].includes(d.display) ? (
-                            <span className="font-bold text-[15px]">{d.display}</span>
-                         ) : (
-                            <>
-                              <span className={`text-[10px] uppercase font-bold tracking-widest ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>{d.short.split(' ')[0]}</span>
-                              <span className={`text-2xl font-black -mt-1 tracking-tighter ${isSelected ? 'text-white' : 'text-slate-900'}`}>{d.full.getDate()}</span>
-                            </>
-                         )}
-                         {/* Fake availability dot */}
-                         {d.full.getDate() % 2 === 0 && !isSelected && (
-                            <div className="absolute bottom-2.5 w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                         )}
-                       </button>
-                     )
-                   })}
-                 </div>
-              </div>
-
-              {/* TIME GRID */}
-              <div className="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar pb-16">
-                 {selectedDate ? (
-                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-                       {availableTimes.length > 0 ? availableTimes.map((t, idx) => {
-                         const isSelected = selectedTime === t;
-                         return (
-                           <button 
-                             key={t} 
-                             onClick={() => setSelectedTime(t)}
-                             className={`py-3.5 border-2 rounded-xl text-center text-[15px] font-bold transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-md ring-4 ring-indigo-50/50 scale-[1.02]' : 'bg-white border-slate-100 hover:border-slate-300 text-slate-700 hover:bg-slate-50'}`}
-                           >
-                             {t}
-                           </button>
-                         )
-                       }) : (
-                         <div className="col-span-3 sm:col-span-4 text-center py-8 text-slate-400">
-                           Nessun orario disponibile per questa data.
-                         </div>
-                       )}
-                     </div>
-                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 bg-slate-50 rounded-3xl border border-slate-100 border-dashed">
-                      <CalendarIcon size={32} className="mb-4 opacity-30" />
-                      <p className="text-sm font-medium">Scorri e seleziona un giorno in alto<br/>per vedere gli orari disponibili.</p>
-                    </div>
-                 )}
-              </div>
-            </div>
-            
-            {/* Fixed Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 flex justify-center z-30 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-              <div className="w-full max-w-3xl flex gap-3 px-2">
-                <button 
-                   onClick={() => setStep('details')}
-                   disabled={!selectedDate || !selectedTime}
-                   className="w-full bg-slate-900 hover:bg-black disabled:opacity-40 text-white px-6 py-4.5 rounded-[1.25rem] font-bold transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-2 text-[15px]"
-                >
-                   {selectedTime ? `Conferma ore ${selectedTime}` : 'Seleziona orario'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 'details' && (
-          <div className="flex-1 min-h-0 flex flex-col pt-4 px-2 pb-0 animate-in slide-in-from-right-8 duration-500 fade-in h-full overflow-hidden">
-            <div className="bg-white mx-2 mt-2 rounded-[2rem] shadow-xl p-6 md:p-8 flex-1 min-h-0 border border-slate-100 flex flex-col pb-32 overflow-hidden">
-              
-              <button 
-                onClick={() => setStep('datetime')} 
-                className="inline-flex items-center gap-2 self-start text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-900 mb-6 py-1.5 px-3 rounded-lg bg-slate-50/50 border border-slate-100 transition-colors"
-               >
-                <ArrowLeft size={14} /> Modifica
-              </button>
-              
-              <div className="overflow-y-auto pr-2 -mr-2 custom-scrollbar pb-16">
-                <h2 className="text-2xl font-bold tracking-tight mb-2">I tuoi dettagli</h2>
-                <p className="text-slate-500 text-sm mb-6">Completa con i tuoi dati per finalizzare la prenotazione.</p>
-                
-                {/* Elegant Recap Card */}
-                <div className="bg-[#f8f8fb] rounded-[1.25rem] p-5 mb-8 border border-slate-200/80 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
-                   <div className="flex justify-between items-start mb-3">
-                     <div className="pl-1">
-                       {/* Con più servizi si elencano uno per riga, con il loro
-                           prezzo: il totale da solo non si capisce da dove viene. */}
-                       {serviziScelti.length > 1 ? (
-                         <ul className="space-y-1">
-                           {serviziScelti.map(s => (
-                             <li key={s.id} className="flex items-baseline gap-2 text-slate-900">
-                               <span className="font-bold leading-tight">{s.nome}</span>
-                               <span className="text-[12px] text-slate-400 font-medium whitespace-nowrap">
-                                 {s.durata_minuti} min{s.prezzo_base > 0 ? ` · ${s.prezzo_base.toFixed(2)}€` : ''}
-                               </span>
-                             </li>
-                           ))}
-                         </ul>
-                       ) : (
-                         <h4 className="font-bold text-slate-900 leading-tight">{selectedService}</h4>
-                       )}
-                       <p className="text-[13px] font-medium text-slate-500 mt-1 inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100"><User size={12}/> {selectedOperator}</p>
-                     </div>
-                     <div className="text-right">
-                       <div className="font-bold text-slate-900 text-lg">{getPrice()}</div>
-                       <div className="text-xs font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{getDuration()}</div>
-                     </div>
-                   </div>
-                   <div className="h-px bg-slate-200/80 my-4 pl-1"></div>
-                   <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 bg-emerald-50 w-fit px-3 py-1.5 rounded-lg border border-emerald-100 drop-shadow-sm ml-1">
-                     <CalendarIcon size={16} className="text-emerald-600" /> {selectedDate.split(' ')[0]}, ore {selectedTime}
-                   </div>
-                </div>
-
-                {/* Form without heavy borders, soft backgrounds */}
-                <div className="space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-1.5">
-                       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Nome *</label>
-                       <input 
-                         type="text" 
-                         value={customerName}
-                         onChange={e => setCustomerName(e.target.value)}
-                         className="w-full bg-[#f8f8fb] border border-slate-100 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 rounded-[1.25rem] px-5 py-3.5 outline-none transition-all font-semibold text-[15px] placeholder-slate-400"
-                         placeholder="Es. Giulia"
-                       />
-                     </div>
-                     <div className="space-y-1.5">
-                       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Cognome *</label>
-                       <input 
-                         type="text" 
-                         value={customerSurname}
-                         onChange={e => setCustomerSurname(e.target.value)}
-                         className="w-full bg-[#f8f8fb] border border-slate-100 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 rounded-[1.25rem] px-5 py-3.5 outline-none transition-all font-semibold text-[15px] placeholder-slate-400"
-                         placeholder="Es. Rossi"
-                       />
-                     </div>
-                   </div>
-                   
-                   <div className="space-y-1.5">
-                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Cellulare *</label>
-                     <input 
-                       type="tel" 
-                       value={customerPhone}
-                       onChange={e => setCustomerPhone(e.target.value)}
-                       className="w-full bg-[#f8f8fb] border border-slate-100 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 rounded-[1.25rem] px-5 py-3.5 outline-none transition-all font-semibold text-[15px] placeholder-slate-400"
-                       placeholder="+39 333 1234567"
-                     />
-                   </div>
-                   
-                   <div className="space-y-1.5">
-                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center gap-2">
-                       Email <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[9px] text-slate-400">Opzionale</span>
-                     </label>
-                     <input 
-                       type="email" 
-                       value={customerEmail}
-                       onChange={e => setCustomerEmail(e.target.value)}
-                       className="w-full bg-[#f8f8fb] border border-slate-100 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 rounded-[1.25rem] px-5 py-3.5 outline-none transition-all font-semibold text-[15px] placeholder-slate-400"
-                       placeholder="tua@email.com"
-                     />
-                   </div>
-
-                   <div className="space-y-1.5 pb-6">
-                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center gap-2">
-                       Note particolari <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[9px] text-slate-400">Opzionale</span>
-                     </label>
-                     <textarea 
-                       value={customerNotes}
-                       onChange={e => setCustomerNotes(e.target.value)}
-                       className="w-full bg-[#f8f8fb] border border-slate-100 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 rounded-[1.25rem] px-5 py-3.5 outline-none transition-all font-semibold text-[15px] min-h-[90px] resize-none placeholder-slate-400"
-                       placeholder="Es. Ho i capelli molto lunghi e folti..."
-                     />
-                   </div>
-                </div>
-              </div>
-
-              {/* Fixed Bottom */}
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 flex justify-center z-30 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-                <div className="w-full max-w-3xl flex gap-3 px-2">
-                  <button 
-                     onClick={handleBook}
-                     disabled={!customerName.trim() || !customerSurname.trim() || !customerPhone.trim() || isSubmitting}
-                     className="w-full bg-slate-900 hover:bg-black disabled:opacity-40 text-white px-6 py-4.5 rounded-[1.25rem] font-bold transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-2 text-[15px]"
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {orari.map(o => (
+                  <button
+                    key={o}
+                    onClick={() => setOraScelta(o)}
+                    className={`py-2.5 rounded-xl border text-sm font-semibold tabular-nums transition-colors ${
+                      oraScelta === o ? 'bg-fuchsia-600 border-fuchsia-600 text-white' : 'bg-white border-zinc-200 hover:border-fuchsia-400'}`}
                   >
-                     {isSubmitting ? (
-                        <>Attendi...</>
-                     ) : (
-                        <><CheckCircle2 size={20} /> Conferma appuntamento</>
-                     )}
+                    {o}
                   </button>
-                </div>
+                ))}
               </div>
-            </div>
-          </div>
+            )}
+          </section>
         )}
 
-        {step === 'success' && (
-           <div className="fixed inset-0 z-50 flex flex-col justify-center items-center p-6 bg-[#f8f8fb] animate-in zoom-in-95 duration-700 fade-in">
-             {/* Decorative Confetti Background */}
-             <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-50">
-               <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-emerald-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
-               <div className="absolute top-1/3 right-1/4 w-32 h-32 bg-indigo-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
-               <div className="absolute bottom-1/4 left-1/3 w-32 h-32 bg-fuchsia-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
-             </div>
+        {/* ---------- 4. I tuoi dati ---------- */}
+        {!caricamento && passo === 'dati' && (
+          <section>
+            <h2 className="font-playfair font-bold text-2xl mb-4">Ultimo passo</h2>
 
-             <div className="relative z-10 w-full max-w-sm">
-               <div className="w-24 h-24 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-full flex items-center justify-center mb-8 mx-auto shadow-2xl ring-8 ring-indigo-500/20 shadow-indigo-500/30">
-                 <Clock size={48} className="drop-shadow-md" />
-               </div>
-               <h2 className="text-4xl font-extrabold tracking-tight mb-3 text-center text-slate-900 leading-tight">Richiesta inviata</h2>
-               
-               <div className="bg-white border text-center border-slate-100 rounded-[2rem] p-8 w-full mt-8 shadow-xl shadow-black/5 relative overflow-hidden">
-                 
-                 <p className="text-lg text-slate-600 mb-6 font-medium leading-relaxed">
-                   Abbiamo ricevuto la tua richiesta per <strong className="text-slate-900">{selectedService}</strong> da <strong className="text-slate-900">{salonName}</strong>.
-                 </p>
-                 
-                 <div className="bg-[#f8f8fb] rounded-[1.25rem] p-5 border border-slate-100 max-w-sm mx-auto text-left space-y-3">
-                   <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-slate-200/50">
-                       <CalendarIcon size={18} className="text-emerald-600" />
-                     </div>
-                     <div>
-                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Quando (richiesto)</div>
-                       <div className="font-bold text-slate-900 text-sm">{selectedDate.split(' ')[0]} alle {selectedTime}</div>
-                     </div>
-                   </div>
+            <Riepilogo scelti={scelti} durata={durata} prezzo={prezzo} quando={quandoScritto} operatore={nomeOperatore} />
 
-                   <div className="w-full h-px bg-slate-200/80 my-1"></div>
+            <form className="mt-5 space-y-3" onSubmit={e => { e.preventDefault(); conferma(); }}>
+              <div className="grid grid-cols-2 gap-3">
+                <Campo etichetta="Nome" valore={nome} cambia={setNome} autocomplete="given-name" />
+                <Campo etichetta="Cognome" valore={cognome} cambia={setCognome} autocomplete="family-name" />
+              </div>
+              <Campo etichetta="Cellulare" valore={telefono} cambia={setTelefono} tipo="tel" autocomplete="tel" segnaposto="333 123 4567" />
+              <Campo etichetta="Email" facoltativo valore={email} cambia={setEmail} tipo="email" autocomplete="email" />
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 mb-1">Note <span className="text-zinc-400 font-normal">· facoltative</span></label>
+                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={500}
+                  className="w-full px-3 py-2.5 bg-white border border-zinc-300 rounded-xl text-[15px] outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 resize-none"
+                  placeholder="Allergie, richieste particolari…" />
+              </div>
+              <p className="text-xs text-zinc-400 flex items-start gap-1.5">
+                <ShieldCheck size={14} className="shrink-0 mt-0.5" />
+                Usiamo i tuoi dati solo per questo appuntamento e per ricordartelo.
+              </p>
+              <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+            </form>
+          </section>
+        )}
 
-                   <div className="flex items-start gap-4">
-                     <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-slate-200/50">
-                       <User size={18} className="text-indigo-600" />
-                     </div>
-                     <div>
-                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Con chi</div>
-                       <div className="font-bold text-slate-900 text-sm">{selectedOperator} {selectedOperator === 'Qualsiasi operatore' && <span className="text-[10px] ml-1 font-medium bg-slate-200 text-slate-600 px-1 py-0.5 rounded">Assegnato da noi</span>}</div>
-                     </div>
-                   </div>
-                 </div>
-               </div>
+        {/* ---------- Verifica del numero ---------- */}
+        {passo === 'verifica' && (
+          <section>
+            <h2 className="font-playfair font-bold text-2xl mb-1">Controlla i messaggi</h2>
+            <p className="text-sm text-zinc-500 mb-5">
+              Ti abbiamo mandato un codice di 6 cifre al <strong className="text-zinc-800 whitespace-nowrap">{codiceMandatoA}</strong>.
+              Serve a sapere che il numero è giusto: è lì che ti confermiamo l'appuntamento.
+            </p>
+            <form onSubmit={e => { e.preventDefault(); if (codice.length === 6) verifica(); }}>
+              <input
+                value={codice}
+                onChange={e => setCodice(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                aria-label="Codice di 6 cifre"
+                className="w-full text-center text-3xl font-bold tracking-[0.5em] tabular-nums py-4 bg-white border border-zinc-300 rounded-2xl outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
+                placeholder="••••••"
+              />
+            </form>
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <button onClick={() => vaiA('dati')} className="text-zinc-500 hover:text-zinc-900 font-medium">Cambia numero</button>
+              <button onClick={rimanda} disabled={attesaRinvio > 0 || inCorso} className="font-semibold text-fuchsia-700 disabled:text-zinc-400">
+                {attesaRinvio > 0 ? `Rimanda fra ${attesaRinvio}s` : 'Rimanda il codice'}
+              </button>
+            </div>
+          </section>
+        )}
 
-               <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-                 <p className="text-[13px] font-semibold text-amber-900 mb-1">L'appuntamento non è ancora confermato</p>
-                 <p className="text-[13px] text-amber-800 leading-relaxed">
-                   Il salone controlla la disponibilità e ti risponde al numero{' '}
-                   <strong className="whitespace-nowrap">{customerPhone}</strong>.
-                 </p>
-               </div>
-             </div>
+        {/* ---------- Fatto ---------- */}
+        {passo === 'fatto' && (
+          <section className="text-center pt-6">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+              <Check size={32} strokeWidth={3} />
+            </div>
+            <h2 className="font-playfair font-bold text-2xl mb-2">Richiesta inviata</h2>
+            <p className="text-sm text-zinc-600 mb-6 max-w-sm mx-auto">
+              {smsAttivi
+                ? "Il salone controlla l'agenda e ti conferma con un SMS. Il giorno prima ti mandiamo un promemoria."
+                : `Il salone controlla l'agenda e ti ricontatta al ${telefono}.`}
+            </p>
+            <div className="text-left">
+              <Riepilogo scelti={scelti} durata={durata} prezzo={prezzo} quando={quandoScritto} operatore={nomeOperatore} />
+            </div>
 
-             <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(env(safe-area-inset-bottom),2rem)] flex justify-center pointer-events-none">
-                <button 
-                  onClick={() => {
-                    setStep('welcome');
-                    setSelectedServiceIds([]);
-                    setSelectedOperator('');
-                    setSelectedDate('');
-                    setSelectedTime('');
-                    setCustomerName('');
-                    setCustomerSurname('');
-                    setCustomerPhone('');
-                    setCustomerEmail('');
-                    setCustomerNotes('');
-                  }}
-                  className="w-full max-w-sm mx-auto flex justify-center bg-white border border-slate-200/80 shadow-lg text-slate-800 hover:bg-slate-50 px-6 py-4.5 rounded-[1.25rem] font-bold transition-all text-[15px] pointer-events-auto"
-                >
-                  Torna alla home
-                </button>
-             </div>
-           </div>
+            <AggiungiAllaHome nomeSalone={salone.nome} />
+
+            <button onClick={ricomincia} className="mt-6 text-sm font-semibold text-fuchsia-700 hover:text-fuchsia-800">
+              Prenota un altro appuntamento
+            </button>
+          </section>
         )}
       </main>
+
+      {/* La barra in fondo: che cosa si è scelto e il bottone per andare avanti. */}
+      {passo !== 'fatto' && !caricamento && (
+        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-zinc-200 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+          <div className="max-w-xl mx-auto px-4 pt-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0 text-sm">
+              {scelti.length > 0 ? (
+                <>
+                  <div className="font-semibold truncate">{scelti.length === 1 ? scelti[0].nome : `${scelti.length} servizi`}</div>
+                  <div className="text-xs text-zinc-500">{durataScritta(durata)}{prezzo > 0 ? ` · ${euro(prezzo)}` : ''}</div>
+                </>
+              ) : <span className="text-zinc-400">Nessun servizio scelto</span>}
+            </div>
+            <button
+              onClick={avanti}
+              disabled={bloccato || inCorso}
+              className="shrink-0 px-6 py-3 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 disabled:bg-zinc-300 text-white font-semibold text-[15px] flex items-center gap-2 transition-colors"
+            >
+              {inCorso && <Loader2 size={16} className="animate-spin" />}
+              {passo === 'dati' ? 'Conferma' : passo === 'verifica' ? 'Prenota' : 'Continua'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Pezzi -----------------------------------------------------------------
+
+function impostaMeta(nome: string, contenuto: string) {
+  let meta = document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`);
+  if (!meta) { meta = document.createElement('meta'); meta.name = nome; document.head.appendChild(meta); }
+  meta.content = contenuto;
+}
+
+function Riepilogo({ scelti, durata, prezzo, quando, operatore }: { scelti: Servizio[]; durata: number; prezzo: number; quando: string; operatore: string }) {
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-4 space-y-3">
+      <ul className="space-y-1">
+        {scelti.map(s => (
+          <li key={s.id} className="flex justify-between gap-3 text-sm">
+            <span className="font-semibold">{s.nome}</span>
+            <span className="text-zinc-500 shrink-0">{s.prezzo_base > 0 ? euro(s.prezzo_base) : ''}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="pt-3 border-t border-zinc-100 grid grid-cols-1 gap-1.5 text-sm text-zinc-600">
+        {quando && <span className="flex items-center gap-2 first-letter:uppercase"><CalendarDays size={15} className="text-fuchsia-600 shrink-0" /> {quando}</span>}
+        <span className="flex items-center gap-2"><Clock size={15} className="text-fuchsia-600 shrink-0" /> {durataScritta(durata)}{operatore ? ` · ${operatore}` : ''}</span>
+      </div>
+      {prezzo > 0 && (
+        <div className="pt-3 border-t border-zinc-100 flex justify-between text-sm">
+          <span className="text-zinc-500">Totale indicativo</span>
+          <span className="font-bold">{euro(prezzo)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Campo({ etichetta, valore, cambia, tipo = 'text', autocomplete, segnaposto, facoltativo }: {
+  etichetta: string; valore: string; cambia: (v: string) => void; tipo?: string; autocomplete?: string; segnaposto?: string; facoltativo?: boolean;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-zinc-600 mb-1">
+        {etichetta} {facoltativo && <span className="text-zinc-400 font-normal">· facoltativa</span>}
+      </label>
+      <input
+        type={tipo}
+        value={valore}
+        onChange={e => cambia(e.target.value)}
+        autoComplete={autocomplete}
+        inputMode={tipo === 'tel' ? 'tel' : undefined}
+        placeholder={segnaposto}
+        className="w-full px-3 py-2.5 bg-white border border-zinc-300 rounded-xl text-[15px] outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
+      />
+    </div>
+  );
+}
+
+/**
+ * L'invito ad aggiungere la pagina alla schermata Home.
+ *
+ * Su Android il telefono offre da sé di installarla, e il bottone la installa
+ * con un tocco. Su iPhone non esiste un bottone del genere: si spiega il
+ * gesto, Condividi → Aggiungi alla schermata Home. Se la pagina è già aperta
+ * come app, l'invito non compare.
+ */
+function AggiungiAllaHome({ nomeSalone }: { nomeSalone: string }) {
+  const [richiesta, setRichiesta] = useState<any>(null);
+  const [fatto, setFatto] = useState(false);
+
+  const giaApp = typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
+  const iPhone = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    const prendi = (e: Event) => { e.preventDefault(); setRichiesta(e); };
+    window.addEventListener('beforeinstallprompt', prendi);
+    return () => window.removeEventListener('beforeinstallprompt', prendi);
+  }, []);
+
+  if (giaApp || fatto) return null;
+  if (!richiesta && !iPhone) return null;
+
+  return (
+    <div className="mt-6 p-4 bg-fuchsia-50 border border-fuchsia-100 rounded-2xl text-left">
+      <p className="text-sm font-semibold text-zinc-900 mb-1">La prossima volta, prenota con un tocco</p>
+      {richiesta ? (
+        <>
+          <p className="text-sm text-zinc-600 mb-3">Metti {nomeSalone || 'il salone'} fra le app del telefono.</p>
+          <button
+            onClick={async () => { richiesta.prompt(); await richiesta.userChoice?.catch?.(() => null); setFatto(true); }}
+            className="px-4 py-2 rounded-xl bg-fuchsia-600 text-white text-sm font-semibold"
+          >
+            Aggiungi alla schermata Home
+          </button>
+        </>
+      ) : (
+        <p className="text-sm text-zinc-600">
+          Tocca <Share size={14} className="inline -mt-0.5" /> <strong>Condividi</strong> in basso, poi
+          {' '}<PlusSquare size={14} className="inline -mt-0.5" /> <strong>Aggiungi alla schermata Home</strong>.
+        </p>
+      )}
     </div>
   );
 }

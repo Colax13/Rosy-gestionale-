@@ -148,6 +148,18 @@ export const messaggiApi = {
     eco({ mandato: true, canali: ['sms'], a: ['+39 333 000 0000'] }),
 };
 
+// La prenotazione dal sito, finta: il codice giusto è sempre 123456, così
+// nell'anteprima si prova anche quando lo si sbaglia.
+export const prenotazioneApi = {
+  chiediCodice: async (_salonId: string, telefono: string) =>
+    eco({ serveCodice: true, a: telefono || '+39 333 000 0000' }),
+  prenota: async (salonId: string, appuntamento: any, codice?: string) => {
+    if (codice && codice !== '123456') throw new Error('Codice sbagliato. Hai ancora 4 tentativi.');
+    (globalThis as any).ultimaPrenotazione = { salonId, ...appuntamento, codice };
+    return eco({ id: 'finto', verificato: !!codice });
+  }
+};
+
 let ultimoNumeroFinto = 41;
 export const precontoApi = {
   numero: async (_id: string) => eco({ anno: new Date().getFullYear(), numero: ++ultimoNumeroFinto }),
@@ -184,12 +196,6 @@ export const dipendentiApi = {
 
 export const appuntamentiApi = {
   getAgendaPublic: async () => eco(appuntamenti),
-  // Nell'anteprima non si salva niente, ma l'ultima prenotazione resta a
-  // portata di mano: serve a controllare che cosa verrebbe scritto davvero.
-  createPublic: async (salonId: string, dati: any) => {
-    (globalThis as any).ultimaPrenotazione = { salonId, ...dati };
-    return eco({ id: 'finto', salonId, ...dati });
-  },
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
   getAgenda: async (data?: string, da?: string, a?: string) => {
     const tutti = [...appuntamenti, ...appuntamentiVecchi];
