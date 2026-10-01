@@ -5,8 +5,9 @@
 // salone. Senza, chiunque potrebbe far partire messaggi a nome del salone.
 
 import { database, chiEntra, saloneDi } from './_firebase';
-import { TipoMessaggio } from './_messaggi';
-import { mandaPerAppuntamento } from './_invio';
+import { TipoMessaggio, mandaSms } from './_messaggi';
+import { mandaPerAppuntamento, schedaSalone } from './_invio';
+import { postinoDelSalone, gettoneValido, COLLEZIONE_SEGRETI } from './_postino';
 
 interface Richiesta {
   method?: string;
@@ -33,6 +34,53 @@ const intestazione = (req: Richiesta, nome: string): string => {
   return Array.isArray(v) ? v[0] : (v || '');
 };
 
+async function impostazioniSms(
+  azione: string, dati: any, db: FirebaseFirestore.Firestore, salone: string, titolare: boolean, res: Risposta
+) {
+  const rif = db.collection(COLLEZIONE_SEGRETI).doc(salone);
+  const scheda = await schedaSalone(db, salone);
+
+  if (azione === 'stato') {
+    const postino = await postinoDelSalone(db, salone, scheda.ownerEmail);
+    res.status(200).json({
+      collegato: !!postino,
+      // "salone" = collegato da Impostazioni; "vercel" = chiavi messe a mano.
+      origine: postino?.origine || null,
+      tipo: postino?.tipo || null
+    });
+    return;
+  }
+
+  // Collegare e scollegare il telefono è roba da titolare: decide da quale
+  // numero partono i messaggi a tutte le clienti.
+  if (!titolare) { res.status(403).json({ errore: 'Solo la titolare può collegare il telefono degli SMS.' }); return; }
+
+  if (azione === 'collega') {
+    const gettone = String(dati?.gettone || '').trim();
+    if (!gettoneValido(gettone)) {
+      res.status(400).json({ errore: 'Il gettone non sembra giusto: copialo di nuovo dall\'app, tutto intero, senza spazi.' });
+      return;
+    }
+    await rif.set({ traccarToken: gettone, aggiornato: new Date().toISOString() });
+    res.status(200).json({ collegato: true, origine: 'salone', tipo: 'traccar' });
+    return;
+  }
+
+  if (azione === 'scollega') {
+    await rif.delete();
+    res.status(200).json({ collegato: false });
+    return;
+  }
+
+  // azione === 'prova': un SMS vero, e indietro tutto quello che ha risposto
+  // chi doveva consegnarlo. È il modo di vedere dove si ferma il messaggio.
+  const postino = await postinoDelSalone(db, salone, scheda.ownerEmail);
+  const nome = scheda.dettagli?.nomeSalone || 'Il salone';
+  const testo = `${nome}: messaggio di prova dal gestionale. Se lo leggi, gli SMS alle clienti funzionano.`;
+  const esito = await mandaSms(String(dati?.telefono || ''), { oggetto: '', testo, html: '', sms: testo }, postino);
+  res.status(200).json(esito);
+}
+
 export default async function handler(req: Richiesta, res: Risposta) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -42,10 +90,11 @@ export default async function handler(req: Richiesta, res: Risposta) {
   }
 
   try {
-    const { appuntamentoId, tipo } = corpo(req);
+    const { appuntamentoId, tipo, azione: azioneRichiesta } = corpo(req);
     const quale: TipoMessaggio = tipo === 'promemoria' ? 'promemoria' : 'conferma';
+    const soloImpostazioni = ['stato', 'collega', 'scollega', 'prova'].includes(azioneRichiesta);
 
-    if (!appuntamentoId || typeof appuntamentoId !== 'string') {
+    if (!soloImpostazioni && (!appuntamentoId || typeof appuntamentoId !== 'string')) {
       res.status(400).json({ errore: "Manca il numero dell'appuntamento." });
       return;
     }
@@ -65,6 +114,16 @@ export default async function handler(req: Richiesta, res: Risposta) {
 
     const db = database();
     const salone = await saloneDi(chi.uid);
+
+    // --- Il telefono del salone per gli SMS ---------------------------------
+    // Stato, collegamento e prova. Il gettone si scrive da qui e non dal
+    // browser, e non torna mai indietro: chi apre Impostazioni vede solo se è
+    // collegato o no.
+    const { azione } = corpo(req);
+    if (azione === 'stato' || azione === 'collega' || azione === 'scollega' || azione === 'prova') {
+      await impostazioniSms(azione, corpo(req), db, salone, salone === chi.uid, res);
+      return;
+    }
 
     const appuntamento = await db.collection('appuntamenti').doc(appuntamentoId).get();
     // Se non è del suo salone si risponde "non esiste", non "non è tuo": chi

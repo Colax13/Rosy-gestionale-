@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy } from 'lucide-react';
+import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, MessageSquare } from 'lucide-react';
+import ImpostazioniSms from './ImpostazioniSms';
 import { salonApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<'generale' | 'orari' | 'foto'>('generale');
+  const [activeTab, setActiveTab] = useState<'generale' | 'orari' | 'foto' | 'sms'>('generale');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +103,7 @@ export default function Settings() {
               <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3"><SettingsIcon className="text-fuchsia-500" size={28} />Impostazioni</h1>
               <p className="text-zinc-500 mt-1 text-sm">Personalizza i dettagli, gli orari e l'aspetto del tuo salone.</p>
             </div>
-            {!isEditing ? (
+            {activeTab === 'sms' ? null : !isEditing ? (
                <button onClick={() => setIsEditing(true)} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-5 py-2.5 rounded-lg font-medium transition-colors">
                  Modifica {activeTab === 'orari' ? 'Orari' : 'Generali'}
                </button>
@@ -142,6 +143,12 @@ export default function Settings() {
         >
           <ImageIcon size={18} /> Foto e sede
         </button>
+        <button 
+          onClick={() => { setActiveTab('sms'); setIsEditing(false); }}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'sms' ? 'border-fuchsia-500 text-fuchsia-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
+        >
+          <MessageSquare size={18} /> SMS
+        </button>
       </div>
 
       <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl relative min-h-[400px]">
@@ -153,6 +160,8 @@ export default function Settings() {
           </div>
         ) : (
           <>
+            {activeTab === 'sms' && <ImpostazioniSms />}
+
             {activeTab === 'generale' && (
               <div className="space-y-6">
             <h3 className="text-xl font-bold text-zinc-900">Informazioni salone</h3>

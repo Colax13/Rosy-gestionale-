@@ -160,6 +160,19 @@ export const prenotazioneApi = {
   }
 };
 
+// Il telefono degli SMS, finto: la prova "consegna" a Traccar, come quando il
+// gestionale ha fatto la sua parte e il blocco è sul tablet.
+let smsCollegato = true;
+export const smsApi = {
+  stato: async () => eco({ collegato: smsCollegato, origine: smsCollegato ? 'salone' : null, tipo: 'traccar' }),
+  collega: async (_g: string) => { smsCollegato = true; return eco({ collegato: true }); },
+  scollega: async () => { smsCollegato = false; return eco({ collegato: false }); },
+  prova: async (telefono: string) => eco({
+    mandato: true, a: telefono,
+    dettaglio: { postino: 'Traccar', stato: 200, risposta: '' }
+  })
+};
+
 let ultimoNumeroFinto = 41;
 export const precontoApi = {
   numero: async (_id: string) => eco({ anno: new Date().getFullYear(), numero: ++ultimoNumeroFinto }),

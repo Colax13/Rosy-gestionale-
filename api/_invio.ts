@@ -6,6 +6,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio } from './_messaggi';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
+import { postinoDelSalone } from './_postino';
 
 export interface RisultatoInvio {
   mandato: boolean;
@@ -45,8 +46,17 @@ export async function mandaPerAppuntamento(
   memoria?: Map<string, any>
 ): Promise<RisultatoInvio> {
   const scheda = await schedaSalone(db, app.userId, memoria);
-  if (!funzioneAccesa('messaggi_automatici', scheda.ownerEmail)) {
-    return { mandato: false, canali: [], a: [], motivo: 'i messaggi automatici non sono attivi per questo salone.' };
+
+  // Gli SMS partono col postino del salone: il suo tablet, collegato da
+  // Impostazioni. L'email invece parte da un dominio solo (quello di RD
+  // Salon), quindi resta riservata a chi ce l'ha.
+  const chiavePostino = `postino:${app.userId}`;
+  if (memoria && !memoria.has(chiavePostino)) memoria.set(chiavePostino, await postinoDelSalone(db, app.userId, scheda.ownerEmail));
+  const postino = memoria ? memoria.get(chiavePostino) : await postinoDelSalone(db, app.userId, scheda.ownerEmail);
+  const emailAccesa = funzioneAccesa('messaggi_automatici', scheda.ownerEmail);
+
+  if (!postino && !emailAccesa) {
+    return { mandato: false, canali: [], a: [], motivo: 'questo salone non ha ancora collegato un telefono per gli SMS (Impostazioni → SMS).' };
   }
 
   let telefono = (app.clienti?.telefono || '').trim();
@@ -75,8 +85,8 @@ export async function mandaPerAppuntamento(
 
   // Si prova su tutte e due le strade: basta che ne arrivi una.
   const esiti: EsitoInvio[] = await Promise.all([
-    mandaSms(telefono, messaggio),
-    mandaEmail(email, messaggio)
+    mandaSms(telefono, messaggio, postino),
+    emailAccesa ? mandaEmail(email, messaggio) : Promise.resolve({ mandato: false as const, canale: 'email' as const, motivo: "l'email non è attiva per questo salone." })
   ]);
 
   const riusciti = esiti.filter(e => e.mandato) as Extract<EsitoInvio, { mandato: true }>[];
