@@ -4,7 +4,7 @@ import { useState } from 'react';
 import readXlsxFile from 'read-excel-file/browser';
 import { clientiApi } from '@/lib/api-client';
 import { X, Upload, AlertCircle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
-import { Campo, CAMPI, leggiCsv, indoviniMappatura, aCliente, chiaviCliente } from '@/lib/importa';
+import { Campo, CAMPI, leggiCsv, indoviniMappatura, aCliente, chiaviCliente, datiCliente, completamento } from '@/lib/importa';
 
 interface Props {
   clientiEsistenti: any[];
@@ -19,9 +19,9 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
   const [intestazioni, setIntestazioni] = useState<string[]>([]);
   const [righe, setRighe] = useState<string[][]>([]);
   const [mappatura, setMappatura] = useState<Campo[]>([]);
-  const [saltaDoppioni, setSaltaDoppioni] = useState(true);
+  const [completaDoppioni, setCompletaDoppioni] = useState(true);
   const [avanzamento, setAvanzamento] = useState({ fatti: 0, totale: 0 });
-  const [esito, setEsito] = useState<{ importati: number; saltati: number; errori: string[] } | null>(null);
+  const [esito, setEsito] = useState<{ importati: number; completati: number; saltati: number; errori: string[] } | null>(null);
 
   const caricaFile = async (file: File) => {
     setErrore(null);
@@ -56,37 +56,54 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
   const validi = candidati.filter(c => c.nome || c.cognome);
   const senzaNome = candidati.length - validi.length;
 
-  const chiaviEsistenti = new Set(clientiEsistenti.flatMap(chiaviCliente));
-  const isDoppione = (c: any) => chiaviCliente(c).some(k => chiaviEsistenti.has(k));
+  // Per ogni chiave (telefono, nome e cognome) la cliente che c'è già: serve
+  // per completarla invece di saltarla.
+  const perChiave = new Map<string, any>();
+  clientiEsistenti.forEach(e => chiaviCliente(e).forEach(k => { if (!perChiave.has(k)) perChiave.set(k, e); }));
+  const giaPresente = (c: any) => chiaviCliente(c).map(k => perChiave.get(k)).find(Boolean);
 
-  const doppioni = validi.filter(isDoppione).length;
-  const daImportare = saltaDoppioni ? validi.filter(c => !isDoppione(c)) : validi;
+  const nuove = validi.filter(c => !giaPresente(c));
+  const doppioni = validi.length - nuove.length;
+  const daCompletare = completaDoppioni
+    ? validi.filter(giaPresente).filter(c => completamento(giaPresente(c), c))
+    : [];
+  const totale = nuove.length + daCompletare.length;
 
   const avvia = async () => {
     setFase('importazione');
-    setAvanzamento({ fatti: 0, totale: daImportare.length });
+    setAvanzamento({ fatti: 0, totale });
     const errori: string[] = [];
     let importati = 0;
+    let completati = 0;
+    let fatti = 0;
 
-    for (let i = 0; i < daImportare.length; i++) {
-      const c = daImportare[i];
+    for (const c of nuove) {
       try {
-        await clientiApi.create({
-          nome: c.nome || '—',
-          cognome: c.cognome || '',
-          telefono: c.telefono || '',
-          email: c.email || '',
-          note: c.note || '',
-          canale_acquisizione: c.canale_acquisizione || 'Importato'
-        });
+        // Tutto quello che il file ha portato: note, note sugli appuntamenti,
+        // nascita, sesso e le colonne in più.
+        await clientiApi.create(datiCliente(c));
         importati++;
       } catch (e: any) {
         errori.push(`${c.nome} ${c.cognome}: ${e?.message || 'errore'}`);
       }
-      setAvanzamento({ fatti: i + 1, totale: daImportare.length });
+      setAvanzamento({ fatti: ++fatti, totale });
     }
 
-    setEsito({ importati, saltati: validi.length - daImportare.length, errori });
+    for (const c of daCompletare) {
+      const esistente = giaPresente(c);
+      const modifiche = completamento(esistente, c);
+      try {
+        if (modifiche) {
+          await clientiApi.update(esistente.id, modifiche);
+          completati++;
+        }
+      } catch (e: any) {
+        errori.push(`${c.nome} ${c.cognome}: ${e?.message || 'errore'}`);
+      }
+      setAvanzamento({ fatti: ++fatti, totale });
+    }
+
+    setEsito({ importati, completati, saltati: doppioni - completati, errori });
     setFase('fatto');
     onImportato();
   };
@@ -172,7 +189,7 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
                     <div key={i} className="px-3 py-2 flex items-center justify-between gap-3 text-sm">
                       <span className="font-medium text-zinc-900 truncate">
                         {c.nome} {c.cognome}
-                        {isDoppione(c) && <span className="ml-2 text-[10px] uppercase tracking-wider font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">già presente</span>}
+                        {giaPresente(c) && <span className="ml-2 text-[10px] uppercase tracking-wider font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">già presente</span>}
                       </span>
                       <span className="text-zinc-500 font-mono text-xs truncate shrink-0">{c.telefono || c.email || '—'}</span>
                     </div>
@@ -192,9 +209,15 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
                   <div className="flex justify-between"><span className="text-amber-700">Righe senza nome, saltate</span><span className="font-semibold tabular-nums text-amber-700">{senzaNome}</span></div>
                 )}
                 {doppioni > 0 && (
-                  <label className="flex items-center gap-2 pt-2 border-t border-zinc-200 cursor-pointer">
-                    <input type="checkbox" checked={saltaDoppioni} onChange={e => setSaltaDoppioni(e.target.checked)} className="accent-fuchsia-600" />
-                    <span className="text-zinc-700">Salta i {doppioni} già presenti in anagrafica</span>
+                  <label className="flex items-start gap-2 pt-2 border-t border-zinc-200 cursor-pointer">
+                    <input type="checkbox" checked={completaDoppioni} onChange={e => setCompletaDoppioni(e.target.checked)} className="accent-fuchsia-600 mt-0.5" />
+                    <span className="text-zinc-700">
+                      Completa i {doppioni} già presenti in anagrafica
+                      <span className="block text-xs text-zinc-500">
+                        Aggiungo note e dati che mancano, senza cancellare niente di quello che c'è.
+                        {completaDoppioni && ` ${daCompletare.length} hanno qualcosa da aggiungere.`}
+                      </span>
+                    </span>
                   </label>
                 )}
               </div>
@@ -224,7 +247,8 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
               <p className="text-base font-semibold text-zinc-900">
                 {esito.importati} {esito.importati === 1 ? 'cliente importato' : 'clienti importati'}
               </p>
-              {esito.saltati > 0 && <p className="text-sm text-zinc-500">{esito.saltati} saltati perché già presenti.</p>}
+              {esito.completati > 0 && <p className="text-sm text-zinc-500">{esito.completati} già presenti completati con i dati del file.</p>}
+              {esito.saltati > 0 && <p className="text-sm text-zinc-500">{esito.saltati} già presenti, lasciati come erano.</p>}
               {esito.errori.length > 0 && (
                 <div className="w-full text-left bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
                   <p className="text-sm font-medium text-red-700 mb-1">{esito.errori.length} non importati:</p>
@@ -245,10 +269,12 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
               </button>
               <button
                 onClick={avvia}
-                disabled={daImportare.length === 0}
+                disabled={totale === 0}
                 className="flex-1 px-4 py-2.5 font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-500 rounded-xl transition-colors disabled:opacity-50"
               >
-                Importa {daImportare.length} {daImportare.length === 1 ? 'cliente' : 'clienti'}
+                {nuove.length > 0
+                  ? `Importa ${nuove.length} ${nuove.length === 1 ? 'cliente' : 'clienti'}${daCompletare.length ? ` e completa ${daCompletare.length}` : ''}`
+                  : `Completa ${daCompletare.length} ${daCompletare.length === 1 ? 'cliente' : 'clienti'}`}
               </button>
             </>
           )}

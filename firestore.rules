@@ -129,7 +129,7 @@ service cloud.firestore {
         && data.nome is string && data.nome.size() <= 100
         && data.cognome is string && data.cognome.size() <= 100
         && ( !('telefono' in data) || (data.telefono is string && data.telefono.size() <= 50) )
-        && ( !('note' in data) || (data.note is string && data.note.size() <= 500) )
+        && ( !('note' in data) || (data.note is string && data.note.size() <= 5000) )
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }

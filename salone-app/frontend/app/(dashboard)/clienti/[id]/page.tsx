@@ -286,7 +286,7 @@ export default function SchedaCliente() {
                   <span className="text-sm font-semibold text-zinc-900">Note e preferenze</span>
                 </div>
                 {!isEditing ? (
-                  <p className="text-sm text-zinc-500 leading-relaxed">
+                  <p className="text-sm text-zinc-500 leading-relaxed whitespace-pre-line">
                     {cliente.note || <span className="italic text-zinc-500/50">Nessuna nota aggiuntiva.</span>}
                   </p>
                 ) : (
@@ -316,7 +316,7 @@ export default function SchedaCliente() {
                       return (
                         <div key={campo.chiave}>
                           <dt className="text-[11px] uppercase font-bold tracking-wide text-zinc-500 mb-0.5">{campo.etichetta}</dt>
-                          <dd className="text-sm text-zinc-900">
+                          <dd className="text-sm text-zinc-900 whitespace-pre-line">
                             {!isEditing ? mostra(campo, valore) : (
                               campo.tipo === 'scelta' ? (
                                 <select

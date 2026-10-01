@@ -1,4 +1,4 @@
-import { leggiCsv, indoviniMappatura, aCliente, chiaviCliente, aDataIso, numeroMese } from './importa';
+import { leggiCsv, indoviniMappatura, aCliente, chiaviCliente, aDataIso, numeroMese, datiCliente, completamento } from './importa';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -75,6 +75,36 @@ check('data con i trattini',   '1990-03-07', aDataIso('7-3-1990'));
 check('anno a due cifre',      '1990-03-07', aDataIso('07/03/90'));
 check('data incomprensibile',  '',           aDataIso('boh'));
 check('data assente',          '',           aDataIso(''));
+
+// --- Un file come quello di Treatwell: le note devono arrivare tutte ---
+const treatwell = `Nome;Cognome;Cellulare;Email;Note;Note sull'appuntamento;Sesso;Lingua
+Laura;Neri;3471234567;l@n.it;"Allergica al nichel
+non usare forcine";Colore 6.3 + 20 min di posa;Donna;Italiano`;
+const tw = leggiCsv(treatwell);
+const mtw = indoviniMappatura(tw[0]);
+check('treatwell: note e note appuntamento separate', ['note', 'note_appuntamento'], [mtw[4], mtw[5]]);
+const laura = aCliente(tw[1], mtw, tw[0]);
+check('treatwell: nota su due righe intera', 'Allergica al nichel\nnon usare forcine', laura.note);
+check('treatwell: nota appuntamento', 'Colore 6.3 + 20 min di posa', laura.note_appuntamento);
+
+const salvata = datiCliente(laura);
+check('si salvano anche le note appuntamento', 'Colore 6.3 + 20 min di posa', salvata.note_appuntamento);
+check('si salva anche il sesso', 'Donna', salvata.sesso);
+check('la colonna non mappata resta in extra', { Lingua: 'Italiano' }, salvata.extra);
+check('niente campi vuoti nel salvataggio', false, 'data_nascita' in salvata);
+
+// --- Due colonne nello stesso campo note: si tengono tutte e due ---
+const due = aCliente(['Ok', 'Prima', 'Seconda'], ['nome', 'note', 'note'] as any);
+check('due colonne di note si sommano', 'Prima\nSeconda', due.note);
+
+// --- Cliente già presente: si completa, non si sovrascrive ---
+const vecchia = { nome: 'Laura', cognome: 'Neri', telefono: '3471234567', note: 'Viene il martedì', sesso: '' };
+const agg = completamento(vecchia, laura)!;
+check('nota nuova aggiunta in fondo', 'Viene il martedì\nAllergica al nichel\nnon usare forcine', agg.note);
+check('campo vuoto riempito', 'Donna', agg.sesso);
+check('il telefono non si tocca', false, 'telefono' in agg);
+check('reimportare due volte non raddoppia', null,
+  completamento({ ...vecchia, ...agg, extra: { Lingua: 'Italiano' } }, laura));
 
 console.log(`\n${ok} passati, ${ko} falliti`);
 process.exit(ko ? 1 : 0);

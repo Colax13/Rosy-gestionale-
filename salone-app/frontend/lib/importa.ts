@@ -51,8 +51,12 @@ const SINONIMI: Record<Exclude<Campo, ''>, string[]> = {
   stato_accettazione: ['statodiaccettazione', 'statoaccettazione', 'accettazione', 'consenso', 'optin'],
   numero_prenotazioni: ['numerodiprenotazioni', 'numeroprenotazioni', 'prenotazioni', 'numerobookings', 'bookings'],
   creato_il_origine: ['creatoil', 'creatoilgiorno', 'datacreazione', 'createdat', 'iscrittoil', 'clientedal'],
-  note_appuntamento: ['noteappuntamento', 'notaappuntamento', 'notedellappuntamento', 'appointmentnotes']
+  note_appuntamento: ['noteappuntamento', 'notaappuntamento', 'notedellappuntamento', 'notesullappuntamento',
+                      'noteappuntamenti', 'notedegliappuntamenti', 'appointmentnotes', 'bookingnotes']
 };
+
+/** I campi di testo libero: se due colonne finiscono lì, si tengono tutte e due. */
+const CAMPI_NOTE = new Set<Campo>(['note', 'note_appuntamento']);
 
 export const normalizza = (s: any) =>
   (s ?? '').toString().toLowerCase().normalize('NFD')
@@ -99,10 +103,20 @@ export function indoviniMappatura(intestazioni: string[]): Campo[] {
     for (const [campo, alias] of Object.entries(SINONIMI)) {
       if (alias.some(a => n === a)) return campo as Campo;
     }
+    // Fra le corrispondenze parziali vince la più lunga: "Note
+    // sull'appuntamento" contiene sia "note" sia "appuntamento", ed è la
+    // seconda a dire che cos'è davvero.
+    let migliore: Campo = '';
+    let lunghezza = 0;
     for (const [campo, alias] of Object.entries(SINONIMI)) {
-      if (alias.some(a => a.length > 3 && n.includes(a))) return campo as Campo;
+      for (const a of alias) {
+        if (a.length > 3 && n.includes(a) && a.length > lunghezza) {
+          migliore = campo as Campo;
+          lunghezza = a.length;
+        }
+      }
     }
-    return '' as Campo;
+    return migliore;
   });
 }
 
@@ -174,6 +188,11 @@ export function aCliente(riga: any[], mappatura: Campo[], intestazioni?: string[
       return;
     }
 
+    if (CAMPI_NOTE.has(campo) && c[campo]) {
+      c[campo] = `${c[campo]}\n${valore}`;
+      return;
+    }
+
     c[campo] = valore;
   });
 
@@ -203,4 +222,66 @@ export function chiaviCliente(c: any): string[] {
   const nome = normalizza(c.nome), cognome = normalizza(c.cognome);
   if (nome || cognome) chiavi.push(`n:${nome}|${cognome}`);
   return chiavi;
+}
+
+/** I campi della scheda che l'import sa riempire, oltre a nome e cognome. */
+const CAMPI_SCHEDA = [
+  'telefono', 'email', 'note', 'canale_acquisizione',
+  'sesso', 'data_nascita', 'stato_accettazione', 'numero_prenotazioni',
+  'creato_il_origine', 'note_appuntamento'
+] as const;
+
+const pieno = (v: any) => v !== undefined && v !== null && `${v}`.trim() !== '';
+
+/**
+ * Quello che si salva per una cliente nuova: tutto quello che il file ha
+ * portato, non solo nome e telefono. I campi vuoti restano fuori.
+ */
+export function datiCliente(c: any): Record<string, any> {
+  const dati: Record<string, any> = {
+    nome: c.nome || '—',
+    cognome: c.cognome || '',
+    canale_acquisizione: c.canale_acquisizione || 'Importato'
+  };
+  for (const campo of CAMPI_SCHEDA) {
+    if (campo === 'canale_acquisizione') continue;
+    if (pieno(c[campo])) dati[campo] = `${c[campo]}`.trim();
+  }
+  if (c.extra && Object.keys(c.extra).length) dati.extra = { ...c.extra };
+  return dati;
+}
+
+/**
+ * Che cosa aggiungere a una cliente che c'è già. Non si sovrascrive niente:
+ * si riempiono i campi vuoti, e le note del file si aggiungono in fondo a
+ * quelle che ci sono, se non ci sono già. Se non c'è niente da aggiungere
+ * restituisce null.
+ */
+export function completamento(esistente: any, nuovo: any): Record<string, any> | null {
+  const modifiche: Record<string, any> = {};
+  const nuovi = datiCliente(nuovo);
+
+  for (const campo of CAMPI_SCHEDA) {
+    const valore = nuovi[campo];
+    if (!pieno(valore) || campo === 'canale_acquisizione') continue;
+    const attuale = esistente?.[campo];
+
+    if (!pieno(attuale)) { modifiche[campo] = valore; continue; }
+
+    if (CAMPI_NOTE.has(campo as Campo)) {
+      const gia = normalizza(attuale);
+      if (!gia.includes(normalizza(valore))) modifiche[campo] = `${`${attuale}`.trim()}\n${valore}`;
+    }
+  }
+
+  if (nuovi.extra) {
+    const extra = { ...(esistente?.extra || {}) };
+    let cambiato = false;
+    for (const [k, v] of Object.entries(nuovi.extra)) {
+      if (!pieno(extra[k])) { extra[k] = v; cambiato = true; }
+    }
+    if (cambiato) modifiche.extra = extra;
+  }
+
+  return Object.keys(modifiche).length ? modifiche : null;
 }
