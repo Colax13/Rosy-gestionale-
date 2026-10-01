@@ -270,3 +270,36 @@ con 200 appuntamenti al mese sono ~€36 al mese fra conferme e promemoria).
 
 Se ci sono le chiavi di Skebby il programma usa quelle, altrimenti il tablet.
 Il codice è lo stesso.
+
+## Buoni online letti dal foglio Google
+
+Make scrive ogni buono pagato con Stripe in un foglio Google. Il gestionale
+legge quel foglio da solo ogni volta che si apre la pagina **Buoni** (e con
+il pulsante **Aggiorna**), e aggiunge i buoni che non ha mai visto: prezzo,
+piega, chi regala, per chi è, segnati come *Online*.
+
+Una volta sola:
+
+1. **L'email del robot**: Firebase Console → ⚙️ Impostazioni progetto →
+   Account di servizio. È l'indirizzo che finisce in
+   `@….iam.gserviceaccount.com`.
+2. **Condividi il foglio** con quell'indirizzo, come *Visualizzatore*.
+3. **Abilita Google Sheets API** nel progetto:
+   https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=gestionaliparrucchieri
+4. **Su Vercel** aggiungi `BUONI_FOGLIO_ID`: il pezzo del link tra `/d/` e
+   `/edit` (va bene anche il link intero). Se i buoni non sono nella prima
+   scheda del foglio, aggiungi anche `BUONI_FOGLIO_SCHEDA` con il nome della
+   scheda.
+
+Poi un **Redeploy**, perché le variabili nuove valgono solo dal deploy dopo.
+
+Cosa non fa, apposta:
+- un buono cancellato dal gestionale **non ricompare**: il server si ricorda i
+  codici già letti (`buoni_foglio_visti`, che dal browser non si legge);
+- un buono modificato o usato in salone **non viene riscritto** con i dati
+  del foglio;
+- vale **solo per RD Salon** (funzione `buoni_dal_foglio`): il foglio è suo.
+
+Se qualcosa non va, la pagina Buoni lo dice in una riga gialla: foglio non
+condiviso, Sheets API spenta, ID sbagliato. `/api/salute` dice se
+`BUONI_FOGLIO_ID` c'è.

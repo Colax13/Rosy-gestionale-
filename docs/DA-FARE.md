@@ -752,6 +752,7 @@ reimportare lo stesso file. Le note possono arrivare a 5000 caratteri
 - Buono spa a prezzo fisso: 50 €, 70 € con la spunta della piega.
 - Nessun messaggio automatico per i buoni: li gestisce il negozio.
 
-**Da fare: buoni da Make direttamente nel gestionale** · in attesa
-Make, oltre a scrivere sul foglio, manderà il buono al gestionale così compare
-da solo. Lasciato per ultimo.
+**Buoni online in automatico** · ✅
+Niente da cambiare su Make: il gestionale legge da solo il foglio Google che
+Make già riempie, ogni volta che si apre la pagina Buoni. Vedi
+`SERVER-SU-VERCEL.md`, sezione "Buoni online letti dal foglio Google".

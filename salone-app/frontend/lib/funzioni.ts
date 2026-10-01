@@ -16,7 +16,7 @@
 // mano nella barra leggerebbe comunque i dati.
 
 /** Le pagine che non sono per tutti. */
-export type ChiaveFunzione = 'buoni' | 'messaggi_automatici';
+export type ChiaveFunzione = 'buoni' | 'messaggi_automatici' | 'buoni_dal_foglio';
 
 interface FunzioneRiservata {
   etichetta: string;
@@ -39,6 +39,14 @@ export const FUNZIONI_RISERVATE: Record<ChiaveFunzione, FunzioneRiservata> = {
   // Il postino (il tablet in salone, o Skebby) è **di un salone solo**: senza
   // questo controllo, un altro salone che usa il gestionale confermerebbe un
   // appuntamento e alla sua cliente arriverebbe un SMS dal numero di RD Salon.
+  // Il foglio Google dei buoni pagati online è di RD Salon: la chiave su
+  // Vercel punta a quello. Se fosse acceso per un altro salone, i buoni delle
+  // clienti di RD Salon finirebbero nel suo registro.
+  buoni_dal_foglio: {
+    etichetta: 'Buoni letti dal foglio',
+    saloni: ['rdsalon.ceccano@gmail.com'],
+    motivo: 'Il foglio dei buoni pagati online (riempito da Make con Stripe) è di RD Salon.'
+  },
   messaggi_automatici: {
     etichetta: 'Messaggi automatici',
     saloni: ['rdsalon.ceccano@gmail.com'],

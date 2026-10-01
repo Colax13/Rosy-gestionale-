@@ -27,7 +27,9 @@ export default async function handler(_req: unknown, res: Risposta) {
 
   const promemoria = process.env.CRON_SECRET ? 'acceso' : 'spento (manca CRON_SECRET)';
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria };
+  const buoniDalFoglio = process.env.BUONI_FOGLIO_ID ? 'acceso' : 'spento (manca BUONI_FOGLIO_ID)';
+
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({

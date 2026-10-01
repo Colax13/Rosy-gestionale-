@@ -265,6 +265,14 @@ export const buoniApi = {
     if (i >= 0) (buoni as any[])[i] = { ...buoni[i], ...dati };
     return eco(buoni[i]);
   },
+  aggiornaDalFoglio: async () => {
+    // Nell'anteprima il foglio "porta" un buono nuovo la prima volta.
+    if (!buoni.some(b => b.id === 'bf')) {
+      (buoni as any[]).push({ id: 'bf', codice: 'RSY-NUOV-O123', tipo: 'spa', origine: 'foglio', intestatario: 'Sara Conti', acquirente: 'Luca Conti', acquirente_telefono: '347 000 1111', valore: 50, valore_residuo: 50, stato: 'attivo', data_emissione: alle(9) });
+      return eco({ acceso: true, aggiunti: 1, letti: 4 });
+    }
+    return eco({ acceso: true, aggiunti: 0, letti: 4 });
+  },
   delete: async (id: string) => {
     const i = buoni.findIndex(b => b.id === id);
     if (i >= 0) buoni.splice(i, 1);

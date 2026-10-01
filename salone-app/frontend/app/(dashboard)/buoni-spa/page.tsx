@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { buoniApi } from '@/lib/api-client';
 import { aNumero, aTesto } from '@/lib/numeri';
 import FloatingActionBar from '@/components/FloatingActionBar';
@@ -11,7 +11,7 @@ import {
 } from '@/lib/buoni';
 import {
   Ticket, Plus, Search, X, Edit2, Trash2, Check, AlertCircle,
-  Euro, Calendar, User, Sparkles, Scissors, Upload, Gift, Globe, Store
+  Euro, Calendar, User, Sparkles, Scissors, Upload, Gift, Globe, Store, RefreshCw
 } from 'lucide-react';
 
 interface Buono {
@@ -84,6 +84,14 @@ export default function BuoniSpa() {
   const [confermaEliminazione, setConfermaEliminazione] = useState<Buono | null>(null);
   const [importAperto, setImportAperto] = useState(false);
 
+  // Il foglio Google dei buoni pagati online: si legge da solo all'apertura.
+  const [foglio, setFoglio] = useState<{
+    stato: 'spento' | 'leggo' | 'fatto' | 'errore';
+    aggiunti?: number;
+    ora?: string;
+    errore?: string;
+  }>({ stato: 'spento' });
+
   const [utilizzo, setUtilizzo] = useState<{ buono: Buono; importo: string } | null>(null);
 
   const [form, setForm] = useState({
@@ -120,7 +128,30 @@ export default function BuoniSpa() {
     }
   };
 
-  useEffect(() => { caricaBuoni(); }, []);
+  const aggiornaDalFoglio = async () => {
+    setFoglio(f => ({ ...f, stato: f.stato === 'spento' ? 'spento' : 'leggo' }));
+    try {
+      const esito = await buoniApi.aggiornaDalFoglio();
+      if (!esito.acceso) { setFoglio({ stato: 'spento' }); return; }
+      const ora = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      if (esito.errore) { setFoglio({ stato: 'errore', errore: esito.errore, ora }); return; }
+      setFoglio({ stato: 'fatto', aggiunti: esito.aggiunti || 0, ora });
+      if (esito.aggiunti) caricaBuoni();
+    } catch {
+      // Senza rete o senza server la pagina funziona lo stesso: il foglio si
+      // rilegge la prossima volta.
+      setFoglio(f => (f.stato === 'spento' ? f : { ...f, stato: 'errore', errore: 'Non riesco a raggiungere il server.' }));
+    }
+  };
+
+  // Il foglio si legge una volta sola all'apertura, anche se React monta la
+  // pagina due volte: la seconda lettura direbbe "nessuno nuovo" e
+  // nasconderebbe quelli appena arrivati.
+  const foglioLetto = useRef(false);
+  useEffect(() => {
+    caricaBuoni();
+    if (!foglioLetto.current) { foglioLetto.current = true; aggiornaDalFoglio(); }
+  }, []);
 
   const apriNuovo = () => {
     setInModifica(null);
@@ -299,6 +330,31 @@ export default function BuoniSpa() {
           </button>
         ))}
       </div>
+
+      {foglio.stato !== 'spento' && (
+        <div className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2 border ${
+          foglio.stato === 'errore' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50/60 border-sky-100 text-sky-900'
+        }`}>
+          {foglio.stato === 'errore' ? <AlertCircle size={15} className="shrink-0" /> : <Globe size={15} className="shrink-0 text-sky-600" />}
+          <span className="flex-1 min-w-0">
+            {foglio.stato === 'leggo' && 'Leggo i buoni online dal foglio...'}
+            {foglio.stato === 'fatto' && (
+              <>
+                Buoni online aggiornati dal foglio alle {foglio.ora}
+                {foglio.aggiunti ? <strong> · {foglio.aggiunti} {foglio.aggiunti === 1 ? 'nuovo' : 'nuovi'}</strong> : ' · nessuno nuovo'}
+              </>
+            )}
+            {foglio.stato === 'errore' && <>Il foglio dei buoni online non si legge: {foglio.errore}</>}
+          </span>
+          <button
+            onClick={aggiornaDalFoglio}
+            disabled={foglio.stato === 'leggo'}
+            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={foglio.stato === 'leggo' ? 'animate-spin' : ''} /> Aggiorna
+          </button>
+        </div>
+      )}
 
       {/* Riepilogo */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">

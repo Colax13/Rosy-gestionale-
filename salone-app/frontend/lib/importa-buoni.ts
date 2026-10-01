@@ -244,3 +244,41 @@ export function preparaImport(
 
   return esito;
 }
+
+export interface LetturaFoglio {
+  /** Da aggiungere adesso. */
+  nuovi: BuonoImportato[];
+  /** Tutti i codici che ci sono nel foglio, da ricordare per la prossima volta. */
+  codici: string[];
+  /** Se il foglio non si capisce, perché. */
+  motivo?: string;
+}
+
+/**
+ * Il foglio letto in automatico: che cosa c'è di nuovo.
+ *
+ * Si prende solo quello che il gestionale non ha mai visto: né fra i buoni
+ * che ci sono, né fra i codici già letti le volte prima. Così un buono
+ * cancellato a mano non ricompare, e uno modificato in salone non viene
+ * riscritto con i dati del foglio.
+ */
+export function buoniDaFoglio(tabella: string[][], esistenti: any[], giaVisti: string[] = []): LetturaFoglio {
+  const [intestazioni = [], ...righe] = tabella || [];
+  const mappatura = indoviniMappaturaBuoni(intestazioni);
+  if (!mappatura.includes('codice') || !mappatura.includes('valore')) {
+    return {
+      nuovi: [], codici: [],
+      motivo: 'Nel foglio non trovo le colonne del codice e dell\'importo: la prima riga deve avere le intestazioni.'
+    };
+  }
+
+  const piene = righe.filter(r => r.some(c => (c || '').trim() !== ''));
+  const visti = giaVisti.map(c => ({ codice: c }));
+  const { nuovi } = preparaImport(piene, mappatura, [...(esistenti || []), ...visti]);
+
+  const codici = piene
+    .map(r => aBuono(r, mappatura).codice)
+    .filter(Boolean);
+
+  return { nuovi, codici: Array.from(new Set(codici)) };
+}

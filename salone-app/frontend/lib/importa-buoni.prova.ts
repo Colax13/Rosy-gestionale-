@@ -1,7 +1,8 @@
 import {
   indoviniMappaturaBuoni, aBuono, aGiorno, aImporto, valeSi,
-  chiaveBuono, preparaImport, leggiCsv
+  chiaveBuono, preparaImport, leggiCsv, buoniDaFoglio
 } from './importa-buoni';
+import { idDelFoglio, spiegaErroreFoglio } from '../../../api/_fogli';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -103,6 +104,41 @@ Stefania Mucci,s@x.it,3401112233,"Bianchi, Anna",RSY-8H2K-4PQW,19/06/2026,Attivo
 const tabella = leggiCsv(csv);
 check('righe lette', 2, tabella.length);
 check('virgola dentro le virgolette', 'Bianchi, Anna', tabella[1][3]);
+
+// --- Il foglio letto in automatico ---
+const foglio = [
+  ['Nome Cliente', 'Email', 'Phone', 'Nome del beneficiario', 'Codice univoco', 'Data acquisto', 'Stato', 'Pagamento totale', 'Piega'],
+  ['Stefania Mucci', 's@x.it', '3401112233', 'Anna Bianchi', 'RSY-1111-AAAA', '19/06/2026', 'Attivo', '€ 70,00', 'Sì'],
+  ['Rita Rossi', '', '3471112233', 'Rita Rossi', 'RSY-2222-BBBB', '20/06/2026', 'Attivo', '€ 50,00', 'No'],
+  ['', '', '', '', '', '', '', '', ''],
+  ['Ugo Neri', '', '', 'Ugo Neri', 'RSY-3333-CCCC', '21/06/2026', 'Attivo', '€ 50,00', 'No']
+];
+const prima = buoniDaFoglio(foglio, []);
+check('foglio: tutti nuovi la prima volta', ['RSY-1111-AAAA', 'RSY-2222-BBBB', 'RSY-3333-CCCC'], prima.nuovi.map(b => b.codice));
+check('foglio: il prezzo arriva dal foglio', [70, 50, 50], prima.nuovi.map(b => b.valore));
+check('foglio: la piega arriva dal foglio', [true, false, false], prima.nuovi.map(b => b.piega_inclusa));
+check('foglio: chi regala', 'Stefania Mucci', prima.nuovi[0].acquirente);
+check('foglio: segnati come dal foglio (online)', 'foglio', prima.nuovi[0].origine);
+check('foglio: codici da ricordare, riga vuota esclusa', 3, prima.codici.length);
+
+const giaDentro = [{ codice: 'rsy-1111-aaaa' }];
+check('foglio: quello già nel gestionale non si duplica', ['RSY-2222-BBBB', 'RSY-3333-CCCC'],
+  buoniDaFoglio(foglio, giaDentro).nuovi.map(b => b.codice));
+check('foglio: quello cancellato a mano non ricompare', ['RSY-3333-CCCC'],
+  buoniDaFoglio(foglio, giaDentro, ['RSY-2222-BBBB']).nuovi.map(b => b.codice));
+check('foglio: senza intestazioni giuste non importa niente', 0,
+  buoniDaFoglio([['a', 'b'], ['1', '2']], []).nuovi.length);
+check('foglio: e dice perché', true, !!buoniDaFoglio([['a', 'b']], []).motivo);
+check('foglio vuoto', 0, buoniDaFoglio([], []).nuovi.length);
+
+// --- l'ID del foglio, comunque lo si incolli su Vercel ---
+const ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-xy';
+check('ID dal link intero', ID, idDelFoglio(`https://docs.google.com/spreadsheets/d/${ID}/edit#gid=0`));
+check('ID già pulito', ID, idDelFoglio(`  ${ID} `));
+check('ID senza senso', '', idDelFoglio('ciao'));
+check('errore: API spenta', true, spiegaErroreFoglio(403, 'Google Sheets API has not been used in project', 'r@x').includes('Google Sheets API'));
+check('errore: non condiviso', true, spiegaErroreFoglio(403, 'The caller does not have permission', 'robot@x').includes('robot@x'));
+check('errore: foglio sbagliato', true, spiegaErroreFoglio(404, 'Requested entity was not found', 'r@x').includes('BUONI_FOGLIO_ID'));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

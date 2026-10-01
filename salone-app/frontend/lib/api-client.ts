@@ -571,8 +571,27 @@ export const buoniApi = {
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'buoni', id));
     return { success: true };
+  },
+  /**
+   * Chiede al server di leggere il foglio Google dei buoni pagati online e di
+   * aggiungere quelli nuovi. `acceso: false` vuol dire che per questo salone
+   * il foglio non c'è: la pagina non mostra niente.
+   */
+  aggiornaDalFoglio: async (): Promise<EsitoFoglio> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return { acceso: false };
+    const risposta = await fetch('/api/buoni-foglio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: '{}'
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok) return { acceso: true, aggiunti: 0, errore: dati?.errore || 'Il server non ha risposto.' };
+    return dati;
   }
 };
+
+export interface EsitoFoglio { acceso: boolean; aggiunti?: number; letti?: number; errore?: string; motivo?: string }
 
 
 // ---------------------------------------------------------------------------
