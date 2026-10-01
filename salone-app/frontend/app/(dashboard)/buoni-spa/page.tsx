@@ -6,8 +6,12 @@ import { aNumero, aTesto } from '@/lib/numeri';
 import FloatingActionBar from '@/components/FloatingActionBar';
 import ImportaBuoni from '@/components/ImportaBuoni';
 import {
+  PREZZO_SPA, PREZZO_PIEGA, prezzoSpa, canaleDi, persone, noteVisibili,
+  filtraBuoni, riepilogo, isScaduto, tipoDi, type Tipo, type Canale
+} from '@/lib/buoni';
+import {
   Ticket, Plus, Search, X, Edit2, Trash2, Check, AlertCircle,
-  Euro, Calendar, User, Sparkles, Scissors, Upload
+  Euro, Calendar, User, Sparkles, Scissors, Upload, Gift, Globe, Store
 } from 'lucide-react';
 
 interface Buono {
@@ -16,8 +20,13 @@ interface Buono {
   tipo: 'spa' | 'salone';
   valore: number;
   valore_residuo: number;
+  /** Per chi è. */
   intestatario?: string;
   telefono?: string;
+  /** Chi lo regala, cioè chi ha pagato. */
+  acquirente?: string;
+  acquirente_telefono?: string;
+  acquirente_email?: string;
   data_emissione?: string;
   data_scadenza?: string;
   stato: 'attivo' | 'usato' | 'annullato';
@@ -56,8 +65,6 @@ const formattaData = (iso?: string) => {
   return `${g}/${m}/${a}`;
 };
 
-const isScaduto = (b: Buono) => !!b.data_scadenza && b.data_scadenza < oggi() && b.stato === 'attivo';
-
 export default function BuoniSpa() {
   const [buoni, setBuoni] = useState<Buono[]>([]);
   const [caricamento, setCaricamento] = useState(true);
@@ -65,6 +72,9 @@ export default function BuoniSpa() {
 
   const [ricerca, setRicerca] = useState('');
   const [filtro, setFiltro] = useState<'tutti' | 'attivo' | 'usato' | 'annullato'>('tutti');
+  // Spa e salone sono due registri separati: non si vedono mai mescolati.
+  const [tipoAttivo, setTipoAttivo] = useState<Tipo>('spa');
+  const [canale, setCanale] = useState<'tutti' | Canale>('tutti');
 
   const [dettaglio, setDettaglio] = useState<Buono | null>(null);
   const [modaleAperta, setModaleAperta] = useState(false);
@@ -78,13 +88,23 @@ export default function BuoniSpa() {
 
   const [form, setForm] = useState({
     codice: '',
-    tipo: 'spa' as 'spa' | 'salone',
-    valore: '50',
+    tipo: 'spa' as Tipo,
+    valore: String(PREZZO_SPA),
+    piega_inclusa: false,
+    canale: 'salone' as Canale,
+    acquirente: '',
+    acquirente_telefono: '',
+    acquirente_email: '',
+    stessaPersona: true,
     intestatario: '',
     telefono: '',
     data_scadenza: fraUnAnno(),
     note: ''
   });
+  // Il prezzo di un buono spa lo decide la piega. In modifica si tiene quello
+  // salvato finché non si cambia la spunta: i buoni vecchi potevano costare
+  // diversamente e non si devono ritoccare da soli.
+  const [prezzoLibero, setPrezzoLibero] = useState(false);
 
   const caricaBuoni = async () => {
     setCaricamento(true);
@@ -106,53 +126,88 @@ export default function BuoniSpa() {
     setInModifica(null);
     setForm({
       codice: generaCodice(),
-      tipo: 'spa',
-      valore: '50',
+      tipo: tipoAttivo,
+      valore: tipoAttivo === 'spa' ? String(PREZZO_SPA) : '',
+      piega_inclusa: false,
+      canale: 'salone',
+      acquirente: '',
+      acquirente_telefono: '',
+      acquirente_email: '',
+      stessaPersona: true,
       intestatario: '',
       telefono: '',
       data_scadenza: fraUnAnno(),
       note: ''
     });
+    setPrezzoLibero(false);
     setErroreForm(null);
     setModaleAperta(true);
   };
 
   const apriModifica = (b: Buono) => {
     setInModifica(b);
+    const { regala, riceve, stessa } = persone(b);
     setForm({
       codice: b.codice,
-      tipo: b.tipo || 'spa',
+      tipo: tipoDi(b),
       valore: aTesto(b.valore),
-      intestatario: b.intestatario || '',
-      telefono: b.telefono || '',
+      piega_inclusa: !!b.piega_inclusa,
+      canale: canaleDi(b),
+      acquirente: regala.nome,
+      acquirente_telefono: regala.telefono,
+      acquirente_email: regala.email,
+      stessaPersona: stessa,
+      intestatario: riceve.nome,
+      telefono: riceve.telefono,
       data_scadenza: b.data_scadenza || '',
-      note: b.note || ''
+      note: noteVisibili(b)
     });
+    // Un buono spa che costa già il prezzo giusto segue la spunta; uno
+    // vecchio con un importo diverso lo tiene.
+    setPrezzoLibero(tipoDi(b) === 'spa' && aNumero(b.valore) !== prezzoSpa(!!b.piega_inclusa));
     setErroreForm(null);
     setModaleAperta(true);
   };
+
+  const valoreForm = form.tipo === 'spa' && !prezzoLibero
+    ? prezzoSpa(form.piega_inclusa)
+    : aNumero(form.valore);
 
   const salva = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroreForm(null);
 
     if (!form.codice.trim()) { setErroreForm('Il codice è obbligatorio.'); return; }
-    if (!(aNumero(form.valore) > 0)) { setErroreForm('Il valore deve essere maggiore di zero.'); return; }
+    if (!(valoreForm > 0)) { setErroreForm('Il valore deve essere maggiore di zero.'); return; }
 
     const doppione = buoni.find(b => b.codice.toUpperCase() === form.codice.trim().toUpperCase() && b.id !== inModifica?.id);
     if (doppione) { setErroreForm('Esiste già un buono con questo codice.'); return; }
 
+    if (!form.acquirente.trim()) { setErroreForm('Scrivi chi regala il buono.'); return; }
+    if (!form.stessaPersona && !form.intestatario.trim()) { setErroreForm('Scrivi per chi è il buono.'); return; }
+
     setSalvataggio(true);
     try {
+      const acquirente = form.acquirente.trim();
+      const acquirenteTelefono = form.acquirente_telefono.trim();
       const dati: any = {
         codice: form.codice.trim().toUpperCase(),
         tipo: form.tipo,
-        valore: aNumero(form.valore),
-        intestatario: form.intestatario.trim(),
-        telefono: form.telefono.trim(),
+        valore: valoreForm,
+        piega_inclusa: form.piega_inclusa,
+        acquirente,
+        acquirente_telefono: acquirenteTelefono,
+        acquirente_email: form.acquirente_email.trim(),
+        intestatario: form.stessaPersona ? acquirente : form.intestatario.trim(),
+        telefono: form.stessaPersona ? acquirenteTelefono : form.telefono.trim(),
         data_scadenza: form.data_scadenza,
         note: form.note.trim()
       };
+      // Online o in salone si sceglie solo per i buoni fatti a mano: quelli
+      // arrivati dal foglio restano "foglio", che vuol dire già online.
+      if (!inModifica || canaleDi(inModifica) !== form.canale) {
+        dati.origine = form.canale === 'online' ? 'online' : 'manuale';
+      }
 
       if (inModifica) {
         // Se cambia il valore, il residuo lo segue solo se il buono è intatto.
@@ -164,7 +219,7 @@ export default function BuoniSpa() {
           valore_residuo: dati.valore,
           data_emissione: oggi(),
           stato: 'attivo',
-          origine: 'manuale'
+          origine: dati.origine
         });
       }
       setModaleAperta(false);
@@ -206,19 +261,13 @@ export default function BuoniSpa() {
     }
   };
 
-  const elencoFiltrato = useMemo(() => {
-    const q = ricerca.trim().toLowerCase();
-    return buoni.filter(b => {
-      if (filtro !== 'tutti' && b.stato !== filtro) return false;
-      if (!q) return true;
-      return b.codice.toLowerCase().includes(q)
-        || (b.intestatario || '').toLowerCase().includes(q)
-        || (b.telefono || '').includes(q);
-    });
-  }, [buoni, ricerca, filtro]);
-
-  const attivi = buoni.filter(b => b.stato === 'attivo');
-  const inCircolazione = attivi.reduce((acc, b) => acc + (Number(b.valore_residuo) || 0), 0);
+  const delTipo = useMemo(() => buoni.filter(b => tipoDi(b) === tipoAttivo), [buoni, tipoAttivo]);
+  const elencoFiltrato = useMemo(
+    () => filtraBuoni(buoni, { tipo: tipoAttivo, canale, stato: filtro, ricerca }),
+    [buoni, tipoAttivo, canale, filtro, ricerca]
+  );
+  const totali = riepilogo(delTipo);
+  const quanti = (t: Tipo) => buoni.filter(b => tipoDi(b) === t).length;
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
@@ -233,20 +282,38 @@ export default function BuoniSpa() {
         </p>
       </header>
 
+      {/* Spa e salone: due registri, uno alla volta */}
+      <div className="grid grid-cols-2 gap-2 mb-6 bg-white border border-zinc-200 rounded-xl p-1.5 max-w-md">
+        {([['spa', 'Buoni Spa', Sparkles], ['salone', 'Buoni Salone', Scissors]] as const).map(([valore, etichetta, Icona]) => (
+          <button
+            key={valore}
+            onClick={() => { setTipoAttivo(valore); setDettaglio(null); }}
+            className={`py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+              tipoAttivo === valore
+                ? valore === 'spa' ? 'bg-cyan-50 text-cyan-700' : 'bg-fuchsia-50 text-fuchsia-700'
+                : 'text-zinc-500 hover:bg-zinc-50'
+            }`}
+          >
+            <Icona size={16} /> {etichetta}
+            <span className="text-xs font-medium tabular-nums opacity-70">{quanti(valore)}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Riepilogo */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <div className="bg-white border border-zinc-200 rounded-xl p-4">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Buoni attivi</div>
-          <div className="text-2xl font-playfair font-bold text-zinc-900 tabular-nums">{attivi.length}</div>
+          <div className="text-2xl font-playfair font-bold text-zinc-900 tabular-nums">{totali.attivi}</div>
         </div>
         <div className="bg-white border border-zinc-200 rounded-xl p-4">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Da scalare</div>
-          <div className="text-2xl font-playfair font-bold text-fuchsia-600 tabular-nums">{euro(inCircolazione)}</div>
+          <div className="text-2xl font-playfair font-bold text-fuchsia-600 tabular-nums">{euro(totali.daScalare)}</div>
         </div>
         <div className="bg-white border border-zinc-200 rounded-xl p-4 col-span-2 md:col-span-1">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Scaduti</div>
           <div className="text-2xl font-playfair font-bold text-amber-600 tabular-nums">
-            {buoni.filter(isScaduto).length}
+            {totali.scaduti}
           </div>
         </div>
       </div>
@@ -258,22 +325,35 @@ export default function BuoniSpa() {
           <input
             value={ricerca}
             onChange={e => setRicerca(e.target.value)}
-            placeholder="Cerca per codice, nome o telefono..."
+            placeholder="Cerca codice, nome o telefono..."
             className="w-full bg-white border border-zinc-200 rounded-lg pl-9 pr-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 transition-colors"
           />
         </div>
-        <div className="flex gap-1 bg-white border border-zinc-200 rounded-lg p-1">
-          {([['tutti', 'Tutti'], ['attivo', 'Attivi'], ['usato', 'Usati'], ['annullato', 'Annullati']] as const).map(([chiave, etichetta]) => (
-            <button
-              key={chiave}
-              onClick={() => setFiltro(chiave as any)}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors whitespace-nowrap ${
-                filtro === chiave ? 'bg-fuchsia-50 text-fuchsia-700' : 'text-zinc-500 hover:bg-zinc-100'
-              }`}
-            >
-              {etichetta}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <div className="flex gap-1 bg-white border border-zinc-200 rounded-lg p-1">
+            {([['tutti', 'Tutti'], ['online', 'Online'], ['salone', 'In salone']] as const).map(([chiave, etichetta]) => (
+              <button
+                key={chiave}
+                onClick={() => setCanale(chiave)}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors whitespace-nowrap ${
+                  canale === chiave ? 'bg-fuchsia-50 text-fuchsia-700' : 'text-zinc-500 hover:bg-zinc-100'
+                }`}
+              >
+                {etichetta}
+              </button>
+            ))}
+          </div>
+          <select
+            value={filtro}
+            onChange={e => setFiltro(e.target.value as any)}
+            className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 outline-none focus:border-fuchsia-400"
+            aria-label="Stato del buono"
+          >
+            <option value="tutti">Tutti gli stati</option>
+            <option value="attivo">Attivi</option>
+            <option value="usato">Usati</option>
+            <option value="annullato">Annullati</option>
+          </select>
         </div>
       </div>
 
@@ -291,10 +371,10 @@ export default function BuoniSpa() {
           <div className="p-10 flex flex-col items-center gap-2 text-center">
             <div className="p-3 bg-zinc-100 rounded-full text-zinc-400"><Ticket size={22} /></div>
             <p className="text-sm font-medium text-zinc-700">
-              {buoni.length === 0 ? 'Nessun buono registrato' : 'Nessun buono trovato'}
+              {delTipo.length === 0 ? `Nessun buono ${tipoAttivo} registrato` : 'Nessun buono trovato'}
             </p>
             <p className="text-xs text-zinc-500 max-w-sm">
-              {buoni.length === 0
+              {delTipo.length === 0
                 ? 'Quando vendi un buono registralo qui: lo ritrovi cercando il codice.'
                 : 'Prova a cambiare filtro o testo di ricerca.'}
             </p>
@@ -303,6 +383,8 @@ export default function BuoniSpa() {
           <ul className="divide-y divide-zinc-100">
             {elencoFiltrato.map(b => {
               const scaduto = isScaduto(b);
+              const { regala, riceve, stessa } = persone(b);
+              const online = canaleDi(b) === 'online';
               const stato = STATI[b.stato] || STATI.attivo;
               return (
                 <li key={b.id}>
@@ -327,6 +409,11 @@ export default function BuoniSpa() {
                             Scaduto
                           </span>
                         )}
+                        {online && (
+                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-sky-50 text-sky-700 border-sky-200 inline-flex items-center gap-1">
+                            <Globe size={10} /> Online
+                          </span>
+                        )}
                         {b.piega_inclusa && (
                           <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200">
                             Piega compresa
@@ -334,7 +421,9 @@ export default function BuoniSpa() {
                         )}
                       </div>
                       <div className="text-xs text-zinc-500 truncate mt-0.5">
-                        {b.intestatario || 'Senza intestatario'}
+                        {stessa
+                          ? (riceve.nome || regala.nome || 'Senza nome')
+                          : <>Da <span className="text-zinc-700">{regala.nome}</span> per <span className="text-zinc-700">{riceve.nome}</span></>}
                         {b.data_scadenza ? ` · scade il ${formattaData(b.data_scadenza)}` : ''}
                       </div>
                     </div>
@@ -398,11 +487,28 @@ export default function BuoniSpa() {
                   {euro(dettaglio.valore_residuo)} <span className="text-zinc-400 font-normal">su {euro(dettaglio.valore)}</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-zinc-100 gap-3">
-                <span className="text-sm text-zinc-500 flex items-center gap-2 shrink-0"><User size={15} className="text-zinc-400" /> Intestatario</span>
-                <span className="text-sm text-zinc-900 text-right truncate">
-                  {dettaglio.intestatario || '—'}{dettaglio.telefono ? ` · ${dettaglio.telefono}` : ''}
+              {(() => {
+                const { regala, riceve, stessa } = persone(dettaglio);
+                const riga = (Icona: any, etichetta: string, p: { nome: string; telefono: string; email?: string }) => (
+                  <div className="flex items-start justify-between py-2 border-b border-zinc-100 gap-3">
+                    <span className="text-sm text-zinc-500 flex items-center gap-2 shrink-0"><Icona size={15} className="text-zinc-400" /> {etichetta}</span>
+                    <span className="text-sm text-zinc-900 text-right min-w-0">
+                      <span className="block truncate">{p.nome || '—'}</span>
+                      {(p.telefono || p.email) && (
+                        <span className="block text-xs text-zinc-500 truncate">{[p.telefono, p.email].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </span>
+                  </div>
+                );
+                return stessa
+                  ? riga(User, 'Chi lo regala e lo usa', { nome: regala.nome || riceve.nome, telefono: regala.telefono || riceve.telefono, email: regala.email })
+                  : <>{riga(Gift, 'Chi lo regala', regala)}{riga(User, 'Per chi è', riceve)}</>;
+              })()}
+              <div className="flex items-center justify-between py-2 border-b border-zinc-100">
+                <span className="text-sm text-zinc-500 flex items-center gap-2">
+                  {canaleDi(dettaglio) === 'online' ? <Globe size={15} className="text-zinc-400" /> : <Store size={15} className="text-zinc-400" />} Venduto
                 </span>
+                <span className="text-sm text-zinc-900">{canaleDi(dettaglio) === 'online' ? 'online' : 'in salone'}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-zinc-100">
                 <span className="text-sm text-zinc-500 flex items-center gap-2"><Calendar size={15} className="text-zinc-400" /> Scadenza</span>
@@ -414,8 +520,8 @@ export default function BuoniSpa() {
                   {dettaglio.piega_inclusa ? 'compresa nel buono' : 'non compresa'}
                 </span>
               </div>
-              {dettaglio.note && (
-                <p className="text-sm text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-lg p-3 whitespace-pre-wrap">{dettaglio.note}</p>
+              {noteVisibili(dettaglio) && (
+                <p className="text-sm text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-lg p-3 whitespace-pre-wrap">{noteVisibili(dettaglio)}</p>
               )}
             </div>
 
@@ -512,7 +618,11 @@ export default function BuoniSpa() {
                     <button
                       key={valore}
                       type="button"
-                      onClick={() => setForm({ ...form, tipo: valore })}
+                      onClick={() => {
+                        if (valore === form.tipo) return;
+                        setForm({ ...form, tipo: valore, valore: valore === 'spa' ? String(prezzoSpa(form.piega_inclusa)) : '' });
+                        setPrezzoLibero(false);
+                      }}
                       className={`py-2.5 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                         form.tipo === valore
                           ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
@@ -548,42 +658,125 @@ export default function BuoniSpa() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-600 mb-1">Valore</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={form.valore}
-                      onChange={e => setForm({ ...form, valore: e.target.value })}
-                      className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 tabular-nums"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">€</span>
-                  </div>
+                  <label className="block text-sm font-medium text-zinc-600 mb-1">{form.tipo === 'spa' ? 'Prezzo' : 'Valore'}</label>
+                  {form.tipo === 'spa' && !prezzoLibero ? (
+                    <div className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-900 tabular-nums">
+                      {euro(valoreForm)}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={form.valore}
+                        onChange={e => setForm({ ...form, valore: e.target.value })}
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 tabular-nums"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">€</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-600 mb-1">Intestatario</label>
+              {form.tipo === 'spa' && (
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition-colors">
                   <input
-                    value={form.intestatario}
-                    onChange={e => setForm({ ...form, intestatario: e.target.value })}
-                    placeholder="Nome e cognome"
+                    type="checkbox"
+                    checked={form.piega_inclusa}
+                    onChange={e => {
+                      setForm({ ...form, piega_inclusa: e.target.checked });
+                      setPrezzoLibero(false);
+                    }}
+                    className="accent-fuchsia-600 mt-0.5"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium text-zinc-800">Piega compresa</span>
+                    <span className="block text-xs text-zinc-500">
+                      Spa {euro(PREZZO_SPA)}, con la piega +{euro(PREZZO_PIEGA)}.
+                      {prezzoLibero && ' Questo buono ha un prezzo suo: cambiando la spunta torna al prezzo fisso.'}
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-600 mb-1">Dove è stato venduto</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([['salone', 'In salone', Store], ['online', 'Online', Globe]] as const).map(([valore, etichetta, Icona]) => (
+                    <button
+                      key={valore}
+                      type="button"
+                      onClick={() => setForm({ ...form, canale: valore })}
+                      className={`py-2 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        form.canale === valore
+                          ? 'border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700'
+                          : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                      }`}
+                    >
+                      <Icona size={15} /> {etichetta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <fieldset className="flex flex-col gap-3 pt-1">
+                <legend className="text-sm font-semibold text-zinc-800 flex items-center gap-2 mb-2"><Gift size={15} className="text-fuchsia-500" /> Chi lo regala</legend>
+                <input
+                  value={form.acquirente}
+                  onChange={e => setForm({ ...form, acquirente: e.target.value })}
+                  placeholder="Nome e cognome"
+                  className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    value={form.acquirente_telefono}
+                    onChange={e => setForm({ ...form, acquirente_telefono: e.target.value })}
+                    placeholder="Telefono"
+                    inputMode="tel"
+                    className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 font-mono"
+                  />
+                  <input
+                    value={form.acquirente_email}
+                    onChange={e => setForm({ ...form, acquirente_email: e.target.value })}
+                    placeholder="Email (facoltativa)"
+                    inputMode="email"
                     className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-600 mb-1">Telefono</label>
+                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
                   <input
-                    value={form.telefono}
-                    onChange={e => setForm({ ...form, telefono: e.target.value })}
-                    className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 font-mono"
+                    type="checkbox"
+                    checked={form.stessaPersona}
+                    onChange={e => setForm({ ...form, stessaPersona: e.target.checked })}
+                    className="accent-fuchsia-600"
                   />
-                </div>
-              </div>
+                  Lo usa la stessa persona
+                </label>
+              </fieldset>
+
+              {!form.stessaPersona && (
+                <fieldset className="flex flex-col gap-3">
+                  <legend className="text-sm font-semibold text-zinc-800 flex items-center gap-2 mb-2"><User size={15} className="text-fuchsia-500" /> Per chi è</legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      value={form.intestatario}
+                      onChange={e => setForm({ ...form, intestatario: e.target.value })}
+                      placeholder="Nome e cognome"
+                      className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
+                    />
+                    <input
+                      value={form.telefono}
+                      onChange={e => setForm({ ...form, telefono: e.target.value })}
+                      placeholder="Telefono (facoltativo)"
+                      inputMode="tel"
+                      className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 font-mono"
+                    />
+                  </div>
+                </fieldset>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-zinc-600 mb-1">Scadenza</label>

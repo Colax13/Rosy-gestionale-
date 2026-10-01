@@ -127,8 +127,13 @@ export function aImporto(valore: any): number {
 
 export interface BuonoImportato {
   codice: string;
+  /** Chi lo riceve. */
   intestatario: string;
   telefono: string;
+  /** Chi lo regala, cioè chi ha pagato. */
+  acquirente: string;
+  acquirente_telefono: string;
+  acquirente_email: string;
   valore: number;
   valore_residuo: number;
   data_emissione: string;
@@ -160,19 +165,25 @@ export function aBuono(riga: any[], mappatura: CampoBuono[]): BuonoImportato {
   else if (['usato', 'utilizzato', 'used', 'consumato', 'redeemed'].includes(statoScritto)) stato = 'usato';
   else if (['annullato', 'annullata', 'rimborsato', 'refunded', 'cancelled', 'canceled'].includes(statoScritto)) stato = 'annullato';
 
+  // Chi paga e chi riceve hanno ognuno il suo posto. Il telefono e l'email
+  // del foglio sono di chi ha pagato: alla beneficiaria vanno solo se è la
+  // stessa persona.
+  const acquirente = preso.cliente || preso.intestatario || '';
+  const intestatario = preso.intestatario || preso.cliente || '';
+  const stessa = normalizza(acquirente) === normalizza(intestatario);
+
   const note: string[] = [];
-  if (preso.cliente && normalizza(preso.cliente) !== normalizza(preso.intestatario)) {
-    note.push(`Pagato da ${preso.cliente}`);
-  }
-  if (preso.email) note.push(preso.email);
   if (preso.coupon) note.push(`Coupon ${preso.coupon}`);
   if (preso.riferimento) note.push(`Pagamento ${preso.riferimento}`);
   if (dataUtilizzo) note.push(`Usato il ${dataUtilizzo}`);
 
   return {
     codice: (preso.codice || '').toUpperCase(),
-    intestatario: preso.intestatario || preso.cliente || '',
-    telefono: preso.telefono || '',
+    intestatario,
+    telefono: stessa ? preso.telefono || '' : '',
+    acquirente,
+    acquirente_telefono: preso.telefono || '',
+    acquirente_email: preso.email || '',
     valore,
     valore_residuo: stato === 'attivo' ? valore : 0,
     data_emissione: aGiorno(preso.data_acquisto),

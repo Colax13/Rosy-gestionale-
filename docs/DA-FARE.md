@@ -729,3 +729,29 @@ vederlo.
 - **Email** — aspetta l'accesso ai DNS di rdsalon.com
 - **WhatsApp Business** — fermo finché non lo decide il titolare
 - **Stampantina** — che modello è, per la stampa diretta
+
+
+## Fatto il 1° ottobre
+
+**SMS per ogni salone** · tolto
+La scheda Impostazioni → SMS è stata tolta: gli SMS funzionavano già con il
+gettone su Vercel, e restano così.
+
+**Import da Treatwell: le note** · ✅
+Si perdevano note sugli appuntamenti, sesso, nascita e colonne in più: l'import
+salvava solo nome, telefono, email e note. Ora si salva tutto. Le clienti già
+presenti si completano con quello che manca, senza toccare il resto: basta
+reimportare lo stesso file. Le note possono arrivare a 5000 caratteri
+(**ripubblicare le regole di Firestore**).
+
+**Buoni** · ✅
+- Spa e Salone in due schede separate, ognuna con i suoi totali.
+- Chi lo regala (nome, telefono, email) e per chi è. I buoni importati prima
+  avevano chi paga nelle note: si rileggono da lì, senza correggerli a mano.
+- Filtro Online / In salone. I buoni dal foglio contano come online.
+- Buono spa a prezzo fisso: 50 €, 70 € con la spunta della piega.
+- Nessun messaggio automatico per i buoni: li gestisce il negozio.
+
+**Da fare: buoni da Make direttamente nel gestionale** · in attesa
+Make, oltre a scrivere sul foglio, manderà il buono al gestionale così compare
+da solo. Lasciato per ultimo.

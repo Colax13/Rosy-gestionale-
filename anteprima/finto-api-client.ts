@@ -80,9 +80,9 @@ const appuntamentiVecchi = [
 ];
 
 const buoni = [
-  { id: 'b1', codice: 'RSY-A3K9-QW2F', intestatario: 'Anna Bianchi', valore: 50, valore_residuo: 50, stato: 'attivo',  data_emissione: alle(9), note: 'Regalo compleanno' },
-  { id: 'b2', codice: 'RSY-7HGT-LM4P', intestatario: 'Chiara Esposito', valore: 100, valore_residuo: 35, stato: 'attivo', data_emissione: alle(9) },
-  { id: 'b3', codice: 'RSY-QQ11-ZZ88', intestatario: 'Federica Lombardi', valore: 30, valore_residuo: 0, stato: 'usato', data_emissione: alle(9) },
+  { id: 'b1', codice: 'RSY-A3K9-QW2F', tipo: 'spa', origine: 'foglio', intestatario: 'Anna Bianchi', telefono: '3401112233', valore: 70, valore_residuo: 70, stato: 'attivo', piega_inclusa: true, data_emissione: alle(9), note: 'Pagato da Stefania Mucci · stefania@example.it' },
+  { id: 'b2', codice: 'RSY-7HGT-LM4P', tipo: 'spa', origine: 'manuale', intestatario: 'Chiara Esposito', acquirente: 'Chiara Esposito', valore: 50, valore_residuo: 50, stato: 'attivo', data_emissione: alle(9) },
+  { id: 'b3', codice: 'RSY-QQ11-ZZ88', tipo: 'salone', origine: 'manuale', intestatario: 'Federica Lombardi', acquirente: 'Marco Lombardi', acquirente_telefono: '333 444 5566', valore: 30, valore_residuo: 0, stato: 'usato', data_emissione: alle(9) },
 ];
 
 const eco = (v: any) => Promise.resolve(v);

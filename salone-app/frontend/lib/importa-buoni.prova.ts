@@ -38,7 +38,11 @@ check('data acquisto',         '2026-06-19',    buono.data_emissione);
 check('scadenza',              '2027-06-19',    buono.data_scadenza);
 check('stato',                 'attivo',        buono.stato);
 check('piega compresa',        true,            buono.piega_inclusa);
-check('chi ha pagato finisce nelle note', true, buono.note.includes('Pagato da Stefania Mucci'));
+check('chi regala ha il suo campo',       'Stefania Mucci', buono.acquirente);
+check('il telefono è di chi paga',        '3401112233', buono.acquirente_telefono);
+check('l\'email è di chi paga',           'stefania@example.it', buono.acquirente_email);
+check('la beneficiaria non prende il telefono di un altro', '', buono.telefono);
+check('chi paga non finisce più nelle note', false, buono.note.includes('Pagato da'));
 check('il coupon finisce nelle note',     true, buono.note.includes('ESTATE10'));
 
 // --- un buono già usato ---
@@ -50,6 +54,7 @@ check('la data di utilizzo vince sullo stato scritto', 'usato', usato.stato);
 check('un buono usato non ha residuo',                 0,       usato.valore_residuo);
 check('piega non compresa',                            false,   usato.piega_inclusa);
 check('stessa persona: niente "pagato da"',            false,   usato.note.includes('Pagato da'));
+check('stessa persona: è anche chi regala',            'Rita Marchetti', usato.acquirente);
 
 // --- le date come capitano ---
 check('data all\'italiana',  '2026-03-12', aGiorno('12/03/2026'));
