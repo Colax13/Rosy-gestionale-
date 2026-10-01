@@ -249,39 +249,6 @@ export const clientiApi = {
  * chi è entrato; a controllare che l'appuntamento sia davvero di quel salone,
  * e a mandare, ci pensa il server.
  */
-/** Una chiamata al server di chi è entrato, col suo tesserino. */
-async function chiamaMessaggi(corpo: any) {
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error('Non risulti collegata: esci e rientra.');
-  const risposta = await fetch('/api/messaggi', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(corpo)
-  });
-  const dati = await risposta.json().catch(() => ({}));
-  if (!risposta.ok && risposta.status !== 202) throw new Error(dati?.errore || 'Il server non ha risposto come doveva.');
-  return dati;
-}
-
-export interface EsitoProvaSms {
-  mandato: boolean;
-  motivo?: string;
-  a?: string;
-  dettaglio?: { postino: string; stato?: number; risposta?: string };
-}
-
-/**
- * Il telefono da cui partono gli SMS di questo salone. Il gettone si manda e
- * non torna più indietro: da qui si sa solo se è collegato o no.
- */
-export const smsApi = {
-  stato: (): Promise<{ collegato: boolean; origine: 'salone' | 'vercel' | null; tipo: string | null }> =>
-    chiamaMessaggi({ azione: 'stato' }),
-  collega: (gettone: string) => chiamaMessaggi({ azione: 'collega', gettone }),
-  scollega: () => chiamaMessaggi({ azione: 'scollega' }),
-  prova: (telefono: string): Promise<EsitoProvaSms> => chiamaMessaggi({ azione: 'prova', telefono })
-};
-
 export const messaggiApi = {
   manda: async (appuntamentoId: string, tipo: 'conferma' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();

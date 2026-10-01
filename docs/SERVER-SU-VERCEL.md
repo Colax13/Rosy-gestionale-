@@ -87,15 +87,6 @@ L'app è **Traccar SMS Gateway**. Si installa dal Play Store, è gratuita.
    di diventare l'app per i messaggi predefinita, puoi dire di sì: è un'app di
    messaggi completa, con in più la parte che ci serve.
 
-### 2b-bis. Renderla l'app predefinita per gli SMS · 1 minuto
-
-**È il passo che fa la differenza.** Android lascia spedire SMS da sola solo
-all'app scelta come *app predefinita per i messaggi*. Se Traccar non lo è, il
-messaggio arriva fino al tablet ma non parte.
-
-Impostazioni del tablet → **App** → **App predefinite** → **App SMS** →
-**Traccar SMS Gateway**.
-
 ### 2c. Tenerla sveglia · 5 minuti
 
 Android spegne da solo le app che non usi, per risparmiare batteria. Se spegne
@@ -122,28 +113,21 @@ tablet consegnare, usa un **gettone** (token) che l'app ti mostra.
    (tienilo premuto → Copia) e mandatelo per email a te stesso, così lo incolli
    dal computer
 
-### 2e. Collegarlo al gestionale · 1 minuto
+### 2e. Metterlo su Vercel · 2 minuti
 
-Non serve più passare da Vercel: ogni salone collega il suo telefono dal
-gestionale.
+Vercel → Settings → Environment Variables:
 
-1. Entra con l'account del salone → **Impostazioni** → scheda **SMS**
-2. **Collega il telefono** → incolla il **Cloud token** → **Collega**
-3. Nella stessa scheda, **Manda un SMS di prova** al tuo cellulare
+| Key | Value |
+|-----|-------|
+| `TRACCAR_SMS_TOKEN` | il Cloud token dell'app |
 
-La prova dice esattamente dove si ferma un messaggio:
-- **"Traccar ha preso il messaggio"** ma non arriva → il blocco è sul tablet
-  (app predefinita, batteria, connessione, credito della SIM);
-- **"Il messaggio non è partito"** con una risposta 401/403/404 → il gettone è
-  sbagliato, ricopialo.
+Tutti e tre gli ambienti → **Save**.
 
-Il gettone resta solo sul server: una volta salvato non si rivede, nemmeno
-dalla pagina.
-
-> La variabile `TRACCAR_SMS_TOKEN` su Vercel, se c'è, resta valida solo per
-> RD Salon, ed è superata dal telefono collegato da Impostazioni. Gli altri
-> saloni non la usano mai: il tablet di RD Salon non manda SMS alle loro
-> clienti.
+> **Se Traccar non va** c'è l'altra app, *SMS Gateway for Android* (di
+> capcom6), che si scarica da https://github.com/capcom6/android-sms-gateway/releases
+> e dà utente e password invece del gettone: si mettono come
+> `SMS_GATEWAY_USER` e `SMS_GATEWAY_PASSWORD`. Il programma usa quella che
+> trova configurata, non serve cambiare niente nel codice.
 
 ### Le risposte delle clienti
 

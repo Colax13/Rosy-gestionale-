@@ -69,53 +69,40 @@ export async function mandaEmail(a: string, messaggio: Messaggio): Promise<Esito
  * si spegne, l'SMS non parte, e qui lo si dice invece di far finta di sì.
  */
 /**
- * Il postino degli SMS: da dove esce il messaggio.
+ * Da dove esce l'SMS. Si usa il primo che ha le chiavi su Vercel:
  *
- * Ogni salone ha il suo. Il gestionale lo usano più saloni, e il messaggio
- * deve partire dal **loro** numero: il tablet di RD Salon non può mandare SMS
- * alle clienti di un altro salone. Quindi il postino si sceglie salone per
- * salone, in `_postino.ts`, e qui arriva già scelto.
+ * - `skebby`   — postino a pagamento, nessun hardware;
+ * - `traccar`  — tablet in salone con l'app *Traccar SMS Gateway* (Play Store);
+ * - `telefono` — tablet in salone con l'app *SMS Gateway for Android* (capcom6).
  *
- * - `traccar`  — un tablet Android in salone con l'app *Traccar SMS Gateway*:
- *                il messaggio parte dalla SIM del salone, gratis;
- * - `telefono` — lo stesso, con l'app *SMS Gateway for Android* (capcom6);
- * - `skebby`   — un postino a pagamento, senza nessun telefono.
+ * Le ultime due fanno la stessa cosa con due app diverse: il messaggio parte
+ * dalla SIM del salone e non costa niente. Ce ne sono due perché non tutte
+ * le app si installano su tutti i tablet.
  */
-export type Postino =
-  | { tipo: 'traccar'; token: string; url?: string; origine: 'salone' | 'vercel' }
-  | { tipo: 'telefono'; utente: string; password: string; url?: string; origine: 'vercel' }
-  | { tipo: 'skebby'; origine: 'vercel' };
-
-/** Le chiavi messe a mano su Vercel. Valgono solo per i saloni a cui sono state date. */
-export function postinoDaVercel(): Postino | null {
-  if (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) return { tipo: 'skebby', origine: 'vercel' };
-  if (process.env.TRACCAR_SMS_TOKEN) {
-    return { tipo: 'traccar', token: process.env.TRACCAR_SMS_TOKEN, url: process.env.TRACCAR_SMS_URL, origine: 'vercel' };
-  }
-  if (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) {
-    return { tipo: 'telefono', utente: process.env.SMS_GATEWAY_USER, password: process.env.SMS_GATEWAY_PASSWORD, url: process.env.SMS_GATEWAY_URL, origine: 'vercel' };
-  }
+export function postinoSms(): 'skebby' | 'traccar' | 'telefono' | null {
+  if (process.env.SKEBBY_USER && process.env.SKEBBY_PASSWORD) return 'skebby';
+  if (process.env.TRACCAR_SMS_TOKEN) return 'traccar';
+  if (process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASSWORD) return 'telefono';
   return null;
 }
 
-/** Quello che ha risposto il postino, così com'è: serve a capire dove si ferma. */
-export interface Dettaglio { postino: string; stato?: number; risposta?: string }
-
-const accorcia = (t: string) => (t || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-
 /**
- * Manda l'SMS con il postino del salone.
+ * Manda l'SMS, per la strada che è accesa.
+ *
+ * Due strade possibili, e il codice non cambia a seconda di quale si usa:
+ *
+ * - **Skebby**, un postino a pagamento: non serve nessun telefono, si paga a
+ *   messaggio, e il mittente può essere scritto a lettere ("RD SALON").
+ * - **Il telefono in salone**, un Android con l'app che fa da ponte: non si
+ *   paga niente a messaggio, ma quel telefono deve restare acceso.
  *
  * Si usa il testo corto (`messaggio.sms`), non quello dell'email: un SMS si
  * paga a pezzi da 160 caratteri e l'email ne fa quattro.
- *
- * Ogni invio lascia una riga nei registri di Vercel, riuscito o no: quando una
- * cliente dice "non mi è arrivato niente" lì si vede se il messaggio è uscito
- * dal server e che cosa ha risposto chi doveva consegnarlo.
  */
-export async function mandaSms(telefono: string, messaggio: Messaggio, postino: Postino | null): Promise<EsitoInvio & { dettaglio?: Dettaglio }> {
+export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<EsitoInvio> {
+  const postino = postinoSms();
   if (!postino) {
-    return { mandato: false, canale: 'sms', motivo: 'questo salone non ha ancora collegato un telefono per gli SMS (Impostazioni → SMS).' };
+    return { mandato: false, canale: 'sms', motivo: "l'SMS non è ancora acceso (mancano le chiavi su Vercel)." };
   }
 
   const numero = numeroInternazionale(telefono);
@@ -124,56 +111,63 @@ export async function mandaSms(telefono: string, messaggio: Messaggio, postino: 
   const testo = messaggio.sms;
   const conto = segmentiSms(testo);
   if (conto.segmenti > 1) {
+    // Non blocca niente: è un avviso nei registri, perché due pezzi si pagano
+    // due volte e in genere vuol dire che qualcosa è cresciuto troppo.
     console.warn(`SMS da ${conto.segmenti} pezzi (${conto.caratteri} caratteri, alfabeto ${conto.alfabeto}).`);
   }
 
-  const a = `+${numero}`;
-  const nascosto = `${a.slice(0, 6)}…${a.slice(-2)}`;
-
-  if (postino.tipo === 'skebby') {
-    const esito = await mandaConSkebby(a, testo);
-    console.log(`SMS via Skebby a ${nascosto}: ${esito.mandato ? 'consegnato' : 'rifiutato'} ${esito.motivo || ''}`.trim());
+  if (postino === 'skebby') {
+    const esito = await mandaConSkebby(`+${numero}`, testo);
     return esito.mandato
-      ? { mandato: true, canale: 'sms', a, dettaglio: { postino: 'Skebby' } }
-      : { mandato: false, canale: 'sms', motivo: esito.motivo || 'Skebby non ha mandato il messaggio.', dettaglio: { postino: 'Skebby', risposta: accorcia(esito.motivo || '') } };
+      ? { mandato: true, canale: 'sms', a: `+${numero}` }
+      : { mandato: false, canale: 'sms', motivo: esito.motivo || 'Skebby non ha mandato il messaggio.' };
   }
 
-  // Traccar e capcom6: tutti e due passano dal loro server, che inoltra al
-  // tablet. Se rispondono "ok" il messaggio è arrivato fino a loro; da lì in
-  // poi tocca al tablet spedirlo.
-  const richiesta = postino.tipo === 'traccar'
-    ? {
-        nome: 'Traccar',
-        url: postino.url || 'https://www.traccar.org/sms/',
-        // Il gettone va nell'intestazione così com'è, senza "Bearer" davanti.
-        headers: { 'Authorization': postino.token, 'Content-Type': 'application/json' } as Record<string, string>,
-        body: JSON.stringify({ to: a, message: testo })
-      }
-    : {
-        nome: 'SMS Gateway',
-        url: postino.url || 'https://api.sms-gate.app/3rdparty/v1/message',
+  if (postino === 'traccar') {
+    // Traccar fa da passaggio fra il nostro server e il tablet: il gettone che
+    // mostra l'app dice a quale tablet consegnare. Va nell'intestazione così
+    // com'è, senza "Bearer" davanti.
+    try {
+      const risposta = await fetch(process.env.TRACCAR_SMS_URL || 'https://www.traccar.org/sms/', {
+        method: 'POST',
         headers: {
-          'Authorization': `Basic ${Buffer.from(`${postino.utente}:${postino.password}`).toString('base64')}`,
+          'Authorization': process.env.TRACCAR_SMS_TOKEN as string,
           'Content-Type': 'application/json'
-        } as Record<string, string>,
-        body: JSON.stringify({ textMessage: { text: testo }, phoneNumbers: [a] })
-      };
+        },
+        body: JSON.stringify({ to: `+${numero}`, message: testo })
+      });
+      if (!risposta.ok) {
+        const dettaglio = await risposta.text().catch(() => '');
+        return { mandato: false, canale: 'sms', motivo: `il tablet del salone non ha accettato il messaggio (${risposta.status}). ${dettaglio}`.trim() };
+      }
+      return { mandato: true, canale: 'sms', a: `+${numero}` };
+    } catch (err: any) {
+      return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il tablet del salone: ${err?.message || 'motivo sconosciuto'}` };
+    }
+  }
+
+  const indirizzo = process.env.SMS_GATEWAY_URL || 'https://api.sms-gate.app/3rdparty/v1/message';
+  const credenziali = Buffer.from(`${process.env.SMS_GATEWAY_USER}:${process.env.SMS_GATEWAY_PASSWORD}`).toString('base64');
 
   try {
-    const risposta = await fetch(richiesta.url, { method: 'POST', headers: richiesta.headers, body: richiesta.body });
-    const corpo = accorcia(await risposta.text().catch(() => ''));
-    const dettaglio = { postino: richiesta.nome, stato: risposta.status, risposta: corpo };
-    console.log(`SMS via ${richiesta.nome} a ${nascosto}: risposta ${risposta.status} ${corpo}`.trim());
+    const risposta = await fetch(indirizzo, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credenziali}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        textMessage: { text: testo },
+        phoneNumbers: [`+${numero}`]
+      })
+    });
+
     if (!risposta.ok) {
-      return { mandato: false, canale: 'sms', motivo: `${richiesta.nome} ha rifiutato il messaggio (${risposta.status}). ${corpo}`.trim(), dettaglio };
+      const dettaglio = await risposta.text().catch(() => '');
+      return { mandato: false, canale: 'sms', motivo: `il telefono del salone ha rifiutato (${risposta.status}). ${dettaglio}`.trim() };
     }
-    return { mandato: true, canale: 'sms', a, dettaglio };
+    return { mandato: true, canale: 'sms', a: `+${numero}` };
   } catch (err: any) {
-    console.log(`SMS via ${richiesta.nome} a ${nascosto}: irraggiungibile ${err?.message || ''}`);
-    return {
-      mandato: false, canale: 'sms',
-      motivo: `non riesco a raggiungere ${richiesta.nome}: ${err?.message || 'motivo sconosciuto'}`,
-      dettaglio: { postino: richiesta.nome, risposta: accorcia(err?.message || '') }
-    };
+    return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il telefono del salone: ${err?.message || 'motivo sconosciuto'}` };
   }
 }

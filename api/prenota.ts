@@ -18,13 +18,13 @@
 
 import { FieldValue } from 'firebase-admin/firestore';
 import { database } from './_firebase';
-import { mandaSms } from './_messaggi';
-import { postinoDelSalone } from './_postino';
+import { mandaSms, postinoSms } from './_messaggi';
 import { schedaSalone } from './_invio';
 import {
   idVerifica, nuovoCodice, puoMandareCodice, controllaCodice, inviiRecenti, testoCodice,
   pulisciPrenotazione, StatoCodice, DURATA_CODICE_MS, SENZA_CODICE_MS, MAX_CODICI_ORA_SALONE
 } from './_otp';
+import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
 import { numeroInternazionale } from '../salone-app/frontend/lib/contatti';
 import { disponibilitaPerAppuntamento } from '../salone-app/frontend/lib/vetrina';
 import { giornoDelSalone } from '../salone-app/frontend/lib/messaggi';
@@ -44,11 +44,10 @@ const corpo = (req: Richiesta): any => {
 
 const idValido = (v: any) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v);
 
-/** Il salone vuole la verifica del numero? Solo se ha collegato un telefono per gli SMS. */
+/** Il salone vuole la verifica del numero? Solo se ha un modo di mandare SMS. */
 async function serveVerifica(db: FirebaseFirestore.Firestore, salonId: string) {
   const scheda = await schedaSalone(db, salonId);
-  const postino = await postinoDelSalone(db, salonId, scheda.ownerEmail);
-  return { scheda, postino, serve: !!postino };
+  return { scheda, serve: !!postinoSms() && funzioneAccesa('messaggi_automatici', scheda.ownerEmail) };
 }
 
 async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
@@ -56,7 +55,7 @@ async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
   const numero = numeroInternazionale(telefono);
   if (!numero) { res.status(400).json({ errore: 'Scrivi un numero di cellulare valido.' }); return; }
 
-  const { scheda, postino, serve } = await serveVerifica(db, salonId);
+  const { scheda, serve } = await serveVerifica(db, salonId);
   if (!serve) { res.status(200).json({ serveCodice: false }); return; }
 
   const adesso = Date.now();
@@ -92,7 +91,7 @@ async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
   if (preparato.ok === false) { res.status(429).json({ errore: preparato.motivo }); return; }
 
   const testo = testoCodice(scheda.dettagli?.nomeSalone || '', preparato.codice);
-  const esito = await mandaSms(numero, { oggetto: '', testo, html: '', sms: testo }, postino);
+  const esito = await mandaSms(numero, { oggetto: '', testo, html: '', sms: testo });
 
   if (!esito.mandato) {
     // Il tablet non ha preso il messaggio: si lascia prenotare lo stesso per
