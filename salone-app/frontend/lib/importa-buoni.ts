@@ -146,7 +146,7 @@ export interface BuonoImportato {
 }
 
 /** Trasforma una riga del foglio in un buono, secondo la mappatura scelta. */
-export function aBuono(riga: any[], mappatura: CampoBuono[]): BuonoImportato {
+export function aBuono(riga: any[], mappatura: CampoBuono[], tipo: 'spa' | 'salone' = 'spa'): BuonoImportato {
   const preso: Partial<Record<Exclude<CampoBuono, ''>, string>> = {};
   mappatura.forEach((campo, i) => {
     if (!campo) return;
@@ -191,7 +191,7 @@ export function aBuono(riga: any[], mappatura: CampoBuono[]): BuonoImportato {
     stato,
     piega_inclusa: valeSi(preso.piega),
     note: note.join(' · '),
-    tipo: 'spa',
+    tipo,
     origine: 'foglio'
   };
 }
@@ -214,7 +214,8 @@ export interface EsitoImport {
 export function preparaImport(
   righe: any[][],
   mappatura: CampoBuono[],
-  buoniEsistenti: any[]
+  buoniEsistenti: any[],
+  tipo: 'spa' | 'salone' = 'spa'
 ): EsitoImport {
   const gia = new Set((buoniEsistenti || []).map(chiaveBuono));
   const vistiOra = new Set<string>();
@@ -222,7 +223,7 @@ export function preparaImport(
   const esito: EsitoImport = { nuovi: [], doppioni: [], scartati: [] };
 
   righe.forEach((riga, i) => {
-    const buono = aBuono(riga, mappatura);
+    const buono = aBuono(riga, mappatura, tipo);
 
     if (!buono.codice) {
       esito.scartati.push({ riga: i + 2, motivo: 'manca il codice' });
@@ -262,7 +263,12 @@ export interface LetturaFoglio {
  * cancellato a mano non ricompare, e uno modificato in salone non viene
  * riscritto con i dati del foglio.
  */
-export function buoniDaFoglio(tabella: string[][], esistenti: any[], giaVisti: string[] = []): LetturaFoglio {
+export function buoniDaFoglio(
+  tabella: string[][],
+  esistenti: any[],
+  giaVisti: string[] = [],
+  tipo: 'spa' | 'salone' = 'spa'
+): LetturaFoglio {
   const [intestazioni = [], ...righe] = tabella || [];
   const mappatura = indoviniMappaturaBuoni(intestazioni);
   if (!mappatura.includes('codice') || !mappatura.includes('valore')) {
@@ -274,7 +280,7 @@ export function buoniDaFoglio(tabella: string[][], esistenti: any[], giaVisti: s
 
   const piene = righe.filter(r => r.some(c => (c || '').trim() !== ''));
   const visti = giaVisti.map(c => ({ codice: c }));
-  const { nuovi } = preparaImport(piene, mappatura, [...(esistenti || []), ...visti]);
+  const { nuovi } = preparaImport(piene, mappatura, [...(esistenti || []), ...visti], tipo);
 
   const codici = piene
     .map(r => aBuono(r, mappatura).codice)

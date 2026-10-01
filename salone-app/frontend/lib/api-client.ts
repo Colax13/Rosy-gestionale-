@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
@@ -556,6 +556,19 @@ export const buoniApi = {
     const q = query(collection(db, 'buoni'), where('userId', '==', getUserId()));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  /**
+   * I buoni in diretta: la funzione si richiama da sola ogni volta che un
+   * buono cambia, chiunque l'abbia cambiato (un'altra cassa, il foglio).
+   * Restituisce la funzione per smettere di ascoltare.
+   */
+  ascolta: (quandoCambiano: (buoni: any[]) => void, quandoSbaglia?: (e: Error) => void): (() => void) => {
+    const q = query(collection(db, 'buoni'), where('userId', '==', getUserId()));
+    return onSnapshot(
+      q,
+      snap => quandoCambiano(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => quandoSbaglia?.(err)
+    );
   },
   create: async (data: any) => {
     const ref = doc(collection(db, 'buoni'));

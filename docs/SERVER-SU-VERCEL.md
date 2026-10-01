@@ -287,9 +287,17 @@ Una volta sola:
 3. **Abilita Google Sheets API** nel progetto:
    https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=gestionaliparrucchieri
 4. **Su Vercel** aggiungi `BUONI_FOGLIO_ID`: il pezzo del link tra `/d/` e
-   `/edit` (va bene anche il link intero). Se i buoni non sono nella prima
-   scheda del foglio, aggiungi anche `BUONI_FOGLIO_SCHEDA` con il nome della
-   scheda.
+   `/edit` (va bene anche il link intero).
+
+Il foglio ha due schede: quella con "salone" nel nome va ai **Buoni Salone**,
+la prima delle altre ai **Buoni Spa**. Se i nomi non si riconoscono, si
+dicono su Vercel con `BUONI_FOGLIO_SCHEDA` (spa) e
+`BUONI_FOGLIO_SCHEDA_SALONE` (salone).
+
+La pagina Buoni è **in diretta**: un buono venduto, usato o arrivato dal
+foglio compare da solo, senza ricaricare. Il foglio si ricontrolla da solo
+ogni 2 minuti finché la pagina è aperta, e ogni volta che si torna sulla
+scheda del browser.
 
 Poi un **Redeploy**, perché le variabili nuove valgono solo dal deploy dopo.
 

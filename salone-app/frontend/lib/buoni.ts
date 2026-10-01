@@ -67,27 +67,50 @@ export const oggiIso = () => new Date().toISOString().split('T')[0];
 export const isScaduto = (b: any, oggi = oggiIso()) =>
   !!b?.data_scadenza && b.data_scadenza < oggi && b.stato === 'attivo';
 
+/** Le tre tabelle di ogni registro: da usare, scaduti, già usati. */
+export type Fase = 'attivi' | 'scaduti' | 'usati';
+
+export function faseDi(b: any, oggi = oggiIso()): Fase {
+  if (b?.stato === 'usato' || b?.stato === 'annullato') return 'usati';
+  return isScaduto(b, oggi) ? 'scaduti' : 'attivi';
+}
+
 export interface Filtro {
   tipo: Tipo;
   canale: 'tutti' | Canale;
-  stato: 'tutti' | 'attivo' | 'usato' | 'annullato';
+  fase: 'tutte' | Fase;
   ricerca: string;
 }
 
 /** I buoni senza tipo sono spa: erano tutti spa prima che esistesse la scelta. */
 export const tipoDi = (b: any): Tipo => (b?.tipo === 'salone' ? 'salone' : 'spa');
 
-export function filtraBuoni<T>(buoni: T[], f: Filtro): T[] {
+export function filtraBuoni<T>(buoni: T[], f: Filtro, oggi = oggiIso()): T[] {
   const q = f.ricerca.trim().toLowerCase();
   return buoni.filter((b: any) => {
     if (tipoDi(b) !== f.tipo) return false;
     if (f.canale !== 'tutti' && canaleDi(b) !== f.canale) return false;
-    if (f.stato !== 'tutti' && b.stato !== f.stato) return false;
+    if (f.fase !== 'tutte' && faseDi(b, oggi) !== f.fase) return false;
     if (!q) return true;
     const { regala, riceve } = persone(b);
     return [b.codice, regala.nome, riceve.nome, regala.email]
       .some(v => (v || '').toLowerCase().includes(q))
       || [regala.telefono, riceve.telefono].some(t => t && t.replace(/\s/g, '').includes(q.replace(/\s/g, '')));
+  });
+}
+
+/** Quanti buoni per tabella, per scriverlo accanto alla scelta. */
+export function contaPerFase(buoni: any[], oggi = oggiIso()): Record<Fase, number> {
+  const conti: Record<Fase, number> = { attivi: 0, scaduti: 0, usati: 0 };
+  buoni.forEach(b => { conti[faseDi(b, oggi)]++; });
+  return conti;
+}
+
+/** In cima quelli che scadono prima; fra gli usati, gli ultimi usati. */
+export function ordinaBuoni<T>(buoni: T[], fase: Fase): T[] {
+  return [...buoni].sort((a: any, b: any) => {
+    if (fase === 'usati') return (b.data_emissione || '').localeCompare(a.data_emissione || '');
+    return (a.data_scadenza || '9999').localeCompare(b.data_scadenza || '9999');
   });
 }
 

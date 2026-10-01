@@ -754,5 +754,9 @@ reimportare lo stesso file. Le note possono arrivare a 5000 caratteri
 
 **Buoni online in automatico** · ✅
 Niente da cambiare su Make: il gestionale legge da solo il foglio Google che
-Make già riempie, ogni volta che si apre la pagina Buoni. Vedi
+Make già riempie: la scheda spa va ai Buoni Spa, quella del salone ai Buoni
+Salone. La pagina è in diretta e ricontrolla il foglio ogni 2 minuti.
+L'elenco è una tabella: Online / Fatti in salone, poi Attivi / Scaduti /
+Usati, con solo chi l'ha comprato, chi lo usa, scadenza, piega e prezzo. Il
+codice si vede cliccando, insieme a "Segna come usato". Vedi
 `SERVER-SU-VERCEL.md`, sezione "Buoni online letti dal foglio Google".

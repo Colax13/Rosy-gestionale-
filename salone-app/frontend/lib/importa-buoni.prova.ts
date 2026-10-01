@@ -2,7 +2,7 @@ import {
   indoviniMappaturaBuoni, aBuono, aGiorno, aImporto, valeSi,
   chiaveBuono, preparaImport, leggiCsv, buoniDaFoglio
 } from './importa-buoni';
-import { idDelFoglio, spiegaErroreFoglio } from '../../../api/_fogli';
+import { idDelFoglio, spiegaErroreFoglio, scegliSchede } from '../../../api/_fogli';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -130,9 +130,19 @@ check('foglio: senza intestazioni giuste non importa niente', 0,
   buoniDaFoglio([['a', 'b'], ['1', '2']], []).nuovi.length);
 check('foglio: e dice perché', true, !!buoniDaFoglio([['a', 'b']], []).motivo);
 check('foglio vuoto', 0, buoniDaFoglio([], []).nuovi.length);
+check('scheda del salone: buoni salone', ['salone', 'salone', 'salone'],
+  buoniDaFoglio(foglio, [], [], 'salone').nuovi.map(b => b.tipo));
+check('senza dire niente: buoni spa', 'spa', buoniDaFoglio(foglio, []).nuovi[0].tipo);
 
 // --- l'ID del foglio, comunque lo si incolli su Vercel ---
 const ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-xy';
+check('schede: salone riconosciuta dal nome', { spa: 'Buoni Spa', salone: 'Buoni del salone' },
+  scegliSchede(['Buoni Spa', 'Buoni del salone']));
+check('schede: anche se il salone viene prima', { spa: 'Foglio1', salone: 'SALONE' },
+  scegliSchede(['SALONE', 'Foglio1']));
+check('schede: una sola, è la spa', { spa: 'Foglio1', salone: undefined }, scegliSchede(['Foglio1']));
+check('schede: nomi detti su Vercel', { spa: 'Vendite', salone: 'Altro' },
+  scegliSchede(['Vendite', 'Altro', 'Buoni salone vecchi'], 'vendite', 'Altro'));
 check('ID dal link intero', ID, idDelFoglio(`https://docs.google.com/spreadsheets/d/${ID}/edit#gid=0`));
 check('ID già pulito', ID, idDelFoglio(`  ${ID} `));
 check('ID senza senso', '', idDelFoglio('ciao'));

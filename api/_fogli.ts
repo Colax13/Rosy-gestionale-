@@ -87,3 +87,39 @@ export async function leggiFoglio(
   }
   return (dati.values || []).map((riga: any[]) => riga.map(c => (c ?? '').toString()));
 }
+
+/** I nomi delle schede del foglio, nell'ordine in cui stanno. */
+export async function schedeDelFoglio(
+  chiave: { client_email: string; private_key: string },
+  idFoglio: string
+): Promise<string[]> {
+  const token = await tokenGoogle(chiave);
+  const risposta = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(idFoglio)}?fields=sheets.properties.title`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const dati: any = await risposta.json().catch(() => ({}));
+  if (!risposta.ok) {
+    const errore = new Error(spiegaErroreFoglio(risposta.status, dati?.error?.message || '', chiave.client_email));
+    (errore as any).daSpiegare = true;
+    throw errore;
+  }
+  return (dati.sheets || []).map((f: any) => (f?.properties?.title || '').toString()).filter(Boolean);
+}
+
+/**
+ * Quale scheda è dei buoni spa e quale dei buoni salone.
+ * Si possono dire su Vercel; se no, la scheda che nel nome ha "salone" è del
+ * salone, e la prima delle altre è della spa.
+ */
+export function scegliSchede(
+  titoli: string[],
+  scrittaSpa?: string,
+  scrittaSalone?: string
+): { spa?: string; salone?: string } {
+  const trova = (nome?: string) =>
+    nome ? titoli.find(t => t.trim().toLowerCase() === nome.trim().toLowerCase()) : undefined;
+  const salone = trova(scrittaSalone) || titoli.find(t => /salon/i.test(t));
+  const spa = trova(scrittaSpa) || titoli.find(t => t !== salone);
+  return { spa, salone };
+}

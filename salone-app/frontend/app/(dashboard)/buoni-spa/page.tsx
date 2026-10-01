@@ -7,7 +7,8 @@ import FloatingActionBar from '@/components/FloatingActionBar';
 import ImportaBuoni from '@/components/ImportaBuoni';
 import {
   PREZZO_SPA, PREZZO_PIEGA, prezzoSpa, canaleDi, persone, noteVisibili,
-  filtraBuoni, riepilogo, isScaduto, tipoDi, type Tipo, type Canale
+  filtraBuoni, tipoDi, contaPerFase, ordinaBuoni, faseDi,
+  type Tipo, type Canale, type Fase
 } from '@/lib/buoni';
 import {
   Ticket, Plus, Search, X, Edit2, Trash2, Check, AlertCircle,
@@ -34,6 +35,7 @@ interface Buono {
   note?: string;
   /** Il buono comprende anche la piega: dipende da quanto è stato pagato. */
   piega_inclusa?: boolean;
+  data_utilizzo?: string;
 }
 
 const STATI = {
@@ -71,10 +73,12 @@ export default function BuoniSpa() {
   const [errore, setErrore] = useState<string | null>(null);
 
   const [ricerca, setRicerca] = useState('');
-  const [filtro, setFiltro] = useState<'tutti' | 'attivo' | 'usato' | 'annullato'>('tutti');
+  // Ogni registro si legge una tabella alla volta: online o in salone, e
+  // dentro attivi, scaduti o usati.
+  const [fase, setFase] = useState<Fase>('attivi');
   // Spa e salone sono due registri separati: non si vedono mai mescolati.
   const [tipoAttivo, setTipoAttivo] = useState<Tipo>('spa');
-  const [canale, setCanale] = useState<'tutti' | Canale>('tutti');
+  const [canale, setCanale] = useState<Canale>('online');
 
   const [dettaglio, setDettaglio] = useState<Buono | null>(null);
   const [modaleAperta, setModaleAperta] = useState(false);
@@ -136,7 +140,7 @@ export default function BuoniSpa() {
       const ora = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
       if (esito.errore) { setFoglio({ stato: 'errore', errore: esito.errore, ora }); return; }
       setFoglio({ stato: 'fatto', aggiunti: esito.aggiunti || 0, ora });
-      if (esito.aggiunti) caricaBuoni();
+      // I buoni nuovi arrivano da soli con l'ascolto in diretta.
     } catch {
       // Senza rete o senza server la pagina funziona lo stesso: il foglio si
       // rilegge la prossima volta.
@@ -144,13 +148,43 @@ export default function BuoniSpa() {
     }
   };
 
-  // Il foglio si legge una volta sola all'apertura, anche se React monta la
-  // pagina due volte: la seconda lettura direbbe "nessuno nuovo" e
-  // nasconderebbe quelli appena arrivati.
-  const foglioLetto = useRef(false);
+  // In diretta: ogni buono che cambia (venduto in cassa, segnato come usato,
+  // arrivato dal foglio) compare da solo, senza ricaricare la pagina.
   useEffect(() => {
-    caricaBuoni();
-    if (!foglioLetto.current) { foglioLetto.current = true; aggiornaDalFoglio(); }
+    let smetti: (() => void) | undefined;
+    try {
+      smetti = buoniApi.ascolta(
+        dati => {
+          setBuoni(dati as Buono[]);
+          setCaricamento(false);
+          setErrore(null);
+        },
+        () => caricaBuoni()
+      );
+    } catch {
+      caricaBuoni();
+    }
+    return () => smetti?.();
+  }, []);
+
+  // Il foglio dei buoni pagati online si rilegge da solo: all'apertura, ogni
+  // due minuti finché la pagina resta aperta, e quando si torna sulla
+  // scheda del browser. Una volta sola anche se React monta la pagina due
+  // volte: la seconda lettura direbbe "nessuno nuovo" e nasconderebbe quelli
+  // appena arrivati.
+  const foglioLetto = useRef(false);
+  const ultimaLettura = useRef(0);
+  useEffect(() => {
+    const leggi = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - ultimaLettura.current < 30_000) return;
+      ultimaLettura.current = Date.now();
+      aggiornaDalFoglio();
+    };
+    if (!foglioLetto.current) { foglioLetto.current = true; leggi(); }
+    const ogni = setInterval(leggi, 2 * 60 * 1000);
+    document.addEventListener('visibilitychange', leggi);
+    return () => { clearInterval(ogni); document.removeEventListener('visibilitychange', leggi); };
   }, []);
 
   const apriNuovo = () => {
@@ -281,6 +315,19 @@ export default function BuoniSpa() {
     }
   };
 
+  /** Un clic: il buono è stato usato tutto. Si può tornare indietro. */
+  const cambiaStato = async (b: Buono, usato: boolean) => {
+    try {
+      await buoniApi.update(b.id, usato
+        ? { stato: 'usato', valore_residuo: 0, data_utilizzo: oggi() }
+        : { stato: 'attivo', valore_residuo: b.valore, data_utilizzo: '' });
+      setDettaglio(null);
+      caricaBuoni();
+    } catch {
+      setErrore('Non sono riuscito a cambiare il buono.');
+    }
+  };
+
   const elimina = async (b: Buono) => {
     try {
       await buoniApi.delete(b.id);
@@ -292,16 +339,20 @@ export default function BuoniSpa() {
     }
   };
 
-  const delTipo = useMemo(() => buoni.filter(b => tipoDi(b) === tipoAttivo), [buoni, tipoAttivo]);
-  const elencoFiltrato = useMemo(
-    () => filtraBuoni(buoni, { tipo: tipoAttivo, canale, stato: filtro, ricerca }),
-    [buoni, tipoAttivo, canale, filtro, ricerca]
-  );
-  const totali = riepilogo(delTipo);
   const quanti = (t: Tipo) => buoni.filter(b => tipoDi(b) === t).length;
+  const quantiCanale = (c: Canale) => buoni.filter(b => tipoDi(b) === tipoAttivo && canaleDi(b) === c).length;
+  const delCanale = useMemo(
+    () => filtraBuoni(buoni, { tipo: tipoAttivo, canale, fase: 'tutte', ricerca }),
+    [buoni, tipoAttivo, canale, ricerca]
+  );
+  const conti = contaPerFase(delCanale);
+  const elencoFiltrato = useMemo(
+    () => ordinaBuoni(delCanale.filter(b => faseDi(b) === fase), fase),
+    [delCanale, fase]
+  );
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
+    <div className="p-4 md:p-8 pb-32 md:pb-32 max-w-6xl mx-auto w-full">
 
       <header className="mb-6">
         <h1 className="text-3xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
@@ -337,11 +388,12 @@ export default function BuoniSpa() {
         }`}>
           {foglio.stato === 'errore' ? <AlertCircle size={15} className="shrink-0" /> : <Globe size={15} className="shrink-0 text-sky-600" />}
           <span className="flex-1 min-w-0">
-            {foglio.stato === 'leggo' && 'Leggo i buoni online dal foglio...'}
-            {foglio.stato === 'fatto' && (
+            {foglio.stato === 'leggo' && !foglio.ora && 'Leggo i buoni dal foglio...'}
+            {(foglio.stato === 'fatto' || (foglio.stato === 'leggo' && foglio.ora)) && (
               <>
-                Buoni online aggiornati dal foglio alle {foglio.ora}
-                {foglio.aggiunti ? <strong> · {foglio.aggiunti} {foglio.aggiunti === 1 ? 'nuovo' : 'nuovi'}</strong> : ' · nessuno nuovo'}
+                Foglio controllato alle {foglio.ora}
+                {foglio.aggiunti ? <strong> · {foglio.aggiunti} {foglio.aggiunti === 1 ? 'buono nuovo' : 'buoni nuovi'}</strong> : ''}
+                <span className="text-sky-700/70"> · si ricontrolla da solo ogni 2 minuti</span>
               </>
             )}
             {foglio.stato === 'errore' && <>Il foglio dei buoni online non si legge: {foglio.errore}</>}
@@ -356,60 +408,45 @@ export default function BuoniSpa() {
         </div>
       )}
 
-      {/* Riepilogo */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Buoni attivi</div>
-          <div className="text-2xl font-playfair font-bold text-zinc-900 tabular-nums">{totali.attivi}</div>
+      {/* Online o in salone, poi attivi, scaduti o usati */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-1 bg-white border border-zinc-200 rounded-lg p-1 lg:w-80 shrink-0">
+          {([['online', 'Online', Globe], ['salone', 'Fatti in salone', Store]] as const).map(([chiave, etichetta, Icona]) => (
+            <button
+              key={chiave}
+              onClick={() => setCanale(chiave)}
+              className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${
+                canale === chiave ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'
+              }`}
+            >
+              <Icona size={14} /> {etichetta}
+              <span className="text-xs font-medium tabular-nums opacity-60">{quantiCanale(chiave)}</span>
+            </button>
+          ))}
         </div>
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Da scalare</div>
-          <div className="text-2xl font-playfair font-bold text-fuchsia-600 tabular-nums">{euro(totali.daScalare)}</div>
+        <div className="grid grid-cols-3 gap-1 bg-white border border-zinc-200 rounded-lg p-1 lg:w-96 shrink-0">
+          {([['attivi', 'Attivi'], ['scaduti', 'Scaduti'], ['usati', 'Usati']] as const).map(([chiave, etichetta]) => (
+            <button
+              key={chiave}
+              onClick={() => setFase(chiave)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
+                fase === chiave
+                  ? chiave === 'scaduti' ? 'bg-amber-50 text-amber-800' : 'bg-fuchsia-50 text-fuchsia-700'
+                  : 'text-zinc-500 hover:bg-zinc-100'
+              }`}
+            >
+              {etichetta} <span className="text-xs tabular-nums opacity-60">{conti[chiave]}</span>
+            </button>
+          ))}
         </div>
-        <div className="bg-white border border-zinc-200 rounded-xl p-4 col-span-2 md:col-span-1">
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 mb-1">Scaduti</div>
-          <div className="text-2xl font-playfair font-bold text-amber-600 tabular-nums">
-            {totali.scaduti}
-          </div>
-        </div>
-      </div>
-
-      {/* Ricerca e filtri */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             value={ricerca}
             onChange={e => setRicerca(e.target.value)}
-            placeholder="Cerca codice, nome o telefono..."
-            className="w-full bg-white border border-zinc-200 rounded-lg pl-9 pr-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 transition-colors"
+            placeholder="Cerca un nome..."
+            className="w-full bg-white border border-zinc-200 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 transition-colors"
           />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="flex gap-1 bg-white border border-zinc-200 rounded-lg p-1">
-            {([['tutti', 'Tutti'], ['online', 'Online'], ['salone', 'In salone']] as const).map(([chiave, etichetta]) => (
-              <button
-                key={chiave}
-                onClick={() => setCanale(chiave)}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors whitespace-nowrap ${
-                  canale === chiave ? 'bg-fuchsia-50 text-fuchsia-700' : 'text-zinc-500 hover:bg-zinc-100'
-                }`}
-              >
-                {etichetta}
-              </button>
-            ))}
-          </div>
-          <select
-            value={filtro}
-            onChange={e => setFiltro(e.target.value as any)}
-            className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 outline-none focus:border-fuchsia-400"
-            aria-label="Stato del buono"
-          >
-            <option value="tutti">Tutti gli stati</option>
-            <option value="attivo">Attivi</option>
-            <option value="usato">Usati</option>
-            <option value="annullato">Annullati</option>
-          </select>
         </div>
       </div>
 
@@ -419,82 +456,60 @@ export default function BuoniSpa() {
         </div>
       )}
 
-      {/* Elenco in sola lettura: la modifica si apre a parte */}
+      {/* Tabella in sola lettura: il codice e le azioni si aprono cliccando */}
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         {caricamento ? (
           <div className="p-10 text-center text-zinc-400 text-sm animate-pulse">Carico i buoni...</div>
         ) : elencoFiltrato.length === 0 ? (
-          <div className="p-10 flex flex-col items-center gap-2 text-center">
-            <div className="p-3 bg-zinc-100 rounded-full text-zinc-400"><Ticket size={22} /></div>
-            <p className="text-sm font-medium text-zinc-700">
-              {delTipo.length === 0 ? `Nessun buono ${tipoAttivo} registrato` : 'Nessun buono trovato'}
-            </p>
-            <p className="text-xs text-zinc-500 max-w-sm">
-              {delTipo.length === 0
-                ? 'Quando vendi un buono registralo qui: lo ritrovi cercando il codice.'
-                : 'Prova a cambiare filtro o testo di ricerca.'}
-            </p>
+          <div className="p-10 text-center text-sm text-zinc-500">
+            {ricerca.trim()
+              ? 'Nessun buono con questo nome.'
+              : `Nessun buono ${fase === 'attivi' ? 'attivo' : fase === 'scaduti' ? 'scaduto' : 'usato'} ${canale === 'online' ? 'online' : 'fatto in salone'}.`}
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-100">
-            {elencoFiltrato.map(b => {
-              const scaduto = isScaduto(b);
-              const { regala, riceve, stessa } = persone(b);
-              const online = canaleDi(b) === 'online';
-              const stato = STATI[b.stato] || STATI.attivo;
-              return (
-                <li key={b.id}>
-                  <button
+          <table className="w-full text-sm table-fixed">
+            <thead className="hidden md:table-header-group bg-zinc-50 border-b border-zinc-200">
+              <tr className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
+                <th className="px-4 py-2.5 font-semibold">Chi l'ha comprato</th>
+                <th className="px-4 py-2.5 font-semibold">Chi lo usa</th>
+                <th className="px-4 py-2.5 font-semibold w-32">Scadenza</th>
+                <th className="px-4 py-2.5 font-semibold w-24 text-center">Piega</th>
+                <th className="px-4 py-2.5 font-semibold w-28 text-right">Prezzo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {elencoFiltrato.map(b => {
+                const { regala, riceve } = persone(b);
+                const comprato = regala.nome || riceve.nome || '—';
+                const usa = riceve.nome || regala.nome || '—';
+                return (
+                  <tr
+                    key={b.id}
                     onClick={() => setDettaglio(b)}
-                    className="w-full text-left px-4 py-3 hover:bg-zinc-50 transition-colors flex items-center gap-3"
+                    className="cursor-pointer hover:bg-zinc-50 transition-colors grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-4 py-3 md:table-row md:p-0"
                   >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                      b.tipo === 'spa' ? 'bg-cyan-50 text-cyan-600' : 'bg-fuchsia-50 text-fuchsia-600'
-                    }`}>
-                      {b.tipo === 'spa' ? <Sparkles size={16} /> : <Scissors size={16} />}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-semibold text-sm text-zinc-900">{b.codice}</span>
-                        <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${stato.classe}`}>
-                          {stato.etichetta}
-                        </span>
-                        {scaduto && (
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200">
-                            Scaduto
-                          </span>
-                        )}
-                        {online && (
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-sky-50 text-sky-700 border-sky-200 inline-flex items-center gap-1">
-                            <Globe size={10} /> Online
-                          </span>
-                        )}
-                        {b.piega_inclusa && (
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200">
-                            Piega compresa
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-zinc-500 truncate mt-0.5">
-                        {stessa
-                          ? (riceve.nome || regala.nome || 'Senza nome')
-                          : <>Da <span className="text-zinc-700">{regala.nome}</span> per <span className="text-zinc-700">{riceve.nome}</span></>}
-                        {b.data_scadenza ? ` · scade il ${formattaData(b.data_scadenza)}` : ''}
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-semibold text-zinc-900 tabular-nums">{euro(b.valore_residuo)}</div>
-                      {b.valore_residuo !== b.valore && (
-                        <div className="text-[11px] text-zinc-400 tabular-nums">su {euro(b.valore)}</div>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    <td className="md:px-4 md:py-3 text-zinc-900 font-medium truncate">
+                      <span className="md:hidden text-zinc-400 font-normal">Da </span>{comprato}
+                    </td>
+                    <td className="md:px-4 md:py-3 text-zinc-700 truncate row-start-2 md:row-auto">
+                      <span className="md:hidden text-zinc-400">Per </span>{usa}
+                    </td>
+                    <td className="md:px-4 md:py-3 text-zinc-600 tabular-nums row-start-3 md:row-auto text-xs md:text-sm">
+                      <span className="md:hidden text-zinc-400">Scade </span>{formattaData(b.data_scadenza)}
+                    </td>
+                    <td className="md:px-4 md:py-3 md:text-center col-start-2 row-start-2 md:col-auto md:row-auto text-right">
+                      <span className={`text-xs font-semibold ${b.piega_inclusa ? 'text-fuchsia-700' : 'text-zinc-400'}`}>
+                        <span className="md:hidden">Piega </span>{b.piega_inclusa ? 'Sì' : 'No'}
+                      </span>
+                    </td>
+                    <td className="md:px-4 md:py-3 text-right font-semibold text-zinc-900 tabular-nums col-start-2 row-start-1 md:col-auto md:row-auto">
+                      {euro(b.valore)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -528,8 +543,13 @@ export default function BuoniSpa() {
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-zinc-100 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-mono text-lg font-bold text-zinc-900">{dettaglio.codice}</div>
-                <div className="text-sm text-zinc-500 capitalize">Buono {dettaglio.tipo}</div>
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400">Codice del buono {tipoDi(dettaglio)}</div>
+                <div className="font-mono text-xl font-bold text-zinc-900 select-all">{dettaglio.codice}</div>
+                <div className={`text-sm mt-0.5 ${faseDi(dettaglio) === 'attivi' ? 'text-emerald-700' : faseDi(dettaglio) === 'scaduti' ? 'text-amber-700' : 'text-zinc-500'}`}>
+                  {dettaglio.stato === 'annullato' ? 'Annullato'
+                    : faseDi(dettaglio) === 'usati' ? `Usato${dettaglio.data_utilizzo ? ` il ${formattaData(dettaglio.data_utilizzo)}` : ''}`
+                    : faseDi(dettaglio) === 'scaduti' ? 'Scaduto' : 'Da usare'}
+                </div>
               </div>
               <button onClick={() => setDettaglio(null)} className="p-1 text-zinc-400 hover:text-zinc-900 transition-colors">
                 <X size={20} />
@@ -538,9 +558,12 @@ export default function BuoniSpa() {
 
             <div className="p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between py-2 border-b border-zinc-100">
-                <span className="text-sm text-zinc-500 flex items-center gap-2"><Euro size={15} className="text-zinc-400" /> Residuo</span>
+                <span className="text-sm text-zinc-500 flex items-center gap-2"><Euro size={15} className="text-zinc-400" /> Prezzo</span>
                 <span className="font-semibold text-zinc-900 tabular-nums">
-                  {euro(dettaglio.valore_residuo)} <span className="text-zinc-400 font-normal">su {euro(dettaglio.valore)}</span>
+                  {euro(dettaglio.valore)}
+                  {dettaglio.stato === 'attivo' && dettaglio.valore_residuo !== dettaglio.valore && (
+                    <span className="text-zinc-400 font-normal"> · restano {euro(dettaglio.valore_residuo)}</span>
+                  )}
                 </span>
               </div>
               {(() => {
@@ -583,11 +606,29 @@ export default function BuoniSpa() {
 
             <div className="p-5 pt-0 flex flex-col gap-2">
               {dettaglio.stato === 'attivo' && (
+                <>
+                  <button
+                    onClick={() => cambiaStato(dettaglio, true)}
+                    className="w-full px-4 py-2.5 font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-500 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Check size={16} /> Segna come usato
+                  </button>
+                  {tipoDi(dettaglio) === 'salone' && (
+                    <button
+                      onClick={() => setUtilizzo({ buono: dettaglio, importo: String(dettaglio.valore_residuo).replace('.', ',') })}
+                      className="w-full px-4 py-2 text-sm font-medium text-fuchsia-700 hover:bg-fuchsia-50 rounded-xl transition-colors"
+                    >
+                      Usato solo in parte
+                    </button>
+                  )}
+                </>
+              )}
+              {dettaglio.stato === 'usato' && (
                 <button
-                  onClick={() => setUtilizzo({ buono: dettaglio, importo: String(dettaglio.valore_residuo).replace('.', ',') })}
-                  className="w-full px-4 py-2.5 font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-500 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  onClick={() => cambiaStato(dettaglio, false)}
+                  className="w-full px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-xl transition-colors"
                 >
-                  <Check size={16} /> Registra utilizzo
+                  Segnato per sbaglio? Rimettilo da usare
                 </button>
               )}
               <div className="flex gap-2">

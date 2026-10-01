@@ -82,6 +82,10 @@ const appuntamentiVecchi = [
 const buoni = [
   { id: 'b1', codice: 'RSY-A3K9-QW2F', tipo: 'spa', origine: 'foglio', intestatario: 'Anna Bianchi', telefono: '3401112233', valore: 70, valore_residuo: 70, stato: 'attivo', piega_inclusa: true, data_emissione: alle(9), note: 'Pagato da Stefania Mucci · stefania@example.it' },
   { id: 'b2', codice: 'RSY-7HGT-LM4P', tipo: 'spa', origine: 'manuale', intestatario: 'Chiara Esposito', acquirente: 'Chiara Esposito', valore: 50, valore_residuo: 50, stato: 'attivo', data_emissione: alle(9) },
+  { id: 'b4', codice: 'RSY-K2M4-PP91', tipo: 'spa', origine: 'foglio', intestatario: 'Giorgia Fabi', acquirente: 'Marco Fabi', valore: 50, valore_residuo: 50, stato: 'attivo', data_scadenza: '2027-02-14', data_emissione: alle(9) },
+  { id: 'b5', codice: 'RSY-T7T7-HJ22', tipo: 'spa', origine: 'foglio', intestatario: 'Elena Russo', acquirente: 'Elena Russo', valore: 70, valore_residuo: 70, piega_inclusa: true, stato: 'attivo', data_scadenza: '2026-12-20', data_emissione: alle(9) },
+  { id: 'b6', codice: 'RSY-OLD0-SC44', tipo: 'spa', origine: 'foglio', intestatario: 'Paola Neri', acquirente: 'Franco Neri', valore: 50, valore_residuo: 50, stato: 'attivo', data_scadenza: '2026-03-01', data_emissione: alle(9) },
+  { id: 'b7', codice: 'RSY-US3D-AA11', tipo: 'spa', origine: 'foglio', intestatario: 'Marta Gentile', acquirente: 'Luigi Gentile', valore: 70, valore_residuo: 0, piega_inclusa: true, stato: 'usato', data_scadenza: '2026-11-01', data_emissione: alle(9) },
   { id: 'b3', codice: 'RSY-QQ11-ZZ88', tipo: 'salone', origine: 'manuale', intestatario: 'Federica Lombardi', acquirente: 'Marco Lombardi', acquirente_telefono: '333 444 5566', valore: 30, valore_residuo: 0, stato: 'usato', data_emissione: alle(9) },
 ];
 
@@ -253,22 +257,33 @@ export const disponibilitaApi = {
   allinea: async () => 0,
 };
 
+const ascoltatoriBuoni = new Set<(b: any[]) => void>();
+const avvisaBuoni = () => setTimeout(() => ascoltatoriBuoni.forEach(f => f([...buoni])), 0);
+
 export const buoniApi = {
   getAll: async () => eco([...buoni]),
+  ascolta: (quandoCambiano: (b: any[]) => void) => {
+    ascoltatoriBuoni.add(quandoCambiano);
+    quandoCambiano([...buoni]);
+    return () => { ascoltatoriBuoni.delete(quandoCambiano); };
+  },
   create: async (dati: any) => {
     const nuovo = { id: `b${buoni.length + 1}`, ...dati };
     (buoni as any[]).push(nuovo);
+    avvisaBuoni();
     return eco(nuovo);
   },
   update: async (id: string, dati: any) => {
     const i = buoni.findIndex(b => b.id === id);
     if (i >= 0) (buoni as any[])[i] = { ...buoni[i], ...dati };
+    avvisaBuoni();
     return eco(buoni[i]);
   },
   aggiornaDalFoglio: async () => {
     // Nell'anteprima il foglio "porta" un buono nuovo la prima volta.
     if (!buoni.some(b => b.id === 'bf')) {
       (buoni as any[]).push({ id: 'bf', codice: 'RSY-NUOV-O123', tipo: 'spa', origine: 'foglio', intestatario: 'Sara Conti', acquirente: 'Luca Conti', acquirente_telefono: '347 000 1111', valore: 50, valore_residuo: 50, stato: 'attivo', data_emissione: alle(9) });
+      avvisaBuoni();
       return eco({ acceso: true, aggiunti: 1, letti: 4 });
     }
     return eco({ acceso: true, aggiunti: 0, letti: 4 });
@@ -276,6 +291,7 @@ export const buoniApi = {
   delete: async (id: string) => {
     const i = buoni.findIndex(b => b.id === id);
     if (i >= 0) buoni.splice(i, 1);
+    avvisaBuoni();
     return eco({ success: true });
   },
 };
