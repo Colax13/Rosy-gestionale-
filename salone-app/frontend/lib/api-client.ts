@@ -3,6 +3,7 @@ import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { chiaviCliente } from './importa';
+import { ordinaOperatori } from './operatori';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -406,10 +407,22 @@ export const dipendentiApi = {
     const vetrina = await vetrinaApi.getPublic(salonId);
     return (vetrina?.operatori || []).map(o => ({ ...o, attivo: true }));
   },
+  /** Già nell'ordine delle colonne del calendario, da sinistra a destra. */
   getAll: async (): Promise<any[]> => {
     const q = query(collection(db, 'dipendenti'), where('userId', '==', getUserId()));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return ordinaOperatori(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  /**
+   * Salva il nuovo ordine: `ordine` è la posizione da sinistra (0 = prima
+   * colonna). Si scrive solo chi ha cambiato posto, poi si rifà la vetrina
+   * una volta sola, così anche la prenotazione online segue l'ordine.
+   */
+  salvaOrdine: async (cambi: { id: string; ordine: number }[]) => {
+    await Promise.all(cambi.map(c =>
+      updateDoc(doc(db, 'dipendenti', c.id), { ordine: c.ordine, updatedAt: serverTimestamp() })
+    ));
+    if (cambi.length) await vetrinaApi.aggiorna();
   },
   // Come per il listino: turni e servizi cambiano, la vetrina li segue.
   create: async (data: any) => {

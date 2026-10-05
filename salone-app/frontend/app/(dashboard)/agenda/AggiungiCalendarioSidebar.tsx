@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw } from 'lucide-react';
 import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
 import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
-import { faServizio, haElencoServizi } from '@/lib/operatori';
+import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
 
 interface Client {
   id: string;
@@ -883,7 +883,7 @@ export default function AggiungiCalendarioSidebar({
                       >
                         {dipendenti.map(emp => (
                           <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
-                            {emp.nome} {emp.cognome}
+                            {nomeOperatore(emp)}
                           </option>
                         ))}
                       </select>
@@ -1169,7 +1169,7 @@ export default function AggiungiCalendarioSidebar({
                       >
                         {dipendenti.map(emp => (
                           <option key={emp.id} value={emp.id} className="bg-white text-zinc-900">
-                            {emp.nome} {emp.cognome}
+                            {nomeOperatore(emp)}
                           </option>
                         ))}
                       </select>

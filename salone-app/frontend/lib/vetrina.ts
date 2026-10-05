@@ -14,6 +14,7 @@
 //
 // Gli appuntamenti veri restano chiusi a chiave come i clienti.
 
+import { ordinaOperatori } from './operatori';
 import { segmentiAppuntamento, NON_ASSEGNATO } from './servizi';
 
 export interface ServizioVetrina {
@@ -78,7 +79,7 @@ export function costruisciVetrina(userId: string, catalogo: any[], dipendenti: a
   return {
     userId,
     servizi: (catalogo || []).filter(s => s?.attivo !== false).map(servizioPerVetrina),
-    operatori: (dipendenti || []).filter(d => d?.attivo !== false).map(operatorePerVetrina),
+    operatori: ordinaOperatori((dipendenti || []).filter(d => d?.attivo !== false)).map(operatorePerVetrina),
     aggiornato: new Date().toISOString()
   };
 }

@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Download, Users, TrendingUp, Sparkles, Mail, Phone, BarChart3 } from 'lucide-react';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface IncassoMese {
   mese: string;
@@ -91,7 +92,7 @@ export default function PaginaReport() {
     const headers = ['Nome', 'Cognome', 'Appuntamenti', 'Totale incassato (€)'];
     const rows = dipendenti.map(d => [
       d.nome,
-      d.cognome,
+      d.cognome || '',
       d.numero_appuntamenti.toString(),
       d.totale_incassato.toFixed(2)
     ]);
@@ -230,7 +231,7 @@ export default function PaginaReport() {
                 {dipendenti.length > 0 ? dipendenti.map((d) => (
                   <tr key={d.id} className="hover:bg-zinc-100 transition-colors">
                     <td className="py-4 px-4 text-zinc-900 font-medium">
-                      {d.nome} {d.cognome}
+                      {nomeOperatore(d)}
                     </td>
                     <td className="py-4 px-4 text-right text-zinc-500">
                       {d.numero_appuntamenti}

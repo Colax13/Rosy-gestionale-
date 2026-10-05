@@ -1,3 +1,4 @@
+import { ordinaOperatori } from '../salone-app/frontend/lib/operatori';
 // Sostituto dell'accesso a Firestore, usato solo dall'anteprima (npm run anteprima).
 //
 // Serve per aprire le schermate vere, con dati veri, senza doversi collegare
@@ -28,7 +29,7 @@ const dipendenti = [
   { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', ruolo: 'Titolare',  colore: '#D400FF', turni: turnoPieno },
   { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    ruolo: 'Parrucchiera', colore: '#6B5CFF', turni: turnoPieno },
   // Martina fa solo estetica: serve a provare l'elenco dei servizi per operatrice.
-  { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  ruolo: 'Estetista', colore: '#00D8FF', servizi: ['s5'], turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
+  { id: 'd3', nome: 'Martina', cognome: '',  ruolo: 'Estetista', colore: '#00D8FF', servizi: ['s5'], turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
 ];
 
 const catalogo = [
@@ -55,6 +56,9 @@ const clienti = [
 ];
 
 const appuntamenti = [
+  // Uno senza operatore: deve comparire nell'avviso sopra il calendario.
+  { id: 'a0', id_cliente: 'c2', data_ora: alle(16, 0), stato: 'confermato', clienti: clienti[1], dipendenti: null,
+    righe_appuntamento: [{ servizi_catalogo: catalogo[2] }] },
   { id: 'a1', id_cliente: 'c1', data_ora: alle(9, 0),  stato: 'confermato', note: 'Riflessante castano', idDipendente: 'd1',
     clienti: clienti[0], dipendenti: dipendenti[0],
     righe_appuntamento: [{ servizi_catalogo: catalogo[0] }, { servizi_catalogo: catalogo[1] }] },
@@ -116,7 +120,7 @@ export const reportApi = {
       dipendenti: [
         { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', numero_appuntamenti: 41, totale_incassato: 1780 },
         { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    numero_appuntamenti: 33, totale_incassato: 1180 },
-        { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  numero_appuntamenti: 22, totale_incassato: 520 },
+        { id: 'd3', nome: 'Martina', cognome: '',  numero_appuntamenti: 22, totale_incassato: 520 },
       ],
       clienti_report: {
         acquisiti_questo_mese: clienti.slice(0, 2).map(c => ({
@@ -188,7 +192,10 @@ export const catalogoApi = {
 
 export const dipendentiApi = {
   getPublic: async () => eco(dipendenti),
-  getAll: async () => eco(dipendenti),
+  getAll: async () => eco(ordinaOperatori(dipendenti)),
+  salvaOrdine: async (cambi: { id: string; ordine: number }[]) => {
+    cambi.forEach(c => { const d: any = dipendenti.find(x => x.id === c.id); if (d) d.ordine = c.ordine; });
+  },
   create: nulla,
   update: async (id: string, dati: any) => {
     const i = dipendenti.findIndex(d => d.id === id);

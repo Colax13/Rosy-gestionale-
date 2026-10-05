@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Clock, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
 import { dipendentiApi } from '@/lib/api-client';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface FasciaOraria {
   id: string;
@@ -290,7 +291,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
               return (
                 <tr key={dip.id} className="hover:bg-zinc-100/20 transition-colors group">
                   <td className="p-4">
-                    <div className="font-medium text-zinc-900">{dip.nome} {dip.cognome}</div>
+                    <div className="font-medium text-zinc-900">{nomeOperatore(dip)}</div>
                     <div className="text-xs text-zinc-500">{calcOreSettimanali(dip.turni)} ore/settimana</div>
                   </td>
                   
@@ -334,7 +335,7 @@ export default function TurniCalendario({ dipendenti, refreshData }: { dipendent
               <div>
                 <h3 className="text-lg font-semibold text-zinc-900">Modifica orari settimanali</h3>
                 <p className="text-sm text-zinc-500 mt-0.5">
-                  Operatore: <span className="text-fuchsia-400 font-medium">{editingDipendente.nome} {editingDipendente.cognome}</span>
+                  Operatore: <span className="text-fuchsia-400 font-medium">{nomeOperatore(editingDipendente)}</span>
                 </p>
               </div>
               <button 

@@ -760,3 +760,17 @@ L'elenco è una tabella: Online / Fatti in salone, poi Attivi / Scaduti /
 Usati, con solo chi l'ha comprato, chi lo usa, scadenza, piega e prezzo. Il
 codice si vede cliccando, insieme a "Segna come usato". Vedi
 `SERVER-SU-VERCEL.md`, sezione "Buoni online letti dal foglio Google".
+
+## 5 ottobre — sul ramo `production`, da portare su `main` quando si dice
+
+- **Cognome facoltativo** per i collaboratori: basta il nome, ovunque (pallino
+  con una sola iniziale, niente spazi in fondo).
+- **Ordina colonne**: pulsante nel calendario e nella pagina Operatori. Si
+  trascina o si usano le frecce; l'ordine (`ordine` sulla scheda) vale per
+  calendario, "Nuovo appuntamento" e prenotazione online. I nuovi vanno in
+  fondo. Il colore di ognuno ora segue la persona, non la colonna.
+- **Via la colonna "Non assegnato"**: se un appuntamento non ha operatore,
+  compare una riga gialla sopra il calendario per assegnarlo.
+- **Appuntamenti più bassi**: 84 pixel l'ora invece di 120.
+- **Buoni a 6 mesi**: la scadenza non si sceglie più, è 6 mesi dal rilascio
+  (fine mese se il giorno non esiste). Vale anche per i buoni già registrati.

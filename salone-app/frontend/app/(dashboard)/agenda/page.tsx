@@ -4,12 +4,13 @@
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
 import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi, messaggiApi } from '@/lib/api-client';
-import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { componi } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
+import OrdinaOperatori from '@/components/OrdinaOperatori';
 import { puoAprirePercorso } from '@/lib/sessione';
 import {
   durataTotale,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/servizi';
 
 import { Link } from 'react-router-dom';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface Appuntamento {
   id: string;
@@ -72,7 +74,7 @@ function MonthDayCell({
 
   const appsPerOperatore = apps.reduce((acc, app) => {
     const opId = app.id_dipendente || app.dipendenti?.id || 'unassigned';
-    const opName = app.dipendenti ? `${app.dipendenti.nome} ${app.dipendenti.cognome}` : 'Non assegnato';
+    const opName = app.dipendenti ? nomeOperatore(app.dipendenti) : 'Non assegnato';
     if (!acc[opId]) acc[opId] = { id: opId, nome: opName, appuntamenti: [] };
     acc[opId].appuntamenti.push(app);
     return acc;
@@ -186,6 +188,7 @@ function MonthDayCell({
 export default function PaginaAgenda() {
   const [appuntamenti, setAppuntamenti] = useState<Appuntamento[]>([]);
   const [dipendenti, setDipendenti] = useState<any[]>([]);
+  const [ordinaAperto, setOrdinaAperto] = useState(false);
   // Il nome che va in cima al preconto stampato.
   const [nomeSalone, setNomeSalone] = useState<string>('');
   // Nome, indirizzo e telefono del salone: finiscono dentro il messaggio che
@@ -486,9 +489,13 @@ export default function PaginaAgenda() {
     }
   };
   
-  const getColoreDipendente = (id: string, index: number) => {
+  // Il colore segue la persona, non la colonna: spostando le colonne ognuno
+  // tiene il suo.
+  const getColoreDipendente = (id: string, _index?: number) => {
     const colori = ['bg-blue-500', 'bg-fuchsia-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-cyan-500'];
-    return colori[index % colori.length];
+    let h = 0;
+    for (const c of id || '') h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return colori[h % colori.length];
   };
 
   // Chi ha in carico l'appuntamento, comunque sia scritto nei dati.
@@ -819,7 +826,17 @@ export default function PaginaAgenda() {
   };
 
   const renderDayView = () => {
-    const staff = [...dipendenti, { id: 'unassigned', nome: 'Non', cognome: 'assegnato' }];
+    // Solo gli operatori veri, nell'ordine scelto dal salone. La vecchia
+    // colonna "Non assegnato" restava sempre vuota: gli appuntamenti senza
+    // operatore, se capitano, si segnalano sopra il calendario.
+    const staff = dipendenti;
+    const idStaff = new Set(staff.map(d => d.id));
+    const giornoScelto = getLocalDateString(selectedDate);
+    const senzaOperatore = appuntamenti.filter(app =>
+      app.stato !== 'annullato'
+      && getLocalDateString(new Date(app.data_ora)) === giornoScelto
+      && !idStaff.has(operatoreDi(app))
+    );
 
     const turniStaff: Record<string, TurnoDelGiorno> = {};
     staff.forEach(d => { turniStaff[d.id] = turnoDelGiorno(d, selectedDate); });
@@ -844,7 +861,9 @@ export default function PaginaAgenda() {
     const START_HOUR = Math.max(0, Math.floor(minMinuti / 60) - 1);
     const END_HOUR = Math.min(24, Math.ceil(maxMinuti / 60) + 1);
     const TOTAL_HOURS = Math.max(2, END_HOUR - START_HOUR);
-    const PIXELS_PER_MINUTE = 2; // più spazio verticale per leggere le fasi
+    // 84 pixel l'ora: si vedono 6-7 ore insieme invece di 4-5. Sotto una
+    // certa altezza la card passa da sola alla versione compatta.
+    const PIXELS_PER_MINUTE = 1.4;
     const GRID_HEIGHT = TOTAL_HOURS * 60 * PIXELS_PER_MINUTE;
 
     const orarioDaMinuti = (minuti: number) =>
@@ -896,7 +915,7 @@ export default function PaginaAgenda() {
       const nome = [app.clienti?.nome, app.clienti?.cognome].filter(Boolean).join(' ') || 'la cliente';
       const nomeBase = riga?.servizi_catalogo?.nome || riga?.nome || 'questo servizio';
       const nomeServizio = fase === 'finitura' ? `finitura di ${nomeBase}` : nomeBase;
-      const aChi = `${dip.nome} ${dip.cognome || ''}`.trim();
+      const aChi = nomeOperatore(dip);
       const oraPezzo = orarioDaMinuti(minutiPezzo);
       const oraNuovaPezzo = orarioDaMinuti(minuti);
       // Spostando tutto l'appuntamento, gli altri servizi slittano dello stesso
@@ -953,9 +972,45 @@ export default function PaginaAgenda() {
     };
 
     return (
+      <>
+      {senzaOperatore.length > 0 && (
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex flex-col gap-2">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle size={16} className="shrink-0" />
+            {senzaOperatore.length === 1 ? '1 appuntamento senza operatore' : `${senzaOperatore.length} appuntamenti senza operatore`}: non compare in nessuna colonna, assegnalo.
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {senzaOperatore.map(app => {
+              const d = new Date(app.data_ora);
+              const minuti = d.getHours() * 60 + d.getMinutes();
+              const ora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              const chi = `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim() || 'Cliente';
+              return (
+                <li key={app.id} className="flex flex-wrap items-center gap-2 bg-white/70 border border-amber-100 rounded-lg px-3 py-1.5">
+                  <span className="font-mono tabular-nums">{ora}</span>
+                  <span className="flex-1 min-w-0 truncate">{chi}</span>
+                  <select
+                    defaultValue=""
+                    onChange={e => {
+                      const dip = staff.find(x => x.id === e.target.value);
+                      if (dip) spostaAppuntamento(app.id, dip, minuti);
+                      e.target.value = '';
+                    }}
+                    className="text-sm bg-white border border-amber-200 rounded-md px-2 py-1 outline-none focus:border-fuchsia-400"
+                    aria-label={`Assegna l'appuntamento delle ${ora}`}
+                  >
+                    <option value="" disabled>Assegna a…</option>
+                    {staff.map(x => <option key={x.id} value={x.id}>{nomeOperatore(x)}</option>)}
+                  </select>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       <div
         className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
-        style={{ height: 'calc(100vh - 168px)' }}
+        style={{ height: `calc(100vh - ${senzaOperatore.length ? 168 + 60 + 40 * senzaOperatore.length : 168}px)`, minHeight: 360 }}
       >
         <div className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
           <div className="w-full">
@@ -974,10 +1029,10 @@ export default function PaginaAgenda() {
                     className={`flex-1 min-w-0 px-1 py-2 flex flex-col items-center justify-center border-l border-zinc-200 ${fuoriTurno ? 'bg-zinc-100' : ''}`}
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold mb-1 ${dip.id === 'unassigned' ? 'bg-zinc-400' : getColoreDipendente(dip.id, idx)} ${fuoriTurno ? 'opacity-40' : ''}`}>
-                      {dip.nome.charAt(0)}{(dip.cognome || '').charAt(0)}
+                      {inizialiOperatore(dip)}
                     </div>
                     <span className={`text-[12px] font-semibold truncate max-w-full leading-tight ${fuoriTurno ? 'text-zinc-500' : 'text-zinc-800'}`}>
-                      {dip.nome} {dip.cognome}
+                      {nomeOperatore(dip)}
                     </span>
                     <span className={`text-[9px] font-mono truncate max-w-full ${fuoriTurno ? 'text-zinc-500' : 'text-zinc-500'}`}>
                       {dip.id === 'unassigned' ? 'sempre disponibile' : descriviTurno(turno)}
@@ -1165,6 +1220,7 @@ export default function PaginaAgenda() {
           </div>
         </div>
       </div>
+      </>
     );
   };
 
@@ -1423,6 +1479,15 @@ export default function PaginaAgenda() {
           </div>
 
           
+          <button
+            onClick={() => setOrdinaAperto(true)}
+            className="px-3 py-2 shrink-0 whitespace-nowrap text-sm font-medium text-zinc-500 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors shadow-sm flex items-center gap-1.5"
+            title="Ordina le colonne degli operatori"
+          >
+            <ArrowLeftRight size={15} />
+            <span className="hidden lg:inline">Ordina colonne</span>
+          </button>
+
           <button 
             onClick={oggi}
             className="px-4 py-2 shrink-0 whitespace-nowrap text-sm font-medium text-zinc-500 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors shadow-sm"
@@ -1455,7 +1520,7 @@ export default function PaginaAgenda() {
                  <span className="font-medium truncate">
                    {selectedDipendenteId === 'tutti' ? 'Tutti gli operatori' :
                     selectedDipendenteId === 'unassigned' ? 'Non assegnato' :
-                    (dipendenti.find(d => d.id === selectedDipendenteId)?.nome + ' ' + dipendenti.find(d => d.id === selectedDipendenteId)?.cognome) || 'Seleziona...'}
+                    (nomeOperatore(dipendenti.find(d => d.id === selectedDipendenteId)) || 'Seleziona...')}
                  </span>
                </div>
                <ChevronDown size={14} className="text-zinc-500" />
@@ -1479,22 +1544,23 @@ export default function PaginaAgenda() {
                          onClick={() => { setSelectedDipendenteId(d.id); setIsStaffMenuOpen(false); }}
                          className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === d.id ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
                        >
-                         {d.nome} {d.cognome}
+                         {nomeOperatore(d)}
                        </button>
                      ))}
-                     <div className="h-px bg-zinc-200 my-1 mx-2"></div>
-                     <button
-                       onClick={() => { setSelectedDipendenteId('unassigned'); setIsStaffMenuOpen(false); }}
-                       className={`w-full text-left px-4 py-2 text-sm transition-colors ${selectedDipendenteId === 'unassigned' ? 'bg-fuchsia-50 text-fuchsia-600 font-semibold' : 'text-zinc-700 hover:bg-zinc-100'}`}
-                     >
-                       Non assegnato
-                     </button>
                    </div>
                  </div>
                </>
              )}
           </div>
         </div>
+      )}
+
+      {ordinaAperto && (
+        <OrdinaOperatori
+          dipendenti={dipendenti}
+          onChiudi={() => setOrdinaAperto(false)}
+          onSalvato={() => caricaAgenda()}
+        />
       )}
 
       {/* Area Contenuto: colonna sinistra fissa + agenda a tutta larghezza */}
@@ -1804,11 +1870,11 @@ export default function PaginaAgenda() {
             <div className="flex justify-between items-center p-6 border-b border-zinc-200 bg-zinc-50/50">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-xl font-playfair shadow-sm border border-fuchsia-500/30">
-                  {selectedOperatorePreview.nome?.charAt(0)}{selectedOperatorePreview.cognome?.charAt(0)}
+                  {inizialiOperatore(selectedOperatorePreview)}
                 </div>
                 <div>
                   <h2 className="text-xl font-playfair text-zinc-900 font-semibold leading-tight">
-                    {selectedOperatorePreview.nome} {selectedOperatorePreview.cognome}
+                    {nomeOperatore(selectedOperatorePreview)}
                   </h2>
                   <p className="text-xs text-zinc-500 font-mono mt-0.5">{selectedOperatorePreview.email || 'Email non assegnata'}</p>
                 </div>

@@ -13,6 +13,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { database, chiEntra, saloneDi, credenziali } from './_firebase';
 import { leggiFoglio, idDelFoglio, schedeDelFoglio, scegliSchede } from './_fogli';
 import { buoniDaFoglio } from '../salone-app/frontend/lib/importa-buoni';
+import { scadenzaDa } from '../salone-app/frontend/lib/buoni';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
 import { normalizza } from '../salone-app/frontend/lib/importa';
 import { orologioDelSalone } from '../salone-app/frontend/lib/messaggi';
@@ -101,6 +102,7 @@ export default async function handler(req: Richiesta, res: Risposta) {
           await db.collection('buoni').doc(id).create({
             ...b,
             data_emissione: b.data_emissione || oggi,
+            data_scadenza: b.data_scadenza || scadenzaDa(b.data_emissione || oggi),
             userId: salone,
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp()

@@ -1,4 +1,4 @@
-import { prezzoSpa, canaleDi, persone, noteVisibili, filtraBuoni, riepilogo, tipoDi, isScaduto, faseDi, contaPerFase, ordinaBuoni } from './buoni';
+import { prezzoSpa, canaleDi, persone, noteVisibili, filtraBuoni, riepilogo, tipoDi, isScaduto, faseDi, contaPerFase, ordinaBuoni, scadenzaDa, scadenzaDi } from './buoni';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -75,6 +75,17 @@ check('spa attivi online', [1], filtraBuoni(elenco, { ...base, canale: 'online',
 check('conta per tabella', { attivi: 1, scaduti: 1, usati: 1 }, contaPerFase(filtraBuoni(elenco, base), OGGI));
 check('prima quelli che scadono prima', ['a', 'b', 'c'],
   ordinaBuoni([{ k: 'c' }, { k: 'b', data_scadenza: '2027-02-01' }, { k: 'a', data_scadenza: '2026-11-01' }] as any[], 'attivi').map((b: any) => b.k));
+
+// --- scadenza automatica: 6 mesi dal rilascio ---
+check('6 mesi dopo', '2027-04-05', scadenzaDa('2026-10-05'));
+check('passa l\'anno', '2027-06-30', scadenzaDa('2026-12-30'));
+check('31 agosto: ultimo di febbraio', '2027-02-28', scadenzaDa('2026-08-31'));
+check('anno bisestile', '2028-02-29', scadenzaDa('2027-08-31'));
+check('senza rilascio: niente', '', scadenzaDa(''));
+check('vale anche sui buoni vecchi', '2026-12-01', scadenzaDi({ data_emissione: '2026-06-01', data_scadenza: '2027-06-01' }));
+check('senza rilascio tiene la sua', '2027-01-01', scadenzaDi({ data_scadenza: '2027-01-01' }));
+check('scaduto a 6 mesi', 'scaduti', faseDi({ stato: 'attivo', data_emissione: '2026-03-01' }, '2026-10-01'));
+check('dentro i 6 mesi', 'attivi', faseDi({ stato: 'attivo', data_emissione: '2026-05-01' }, '2026-10-01'));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);
