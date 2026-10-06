@@ -19,7 +19,7 @@ export const COLLEZIONE_REGISTRO = 'registro_sms';
 
 export interface VoceRegistro {
   userId: string;
-  tipo: TipoMessaggio | 'avviso_salone';
+  tipo: TipoMessaggio | 'avviso_salone' | 'prova';
   appuntamentoId?: string;
   cliente?: string;
   a: string;
@@ -167,7 +167,8 @@ export async function mandaAvvisoSalone(db: Firestore, appuntamentoId: string, a
   if (!funzioneAccesa('messaggi_automatici', scheda.ownerEmail)) {
     return { mandato: false, canali: [], a: [], motivo: 'i messaggi automatici non sono attivi per questo salone.' };
   }
-  const numero = (scheda.dettagli.telefono_avvisi || '').trim();
+  const privato = (await db.collection('impostazioni_private').doc(app.userId).get()).data() as any;
+  const numero = (privato?.telefono_avvisi || '').trim();
   if (!numero) return { mandato: false, canali: [], a: [], motivo: 'nessun cellulare per gli avvisi in Impostazioni.' };
 
   const testo = avvisoNuovaRichiesta({

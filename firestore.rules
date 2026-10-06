@@ -349,6 +349,14 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == resource.data.salonId;
     }
 
+    // Impostazioni private del salone (per ora: il cellulare per gli avvisi).
+    // Solo il titolare; il server le legge con la sua chiave.
+    match /impostazioni_private/{salonId} {
+      allow read: if isSignedIn() && request.auth.uid == salonId;
+      allow write: if isSignedIn() && request.auth.uid == salonId
+                   && (!('telefono_avvisi' in incoming()) || (incoming().telefono_avvisi is string && incoming().telefono_avvisi.size() <= 30));
+    }
+
     match /salons/{salonId} {
       allow read: if true;
       allow list: if false;

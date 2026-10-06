@@ -8,7 +8,7 @@ import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLe
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
-import { componi } from '@/lib/messaggi';
+import { componi, NOME_MESSAGGIO } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import OrdinaOperatori from '@/components/OrdinaOperatori';
 import { puoAprirePercorso } from '@/lib/sessione';
@@ -335,6 +335,40 @@ export default function PaginaAgenda() {
 
   useEffect(() => { caricaRichieste(); }, []);
 
+  // In diretta: una prenotazione dal sito, o un appuntamento cambiato da
+  // un'altra postazione, compare da solo, senza ricaricare la pagina. I
+  // cambi ravvicinati si raccolgono in un solo ricaricamento. Se l'ascolto
+  // non è possibile, si ricarica ogni minuto.
+  useEffect(() => {
+    let attesa: ReturnType<typeof setTimeout> | undefined;
+    let riserva: ReturnType<typeof setInterval> | undefined;
+    const ricarica = () => {
+      clearTimeout(attesa);
+      attesa = setTimeout(() => { caricaAgenda(true); caricaRichieste(); }, 400);
+    };
+    let da = '', a = '';
+    if (viewMode === 'giorno') { da = a = getLocalDateString(selectedDate); }
+    else if (viewMode === 'settimana') { da = getLocalDateString(getStartOfWeek(selectedDate)); a = getLocalDateString(getEndOfWeek(selectedDate)); }
+    else { da = getLocalDateString(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); a = getLocalDateString(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)); }
+    let smetti: (() => void) | undefined;
+    try {
+      smetti = appuntamentiApi.ascolta(da, a, ricarica, () => caricaRichieste(), () => {
+        if (!riserva) riserva = setInterval(ricarica, 60_000);
+      });
+    } catch {
+      riserva = setInterval(ricarica, 60_000);
+    }
+    return () => { smetti?.(); clearTimeout(attesa); clearInterval(riserva); };
+  }, [selectedDate, viewMode]);
+
+  // Il titolo della scheda del browser dice quante richieste aspettano:
+  // "(2) Rosy" si vede anche con il gestionale in un'altra finestra.
+  useEffect(() => {
+    const base = 'Rosy';
+    document.title = richieste.length ? `(${richieste.length}) ${base}` : base;
+    return () => { document.title = base; };
+  }, [richieste.length]);
+
   const caricaRichieste = async () => {
     try {
       setRichieste(await appuntamentiApi.getRichieste());
@@ -430,8 +464,10 @@ export default function PaginaAgenda() {
     return data;
   };
 
-  const caricaAgenda = async () => {
-    setLoading(true);
+  // `silenzioso`: ricarica senza la schermata di caricamento, per gli
+  // aggiornamenti in diretta (non deve lampeggiare a ogni cambio).
+  const caricaAgenda = async (silenzioso: boolean = false) => {
+    if (silenzioso !== true) setLoading(true);
     setError(null);
     try {
       let startStr = '';
@@ -1017,8 +1053,42 @@ export default function PaginaAgenda() {
       });
     };
 
+    // SMS non partiti per gli appuntamenti di oggi: il gestionale lo sa, e lo
+    // dice, così la cliente si avvisa a mano. Sparisce quando un nuovo invio
+    // dello stesso messaggio va a buon fine.
+    const smsNonPartiti = appuntamenti
+      .filter(app => getLocalDateString(new Date(app.data_ora)) === giornoScelto && (app as any).id_cliente !== 'block-client')
+      .flatMap(app => Object.entries(((app as any).messaggi_errore || {}) as Record<string, any>)
+        .filter(([tipo]) => !(app as any).messaggi?.[tipo])
+        .map(([tipo, errore]) => ({ app, tipo, motivo: errore?.motivo || '' })));
+
     return (
       <>
+      {smsNonPartiti.length > 0 && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-900 flex flex-col gap-2">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span className="flex-1">
+              {smsNonPartiti.length === 1 ? '1 SMS non è partito' : `${smsNonPartiti.length} SMS non sono partiti`}: avvisa tu la cliente.
+            </span>
+            <Link to="/automazioni?vista=registro" className="text-xs font-semibold underline whitespace-nowrap">Registro SMS</Link>
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {smsNonPartiti.map(({ app, tipo, motivo }) => {
+              const chi = `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim() || 'Cliente';
+              return (
+                <li key={`${app.id}-${tipo}`} className="flex flex-wrap items-center gap-2 bg-white/70 border border-red-100 rounded-lg px-3 py-1.5">
+                  <span className="font-mono tabular-nums">{formattaOrario(app.data_ora)}</span>
+                  <span className="font-medium">{chi}</span>
+                  <span className="text-xs text-red-700">{NOME_MESSAGGIO[tipo as keyof typeof NOME_MESSAGGIO] || tipo}</span>
+                  <span className="flex-1 min-w-0 text-xs text-red-700/80 truncate" title={motivo}>{motivo}</span>
+                  <BottoneRicontatta telefono={app.clienti?.telefono} aspetto="discreto" />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {senzaOperatore.length > 0 && (
         <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex flex-col gap-2">
           <div className="flex items-center gap-2 font-medium">
@@ -1699,7 +1769,7 @@ export default function PaginaAgenda() {
       {error ? (
         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg mb-6 flex flex-col items-start gap-2">
           <p>{error}</p>
-          <button onClick={caricaAgenda} className="mt-2 text-sm font-semibold underline hover:text-red-300">Riprova connessione</button>
+          <button onClick={() => caricaAgenda()} className="mt-2 text-sm font-semibold underline hover:text-red-300">Riprova connessione</button>
         </div>
       ) : loading ? (
         <div className="flex justify-center items-center h-[50vh]">
@@ -1916,7 +1986,7 @@ export default function PaginaAgenda() {
       <AggiungiCalendarioSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onSaved={caricaAgenda}
+        onSaved={() => caricaAgenda()}
         initialDate={sidebarDate}
         initialTime={sidebarTime}
         appuntamentoEdit={sidebarEditApp}
