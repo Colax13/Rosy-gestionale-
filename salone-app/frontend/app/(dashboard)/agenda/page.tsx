@@ -189,6 +189,16 @@ export default function PaginaAgenda() {
   const [appuntamenti, setAppuntamenti] = useState<Appuntamento[]>([]);
   const [dipendenti, setDipendenti] = useState<any[]>([]);
   const [ordinaAperto, setOrdinaAperto] = useState(false);
+
+  // L'ora di adesso, per la linea verde sul calendario. Si aggiorna ogni 30
+  // secondi: abbastanza per vederla scendere, senza ridisegnare per niente.
+  const [adesso, setAdesso] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAdesso(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const scorrimentoAgenda = useRef<HTMLDivElement>(null);
+  const giornoScorso = useRef('');
   // Il nome che va in cima al preconto stampato.
   const [nomeSalone, setNomeSalone] = useState<string>('');
   // Nome, indirizzo e telefono del salone: finiscono dentro il messaggio che
@@ -869,6 +879,21 @@ export default function PaginaAgenda() {
     const orarioDaMinuti = (minuti: number) =>
       `${String(Math.floor(minuti / 60)).padStart(2, '0')}:${String(minuti % 60).padStart(2, '0')}`;
 
+    const eOggi = getLocalDateString(selectedDate) === getLocalDateString(adesso);
+    const minutiAdesso = adesso.getHours() * 60 + adesso.getMinutes();
+    const lineaAdesso = eOggi && minutiAdesso >= START_HOUR * 60 && minutiAdesso <= END_HOUR * 60
+      ? (minutiAdesso - START_HOUR * 60) * PIXELS_PER_MINUTE
+      : null;
+
+    // Aprendo la giornata di oggi, il calendario parte poco sopra la linea:
+    // si vede subito che cosa c'è dopo. Una volta sola per giorno, così non
+    // strattona chi sta scorrendo.
+    if (lineaAdesso !== null && giornoScorso.current !== getLocalDateString(selectedDate)) {
+      giornoScorso.current = getLocalDateString(selectedDate);
+      const verso = Math.max(0, lineaAdesso - 60 * PIXELS_PER_MINUTE);
+      requestAnimationFrame(() => scorrimentoAgenda.current?.scrollTo({ top: verso }));
+    }
+
     // Sotto i 10 minuti di scarto si considera "lasciato dov'era": chi trascina
     // di lato non sta cercando di cambiare l'ora, sta cambiando persona.
     const TOLLERANZA_MINUTI = 10;
@@ -1012,7 +1037,7 @@ export default function PaginaAgenda() {
         className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
         style={{ height: `calc(100vh - ${senzaOperatore.length ? 168 + 60 + 40 * senzaOperatore.length : 168}px)`, minHeight: 360 }}
       >
-        <div className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
+        <div ref={scorrimentoAgenda} className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
           <div className="w-full">
 
             {/* Intestazione colonne operatori */}
@@ -1044,6 +1069,24 @@ export default function PaginaAgenda() {
 
             {/* Corpo agenda */}
             <div className="flex relative" style={{ height: `${GRID_HEIGHT}px` }}>
+
+              {/* Linea verde dell'ora attuale: solo oggi, e solo se cade dentro
+                  la finestra mostrata. Non intercetta i clic. */}
+              {lineaAdesso !== null && (
+                <div
+                  className="absolute left-0 right-0 z-[25] pointer-events-none flex items-center"
+                  style={{ top: `${lineaAdesso}px`, transform: 'translateY(-50%)' }}
+                  aria-hidden="true"
+                >
+                  <span className="w-14 shrink-0 flex justify-center">
+                    <span className="px-1.5 py-px rounded-full bg-emerald-500 text-white text-[10px] font-bold font-mono leading-tight shadow-sm">
+                      {orarioDaMinuti(minutiAdesso)}
+                    </span>
+                  </span>
+                  <span className="w-2 h-2 -ml-1 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="flex-1 h-[2px] bg-emerald-500/80" />
+                </div>
+              )}
 
               {/* Colonna orari */}
               <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col relative z-20">
