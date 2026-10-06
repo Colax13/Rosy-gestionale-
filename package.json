@@ -15,6 +15,7 @@
     "prova:contatti": "tsx salone-app/frontend/lib/contatti.prova.ts",
     "prova:preconto": "tsx salone-app/frontend/lib/preconto.prova.ts",
     "prova:vetrina": "tsx salone-app/frontend/lib/vetrina.prova.ts",
+    "prova:storico": "tsx salone-app/frontend/lib/storico.prova.ts",
     "prova:operatori": "tsx salone-app/frontend/lib/operatori.prova.ts",
     "prova:buoni": "tsx salone-app/frontend/lib/importa-buoni.prova.ts && tsx salone-app/frontend/lib/buoni.prova.ts",
     "prova:funzioni": "tsx salone-app/frontend/lib/funzioni.prova.ts",

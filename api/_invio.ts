@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio, Messaggio } from './_messaggi';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
 import { avvisoNuovaRichiesta, giornoDelSalone } from '../salone-app/frontend/lib/messaggi';
+import { numeroInternazionale } from '../salone-app/frontend/lib/contatti';
 
 /**
  * Il registro: ogni SMS che il gestionale prova a mandare lascia una riga, che
@@ -118,6 +119,13 @@ export async function mandaPerAppuntamento(
   const riusciti = esiti.filter(e => e.mandato) as Extract<EsitoInvio, { mandato: true }>[];
   const sms = esiti.find(e => e.canale === 'sms')!;
   const nomeCliente = `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim();
+
+  // Senza un numero valido (cliente di passaggio, scheda senza telefono)
+  // non c'è niente da segnalare: non è un guasto, e un avviso rosso a ogni
+  // appuntamento senza numero coprirebbe quelli veri.
+  if (!numeroInternazionale(telefono) && !riusciti.length) {
+    return { mandato: false, canali: [], a: [], motivo: 'la cliente non ha un numero di cellulare.' };
+  }
 
   await registra(db, {
     userId: app.userId,

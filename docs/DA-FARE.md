@@ -774,3 +774,18 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
 - **Appuntamenti più bassi**: 84 pixel l'ora invece di 120.
 - **Buoni a 6 mesi**: la scadenza non si sceglie più, è 6 mesi dal rilascio
   (fine mese se il giorno non esiste). Vale anche per i buoni già registrati.
+
+## 6 ottobre — sul ramo `production`
+
+- Linea verde dell'ora attuale a tutta larghezza, al centro all'apertura.
+- SMS: ricevuta, conferma, non disponibile, promemoria 24 ore e 1 ora prima,
+  avviso al salone per ogni richiesta online (cellulare in Impostazioni).
+  Appuntamento fissato dal salone: casella "Avvisa la cliente con SMS".
+- Promemoria ogni 15 minuti con cron-job.org (vedi SERVER-SU-VERCEL.md).
+- Agenda in diretta, "(N) Rosy" nel titolo, Registro SMS in Automazioni con
+  SMS di prova, avviso rosso in agenda per gli SMS non partiti.
+- Import clienti: sovrascrivi / completa / lascia le già presenti.
+- Nuovo appuntamento: ultima volta della cliente con "Ripeti".
+- **Da fare**: ripubblicare le regole di Firestore; creare il cron su
+  cron-job.org; poi nascondere anche la barra in alto insieme al pannello
+  laterale (quando il cliente conferma che il resto funziona).

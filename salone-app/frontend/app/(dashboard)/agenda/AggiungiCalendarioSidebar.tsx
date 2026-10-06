@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw, MessageSquare } from 'lucide-react';
+import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw, MessageSquare, History } from 'lucide-react';
 import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi, messaggiApi } from '@/lib/api-client';
 import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
 import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
+import { ultimoAppuntamento, serviziDi, serviziDaRipetere } from '@/lib/storico';
+import { quandoScritto, elencoScritto } from '@/lib/messaggi';
 
 interface Client {
   id: string;
@@ -112,6 +114,28 @@ export default function AggiungiCalendarioSidebar({
   // Appuntamento fissato dal salone: la cliente riceve subito la conferma via
   // SMS (poi i promemoria a 24 ore e a 1 ora). Si toglie per chi è già lì.
   const [avvisaCliente, setAvvisaCliente] = useState(true);
+
+  // L'ultima volta della cliente scelta: si mostra sotto il nome, con
+  // "Ripeti" per rimettere gli stessi servizi (e la stessa operatrice).
+  const [ultimo, setUltimo] = useState<any | null>(null);
+  useEffect(() => {
+    setUltimo(null);
+    const id = selectedClient?.id;
+    if (!id || appuntamentoEdit || id === 'walkin') return;
+    let vivo = true;
+    appuntamentiApi.getByCliente(id)
+      .then(lista => { if (vivo) setUltimo(ultimoAppuntamento(lista)); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [selectedClient?.id, appuntamentoEdit]);
+
+  const ripetiUltimo = () => {
+    if (!ultimo) return;
+    const servizi = serviziDaRipetere(ultimo, catalogoSer);
+    if (servizi.length) setSelectedServices(servizi);
+    const chi = ultimo.id_dipendente || ultimo.dipendenti?.id;
+    if (chi && dipendenti.some(d => d.id === chi && d.attivo !== false)) setSelectedDipendenteId(chi);
+  };
 
   // --- BLOCCA TAB STATE ---
   const [blockType, setBlockType] = useState<'Pausa' | 'Pranzo' | 'Riunione' | 'Tempo libero' | 'Personalizza'>('Pausa');
@@ -639,6 +663,30 @@ export default function AggiungiCalendarioSidebar({
                           Rimuovi
                         </button>
                       </div>
+                      {ultimo && (
+                        <div className="mt-2 p-3 bg-white border border-zinc-200 rounded-xl flex items-start gap-2.5 animate-in fade-in duration-200">
+                          <History size={16} className="text-fuchsia-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                              {new Date(ultimo.data_ora).getTime() > Date.now() ? 'Prossimo appuntamento' : 'Ultima volta'}
+                            </p>
+                            <p className="text-sm font-medium text-zinc-900">{elencoScritto(serviziDi(ultimo)) || 'Servizi non indicati'}</p>
+                            <p className="text-xs text-zinc-500">
+                              {quandoScritto(new Date(ultimo.data_ora))}{ultimo.dipendenti?.nome ? ` · con ${nomeOperatore(ultimo.dipendenti)}` : ''}
+                            </p>
+                            {ultimo.note && <p className="text-xs text-zinc-600 italic mt-1 line-clamp-2">{ultimo.note}</p>}
+                          </div>
+                          {serviziDaRipetere(ultimo, catalogoSer).length > 0 && (
+                            <button
+                              type="button"
+                              onClick={ripetiUltimo}
+                              className="shrink-0 px-2.5 py-1.5 text-xs font-semibold text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100 rounded-lg transition-colors"
+                            >
+                              Ripeti
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {selectedClient.note && (
                         <div className="mt-2 p-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl flex gap-2 animate-in fade-in zoom-in-95 duration-200">
                           <FileText size={16} className="text-fuchsia-700 shrink-0 mt-0.5" />
