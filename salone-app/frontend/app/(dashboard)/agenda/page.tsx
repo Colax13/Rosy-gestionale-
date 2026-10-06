@@ -199,6 +199,7 @@ export default function PaginaAgenda() {
   }, []);
   const scorrimentoAgenda = useRef<HTMLDivElement>(null);
   const giornoScorso = useRef('');
+  const lineaRef = useRef<HTMLDivElement>(null);
   // Il nome che va in cima al preconto stampato.
   const [nomeSalone, setNomeSalone] = useState<string>('');
   // Nome, indirizzo e telefono del salone: finiscono dentro il messaggio che
@@ -477,7 +478,10 @@ export default function PaginaAgenda() {
 
   const oggi = () => {
     setSlideDirection('left');
+    // Anche se si è già su oggi, "Oggi" riporta la linea verde al centro.
+    giornoScorso.current = '';
     setSelectedDate(new Date());
+    setAdesso(new Date());
   };
 
   const formattaOrario = (dataIso: string) => {
@@ -885,13 +889,19 @@ export default function PaginaAgenda() {
       ? (minutiAdesso - START_HOUR * 60) * PIXELS_PER_MINUTE
       : null;
 
-    // Aprendo la giornata di oggi, il calendario parte poco sopra la linea:
-    // si vede subito che cosa c'è dopo. Una volta sola per giorno, così non
-    // strattona chi sta scorrendo.
+    // Aprendo la giornata di oggi (o premendo "Oggi") la linea verde va al
+    // centro della parte visibile: prima quello che è appena passato, sotto
+    // quello che arriva. Una volta sola per giorno, così non strattona chi
+    // sta scorrendo.
     if (lineaAdesso !== null && giornoScorso.current !== getLocalDateString(selectedDate)) {
       giornoScorso.current = getLocalDateString(selectedDate);
-      const verso = Math.max(0, lineaAdesso - 60 * PIXELS_PER_MINUTE);
-      requestAnimationFrame(() => scorrimentoAgenda.current?.scrollTo({ top: verso }));
+      const centra = (tentativi: number) => {
+        const box = scorrimentoAgenda.current, linea = lineaRef.current;
+        if (!box || !linea) { if (tentativi > 0) requestAnimationFrame(() => centra(tentativi - 1)); return; }
+        const dentro = linea.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+        box.scrollTo({ top: Math.max(0, dentro - box.clientHeight / 2), behavior: 'auto' });
+      };
+      requestAnimationFrame(() => centra(10));
     }
 
     // Sotto i 10 minuti di scarto si considera "lasciato dov'era": chi trascina
@@ -1074,17 +1084,18 @@ export default function PaginaAgenda() {
                   la finestra mostrata. Non intercetta i clic. */}
               {lineaAdesso !== null && (
                 <div
-                  className="absolute left-0 right-0 z-[25] pointer-events-none flex items-center"
-                  style={{ top: `${lineaAdesso}px`, transform: 'translateY(-50%)' }}
+                  ref={lineaRef}
+                  className="absolute left-0 right-0 z-[25] pointer-events-none"
+                  style={{ top: `${lineaAdesso}px` }}
                   aria-hidden="true"
                 >
-                  <span className="w-14 shrink-0 flex justify-center">
+                  {/* La linea attraversa tutta l'agenda, orari compresi. */}
+                  <div className="absolute left-0 right-0 top-0 h-[2px] -translate-y-1/2 bg-emerald-500" />
+                  <span className="absolute left-0 w-14 top-0 -translate-y-1/2 flex justify-center">
                     <span className="px-1.5 py-px rounded-full bg-emerald-500 text-white text-[10px] font-bold font-mono leading-tight shadow-sm">
                       {orarioDaMinuti(minutiAdesso)}
                     </span>
                   </span>
-                  <span className="w-2 h-2 -ml-1 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="flex-1 h-[2px] bg-emerald-500/80" />
                 </div>
               )}
 
