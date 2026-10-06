@@ -102,7 +102,6 @@ export default function BuoniSpa() {
     acquirente: '',
     acquirente_telefono: '',
     acquirente_email: '',
-    stessaPersona: true,
     intestatario: '',
     telefono: '',
     note: ''
@@ -192,7 +191,6 @@ export default function BuoniSpa() {
       acquirente: '',
       acquirente_telefono: '',
       acquirente_email: '',
-      stessaPersona: true,
       intestatario: '',
       telefono: '',
         note: ''
@@ -214,9 +212,9 @@ export default function BuoniSpa() {
       acquirente: regala.nome,
       acquirente_telefono: regala.telefono,
       acquirente_email: regala.email,
-      stessaPersona: stessa,
-      intestatario: riceve.nome,
-      telefono: riceve.telefono,
+      // Se lo usa chi l'ha comprato, "Per chi è" resta vuoto.
+      intestatario: stessa ? '' : riceve.nome,
+      telefono: stessa ? '' : riceve.telefono,
       note: noteVisibili(b)
     });
     // Un buono spa che costa già il prezzo giusto segue la spunta; uno
@@ -241,7 +239,6 @@ export default function BuoniSpa() {
     if (doppione) { setErroreForm('Esiste già un buono con questo codice.'); return; }
 
     if (!form.acquirente.trim()) { setErroreForm('Scrivi chi regala il buono.'); return; }
-    if (!form.stessaPersona && !form.intestatario.trim()) { setErroreForm('Scrivi per chi è il buono.'); return; }
 
     setSalvataggio(true);
     try {
@@ -255,8 +252,9 @@ export default function BuoniSpa() {
         acquirente,
         acquirente_telefono: acquirenteTelefono,
         acquirente_email: form.acquirente_email.trim(),
-        intestatario: form.stessaPersona ? acquirente : form.intestatario.trim(),
-        telefono: form.stessaPersona ? acquirenteTelefono : form.telefono.trim(),
+        // "Per chi è" vuoto vuol dire che lo usa chi l'ha comprato.
+        intestatario: form.intestatario.trim() || acquirente,
+        telefono: form.intestatario.trim() ? form.telefono.trim() : acquirenteTelefono,
         // 6 mesi dal rilascio: per un buono nuovo il rilascio è oggi.
         data_scadenza: scadenzaDa(inModifica?.data_emissione || oggi()),
         note: form.note.trim()
@@ -836,25 +834,17 @@ export default function BuoniSpa() {
                     className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
                   />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.stessaPersona}
-                    onChange={e => setForm({ ...form, stessaPersona: e.target.checked })}
-                    className="accent-fuchsia-600"
-                  />
-                  Lo usa la stessa persona
-                </label>
               </fieldset>
 
-              {!form.stessaPersona && (
-                <fieldset className="flex flex-col gap-3">
-                  <legend className="text-sm font-semibold text-zinc-800 flex items-center gap-2 mb-2"><User size={15} className="text-fuchsia-500" /> Per chi è</legend>
+              <fieldset className="flex flex-col gap-3">
+                  <legend className="text-sm font-semibold text-zinc-800 flex items-center gap-2 mb-2">
+                    <User size={15} className="text-fuchsia-500" /> Per chi è <span className="font-normal text-zinc-400">· facoltativo</span>
+                  </legend>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       value={form.intestatario}
                       onChange={e => setForm({ ...form, intestatario: e.target.value })}
-                      placeholder="Nome e cognome"
+                      placeholder="Nome, se è un regalo"
                       className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
                     />
                     <input
@@ -865,8 +855,7 @@ export default function BuoniSpa() {
                       className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400 font-mono"
                     />
                   </div>
-                </fieldset>
-              )}
+              </fieldset>
 
               <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-sm">
                 <span className="text-zinc-600">Scadenza</span>

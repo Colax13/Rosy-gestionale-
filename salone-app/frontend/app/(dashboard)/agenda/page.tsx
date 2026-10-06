@@ -1126,7 +1126,9 @@ export default function PaginaAgenda() {
       )}
       <div
         className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
-        style={{ height: `calc(100vh - ${senzaOperatore.length ? 168 + 60 + 40 * senzaOperatore.length : 168}px)`, minHeight: 360 }}
+        // 95 px per l'intestazione dell'agenda, più la barra in alto (che a
+        // schermo pieno non c'è) e gli avvisi sopra il calendario, se ci sono.
+        style={{ height: `calc(100vh - 95px - var(--altezza-barra, 73px) - ${(senzaOperatore.length ? 60 + 40 * senzaOperatore.length : 0) + (smsNonPartiti.length ? 60 + 40 * smsNonPartiti.length : 0)}px)`, minHeight: 360 }}
       >
         <div ref={scorrimentoAgenda} className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
           <div className="w-full">
