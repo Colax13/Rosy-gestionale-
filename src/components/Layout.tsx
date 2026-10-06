@@ -15,7 +15,16 @@ import { puoAprirePercorso, sessioneCorrente, idSalone } from '@/lib/sessione';
 export default function Layout({ children }: { children: ReactNode }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  // Chiudendo il menu laterale (su computer) sparisce anche la barra in alto,
+  // così l'agenda prende tutto lo schermo. La scelta si ricorda su questo
+  // computer: chi lavora a schermo pieno lo ritrova così.
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(() => {
+    try { return localStorage.getItem('rosy:schermoPieno') !== '1'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('rosy:schermoPieno', isDesktopSidebarOpen ? '0' : '1'); } catch { /* niente */ }
+  }, [isDesktopSidebarOpen]);
+  const schermoPieno = !isDesktopSidebarOpen;
   const [isChatOpen, setIsChatOpen] = useState(false);
   const desktopUserMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
@@ -203,11 +212,25 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
+      <main
+        id="main-content"
+        // --altezza-barra: quanto occupa la barra in alto. L'agenda la usa per
+        // calcolare la sua altezza; a schermo pieno (solo su computer) vale 0.
+        className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden relative [--altezza-barra:73px] ${schermoPieno && !isMainDashboard ? 'md:[--altezza-barra:0px]' : ''}`}
+      >
+        {schermoPieno && !isMainDashboard && (
+          <button
+            onClick={() => setIsDesktopSidebarOpen(true)}
+            className="hidden md:flex fixed bottom-4 left-4 z-40 items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-white border border-zinc-200 shadow-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+            title="Mostra il menu e la barra in alto"
+          >
+            <Menu size={18} /> Menu
+          </button>
+        )}
         <motion.header 
           initial={{ y: -100 }}
           animate={{ y: 0 }}
-          className="bg-white border-b border-zinc-200 px-4 md:px-6 py-4 flex items-center gap-4 sticky top-0 z-10 w-full"
+          className={`bg-white border-b border-zinc-200 px-4 md:px-6 py-4 flex items-center gap-4 sticky top-0 z-10 w-full ${schermoPieno && !isMainDashboard ? 'md:hidden' : ''}`}
         >
             {!isMainDashboard && (
               <>
