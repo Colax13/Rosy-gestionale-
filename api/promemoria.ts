@@ -1,11 +1,12 @@
-// GET /api/promemoria — il giro dei promemoria, una volta al giorno.
+// GET /api/promemoria — il giro dei promemoria.
 //
-// Non lo chiama nessuno a mano: lo fa partire Vercel all'ora scritta in
-// vercel.json (sotto "crons"). Trova gli appuntamenti confermati di domani e
-// manda a ciascuna cliente il promemoria, per SMS e — se c'è — per email.
+// Non lo chiama nessuno a mano: lo chiama cron-job.org ogni 15 minuti, e
+// Vercel una volta al giorno come riserva (vercel.json, "crons"). Manda il
+// promemoria di 24 ore prima e quello di 1 ora prima: chi e quando lo decide
+// `sceltaPromemoria`, e ogni promemoria parte una volta sola.
 //
 // È protetto da una parola segreta (CRON_SECRET su Vercel): Vercel la allega
-// da sé quando lo chiama. Senza, chiunque conoscesse l'indirizzo potrebbe far
+// da sé, su cron-job.org va messa nell'intestazione Authorization. Senza, chiunque conoscesse l'indirizzo potrebbe far
 // partire un giro di SMS a tutte le clienti.
 
 import { database } from './_firebase';
@@ -40,10 +41,8 @@ export default async function handler(req: Richiesta, res: Risposta) {
     const db = database();
     const adesso = new Date();
 
-    // Si guarda un po' più in là di domani (60 ore) e poi si sceglie a mano il
-    // giorno giusto: il calendario del salone e quello del server non
-    // coincidono, e così non si perde nessuno a cavallo della mezzanotte.
-    const fine = new Date(adesso.getTime() + 60 * 60 * 60 * 1000);
+    // Le prossime 25 ore bastano: oltre, nessun promemoria è ancora dovuto.
+    const fine = new Date(adesso.getTime() + 25 * 60 * 60 * 1000);
     const trovati = await db.collection('appuntamenti')
       .where('data_ora', '>=', adesso.toISOString())
       .where('data_ora', '<', fine.toISOString())
@@ -53,26 +52,25 @@ export default async function handler(req: Richiesta, res: Risposta) {
     const scelta = sceltaPromemoria(candidati, adesso);
 
     const memoriaSaloni = new Map<string, any>();
-    const esiti: { id: string; mandato: boolean; motivo?: string }[] = [];
+    const esiti: { id: string; tipo: string; mandato: boolean; motivo?: string }[] = [];
 
     for (let i = 0; i < scelta.daMandare.length; i += INSIEME) {
       const gruppo = scelta.daMandare.slice(i, i + INSIEME);
       const risultati = await Promise.all(gruppo.map(async c => {
         try {
-          const r = await mandaPerAppuntamento(db, c.id, c.dati, 'promemoria', memoriaSaloni);
-          return { id: c.id, mandato: r.mandato, motivo: r.motivo };
+          const r = await mandaPerAppuntamento(db, c.candidato.id, c.candidato.dati, c.tipo, memoriaSaloni);
+          return { id: c.candidato.id, tipo: c.tipo, mandato: r.mandato, motivo: r.motivo };
         } catch (err: any) {
-          return { id: c.id, mandato: false, motivo: err?.message || 'errore sconosciuto' };
+          return { id: c.candidato.id, tipo: c.tipo, mandato: false, motivo: err?.message || 'errore sconosciuto' };
         }
       }));
       esiti.push(...risultati);
     }
 
     const mandati = esiti.filter(e => e.mandato).length;
-    console.log(`Promemoria per il ${scelta.domani}: ${mandati} mandati su ${scelta.daMandare.length}.`);
+    if (scelta.daMandare.length) console.log(`Promemoria: ${mandati} mandati su ${scelta.daMandare.length}.`);
 
     res.status(200).json({
-      domani: scelta.domani,
       daMandare: scelta.daMandare.length,
       mandati,
       nonPartiti: esiti.filter(e => !e.mandato),

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy } from 'lucide-react';
-import { salonApi } from '@/lib/api-client';
+import { salonApi, impostazioniPrivateApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
 
@@ -33,10 +33,17 @@ export default function Settings() {
   });
 
   const [originalData, setOriginalData] = useState<any>(null);
+  // Il cellulare a cui arriva l'SMS per ogni nuova richiesta online. Sta in
+  // un documento privato, non nella scheda pubblica del salone.
+  const [telefonoAvvisi, setTelefonoAvvisi] = useState('');
+  const [telefonoAvvisiOriginale, setTelefonoAvvisiOriginale] = useState('');
 
   const loadData = async () => {
     setIsLoading(true);
     try {
+      impostazioniPrivateApi.get()
+        .then(p => { setTelefonoAvvisi(p.telefono_avvisi || ''); setTelefonoAvvisiOriginale(p.telefono_avvisi || ''); })
+        .catch(() => {});
       const data = await salonApi.getSettings();
       if (data) {
         if (data.salonDetails) setDettagli(data.salonDetails);
@@ -63,6 +70,10 @@ export default function Settings() {
         salonDetails: dettagli,
         salonHours: orari
       });
+      if (telefonoAvvisi !== telefonoAvvisiOriginale) {
+        await impostazioniPrivateApi.salva({ telefono_avvisi: telefonoAvvisi });
+        setTelefonoAvvisiOriginale(telefonoAvvisi);
+      }
       setIsEditing(false);
       setOriginalData({ salonDetails: dettagli, salonHours: orari });
       setShowToast(true);
@@ -81,6 +92,7 @@ export default function Settings() {
       if (originalData.salonDetails) setDettagli(originalData.salonDetails);
       if (originalData.salonHours) setOrari(originalData.salonHours);
     }
+    setTelefonoAvvisi(telefonoAvvisiOriginale);
   };
 
   const handleThemeChange = (newTheme: 'dark' | 'light') => {
@@ -207,6 +219,15 @@ export default function Settings() {
                 ) : (
                   <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.telefono || '-'}</div>
                 )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">Cellulare per gli avvisi</label>
+                {isEditing ? (
+                  <input type="tel" inputMode="tel" placeholder="Es. 333 123 4567" value={telefonoAvvisi} onChange={e => setTelefonoAvvisi(e.target.value)} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
+                ) : (
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{telefonoAvvisi || '-'}</div>
+                )}
+                <p className="text-xs text-zinc-500 mt-1.5">Riceve un SMS per ogni nuova richiesta di appuntamento online. Non è visibile alle clienti.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-500 mb-2">Email pubblica</label>

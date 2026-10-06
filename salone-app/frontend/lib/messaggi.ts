@@ -1,15 +1,35 @@
 // I messaggi che il salone manda alla cliente: le parole, non il mezzo.
 //
-// Due soli, per ora, e sono la stessa cosa detta in due momenti diversi: la
-// **conferma**, quando il salone accetta la richiesta arrivata dal sito, e il
-// **promemoria**, il giorno prima.
+// Il percorso della cliente, un messaggio per tappa:
+//
+//   ricevuta        → ha prenotato dal sito: "abbiamo ricevuto la richiesta"
+//   conferma        → il salone l'ha messa in agenda (o l'ha fissata lui)
+//   rifiuto         → l'orario non va bene: "chiamaci e troviamo un altro orario"
+//   promemoria      → 24 ore prima
+//   promemoria_ora  → 1 ora prima
+//
+// Tono caldo e professionale, sempre firmato col nome del salone, e ogni SMS
+// sta in un messaggio solo.
 //
 // Sta qui, e non dentro il server, per un motivo pratico: le stesse parole
 // servono da tutte e due le parti. Il server le manda per email; il programma
 // le mette dentro WhatsApp quando l'email non c'è o non è ancora accesa. Un
 // posto solo da cambiare, e la cliente legge sempre la stessa cosa.
 
-export type TipoMessaggio = 'conferma' | 'promemoria';
+export type TipoMessaggio = 'ricevuta' | 'conferma' | 'rifiuto' | 'promemoria' | 'promemoria_ora';
+
+export const TIPI_MESSAGGIO: TipoMessaggio[] = ['ricevuta', 'conferma', 'rifiuto', 'promemoria', 'promemoria_ora'];
+
+/** Come si chiama ogni messaggio nel registro e negli avvisi. */
+export const NOME_MESSAGGIO: Record<TipoMessaggio | 'avviso_salone' | 'prova', string> = {
+  ricevuta: 'Richiesta ricevuta',
+  conferma: 'Appuntamento confermato',
+  rifiuto: 'Orario non disponibile',
+  promemoria: 'Promemoria 24 ore prima',
+  promemoria_ora: 'Promemoria 1 ora prima',
+  avviso_salone: 'Avviso nuova richiesta al salone',
+  prova: 'SMS di prova'
+};
 
 export interface DatiMessaggio {
   nomeCliente: string;
@@ -120,24 +140,44 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
   const dove = [d.indirizzo, d.telefonoSalone ? `tel. ${d.telefonoSalone}` : '']
     .filter(Boolean).join(' · ');
 
-  const righe = tipo === 'conferma'
-    ? [
-        ciao,
-        '',
-        `il tuo appuntamento da ${d.nomeSalone} è confermato:`,
-        `${quando}${servizi ? ` — ${servizi}` : ''}${con}.`,
-        '',
-        'Se non puoi più venire, avvisaci in tempo: liberiamo il posto per un\'altra cliente.',
-      ]
-    : [
-        ciao,
-        '',
-        `ti ricordiamo l'appuntamento da ${d.nomeSalone}:`,
-        `${quando}${servizi ? ` — ${servizi}` : ''}${con}.`,
-        '',
-        'A domani!',
-      ];
+  const appuntamento = `${quando}${servizi ? ` — ${servizi}` : ''}${con}.`;
+  const tel = d.telefonoSalone ? d.telefonoSalone.trim() : '';
+  const chiamaci = tel ? `chiamaci allo ${tel}` : 'chiamaci';
 
+  const corpi: Record<TipoMessaggio, string[]> = {
+    ricevuta: [
+      `grazie per aver prenotato da ${d.nomeSalone}! Abbiamo ricevuto la tua richiesta:`,
+      appuntamento,
+      '',
+      'Ti scriveremo appena sarà confermata.'
+    ],
+    conferma: [
+      `il tuo appuntamento da ${d.nomeSalone} è confermato:`,
+      appuntamento,
+      '',
+      'Ti aspettiamo! Se non puoi più venire, avvisaci in tempo: liberiamo il posto per un\'altra cliente.'
+    ],
+    rifiuto: [
+      `purtroppo l'orario che hai scelto da ${d.nomeSalone} non è più disponibile:`,
+      appuntamento,
+      '',
+      `Ci dispiace! ${chiamaci.charAt(0).toUpperCase() + chiamaci.slice(1)} e troviamo insieme un altro orario.`
+    ],
+    promemoria: [
+      `ti ricordiamo il tuo appuntamento di domani da ${d.nomeSalone}:`,
+      appuntamento,
+      '',
+      `Se devi spostarlo, ${chiamaci}. A domani!`
+    ],
+    promemoria_ora: [
+      `ti aspettiamo da ${d.nomeSalone} tra un'ora:`,
+      appuntamento,
+      '',
+      'A tra poco!'
+    ]
+  };
+
+  const righe = [ciao, '', ...corpi[tipo]];
   if (dove) righe.push('', dove);
   righe.push('', d.nomeSalone);
 
@@ -146,38 +186,42 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
   // L'SMS si paga a pezzi da 160 caratteri, e i caratteri strani li dimezzano
   // (vedi `segmentiSms`). Quindi non è l'email accorciata: è un'altra frase,
   // scritta per starci dentro una volta sola. Niente trattini lunghi, niente
-  // apostrofi ricci, niente puntini di separazione.
-  // Quando l'elenco è lungo si tiene il primo e si dice che ce n'è dell'altro:
-  // la cliente sa già che cosa ha prenotato, il messaggio serve a ricordarle
-  // quando.
-  const puliti = d.servizi.filter(Boolean);
-  const serviziCorti = puliti.length > 1 ? `${puliti[0]} e altro` : (puliti[0] || '');
+  // apostrofi ricci, niente emoji. Si prova dalla versione più completa alla
+  // più asciutta, e si tiene la prima che sta in un SMS: si lascia per strada
+  // prima il telefono (la cliente ce l'ha in rubrica), poi l'operatrice.
+  const salone = d.nomeSalone;
+  const ciaoSms = nome ? `ciao ${nome}, ` : '';
+  const quandoSms = quandoCorto(d.quando);
+  const oraSms = oraScritta(orologioDelSalone(d.quando));
+  const telSms = tel.replace(/\s+/g, ' ');
 
-  const scrivi = (conTelefono: boolean, conOperatore: boolean, conServizi: 'tutti' | 'corti' | 'no') => {
-    const tel = conTelefono && d.telefonoSalone ? ` Tel ${d.telefonoSalone.replace(/\s+/g, '')}` : '';
-    const chi = conOperatore ? con : '';
-    const elenco = conServizi === 'tutti' ? servizi : conServizi === 'corti' ? serviziCorti : '';
-    const cosa = elenco ? ` (${elenco})` : '';
-    return tipo === 'conferma'
-      ? `${d.nomeSalone}: appuntamento confermato ${quandoCorto(d.quando)}${cosa}${chi}. Se non puoi venire avvisaci.${tel}`
-      : `${d.nomeSalone}: ti ricordiamo l'appuntamento di domani ${quandoCorto(d.quando)}${cosa}${chi}. A domani!`;
+  const versioni = (conTel: boolean, conChi: boolean): string => {
+    const chi = conChi ? con : '';
+    switch (tipo) {
+      case 'ricevuta':
+        return `${salone}: grazie${nome ? ` ${nome}` : ''}! Abbiamo ricevuto la tua richiesta per ${quandoSms}${chi}. Ti scriveremo appena sarà confermata.`;
+      case 'conferma':
+        return `${salone}: ${ciaoSms}il tuo appuntamento è confermato per ${quandoSms}${chi}. Ti aspettiamo!${conTel && telSms ? ` Per info ${telSms}` : ''}`;
+      case 'rifiuto':
+        return `${salone}: ${ciaoSms}purtroppo ${quandoSms} non è più disponibile. ${conTel && telSms ? `Chiamaci allo ${telSms}` : 'Chiamaci'} e troviamo insieme un altro orario.`;
+      case 'promemoria':
+        return `${salone}: ${ciaoSms}ti ricordiamo il tuo appuntamento di domani, ${quandoSms}${chi}. ${conTel && telSms ? `Per spostarlo chiamaci allo ${telSms}.` : 'A domani!'}`;
+      case 'promemoria_ora':
+        return `${salone}: ${ciaoSms}ti aspettiamo alle ${oraSms}${chi}. A tra poco!`;
+    }
   };
 
-  // Se non ci sta in un SMS solo si lascia per strada qualcosa, partendo da
-  // ciò che la cliente può ricavare da sé: il telefono ce l'ha in rubrica, il
-  // nome dell'operatrice se lo ricorda. Quando e che cosa non si toccano
-  // finché si può. Meglio un messaggio più asciutto che due crediti.
-  const sms = [
-    scrivi(true, true, 'tutti'),
-    scrivi(false, true, 'tutti'),
-    scrivi(false, false, 'tutti'),
-    scrivi(false, false, 'corti'),
-    scrivi(false, false, 'no')
-  ].find(t => segmentiSms(t).segmenti === 1) || scrivi(false, false, 'no');
+  const sms = [versioni(true, true), versioni(true, false), versioni(false, true), versioni(false, false)]
+    .find(t => segmentiSms(t).segmenti === 1) || versioni(false, false);
 
-  const oggetto = tipo === 'conferma'
-    ? `Appuntamento confermato — ${quandoScritto(d.quando)}`
-    : `Promemoria: domani ${quandoScritto(d.quando)}`;
+  const oggetti: Record<TipoMessaggio, string> = {
+    ricevuta: `Richiesta ricevuta — ${quandoScritto(d.quando)}`,
+    conferma: `Appuntamento confermato — ${quandoScritto(d.quando)}`,
+    rifiuto: `Orario non disponibile — ${quandoScritto(d.quando)}`,
+    promemoria: `Promemoria: domani ${quandoScritto(d.quando)}`,
+    promemoria_ora: `Ti aspettiamo alle ${oraSms}`
+  };
+  const oggetto = oggetti[tipo];
 
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.6;color:#18181b;max-width:480px">
 ${righe.map(r => (r === '' ? '<div style="height:12px"></div>' : `<div>${scappa(r)}</div>`)).join('\n')}
@@ -238,4 +282,23 @@ export function segmentiSms(testo: string): ContoSms {
 /** Niente HTML per sbaglio dentro un nome scritto dalla cliente. */
 function scappa(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+
+/**
+ * L'SMS al salone quando arriva una richiesta dal sito: chi, quando, che cosa.
+ * Firmato "Rosy" perché lo manda il gestionale, non il salone.
+ */
+export function avvisoNuovaRichiesta(d: { nomeCliente: string; quando: Date; servizi: string[]; operatore?: string; telefonoCliente?: string }): string {
+  const chi = (d.nomeCliente || '').trim() || 'una cliente';
+  const quando = quandoCorto(d.quando);
+  const puliti = (d.servizi || []).filter(Boolean);
+  const tutti = elencoScritto(puliti);
+  const corti = puliti.length > 1 ? `${puliti[0]} e altro` : (puliti[0] || '');
+  const con = d.operatore ? ` con ${d.operatore}` : '';
+  const tel = d.telefonoCliente ? ` Tel ${d.telefonoCliente.replace(/\s+/g, '')}.` : '';
+  const scrivi = (cosa: string, conChi: boolean, conTel: boolean) =>
+    `Rosy: nuova richiesta online da ${chi}, ${quando}${cosa ? ` (${cosa})` : ''}${conChi ? con : ''}.${conTel ? tel : ''} Confermala dall'agenda.`;
+  return [scrivi(tutti, true, true), scrivi(tutti, true, false), scrivi(corti, true, false), scrivi(corti, false, false), scrivi('', false, false)]
+    .find(t => segmentiSms(t).segmenti === 1) || scrivi('', false, false);
 }

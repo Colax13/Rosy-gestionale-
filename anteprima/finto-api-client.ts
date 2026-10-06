@@ -1,3 +1,4 @@
+import { ordinaOperatori } from '../salone-app/frontend/lib/operatori';
 // Sostituto dell'accesso a Firestore, usato solo dall'anteprima (npm run anteprima).
 //
 // Serve per aprire le schermate vere, con dati veri, senza doversi collegare
@@ -28,7 +29,7 @@ const dipendenti = [
   { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', ruolo: 'Titolare',  colore: '#D400FF', turni: turnoPieno },
   { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    ruolo: 'Parrucchiera', colore: '#6B5CFF', turni: turnoPieno },
   // Martina fa solo estetica: serve a provare l'elenco dei servizi per operatrice.
-  { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  ruolo: 'Estetista', colore: '#00D8FF', servizi: ['s5'], turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
+  { id: 'd3', nome: 'Martina', cognome: '',  ruolo: 'Estetista', colore: '#00D8FF', servizi: ['s5'], turni: { ...turnoPieno, mercoledi: { attivo: false, tipo: 'riposo' } } },
 ];
 
 const catalogo = [
@@ -55,6 +56,13 @@ const clienti = [
 ];
 
 const appuntamenti = [
+  // Uno con l'SMS non partito: deve comparire nell'avviso rosso.
+  { id: 'a9', id_cliente: 'c1', data_ora: alle(17, 0), stato: 'confermato', idDipendente: 'd2', id_dipendente: 'd2',
+    clienti: clienti[0], dipendenti: dipendenti[1], righe_appuntamento: [{ servizi_catalogo: catalogo[1] }],
+    messaggi_errore: { promemoria_ora: { quando: new Date().toISOString(), motivo: 'il gettone di Traccar non è più valido: copia il nuovo Cloud token dall\'app sul tablet e mettilo su Vercel (TRACCAR_SMS_TOKEN) (401).' } } },
+  // Uno senza operatore: deve comparire nell'avviso sopra il calendario.
+  { id: 'a0', id_cliente: 'c2', data_ora: alle(16, 0), stato: 'confermato', clienti: clienti[1], dipendenti: null,
+    righe_appuntamento: [{ servizi_catalogo: catalogo[2] }] },
   { id: 'a1', id_cliente: 'c1', data_ora: alle(9, 0),  stato: 'confermato', note: 'Riflessante castano', idDipendente: 'd1',
     clienti: clienti[0], dipendenti: dipendenti[0],
     righe_appuntamento: [{ servizi_catalogo: catalogo[0] }, { servizi_catalogo: catalogo[1] }] },
@@ -116,7 +124,7 @@ export const reportApi = {
       dipendenti: [
         { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', numero_appuntamenti: 41, totale_incassato: 1780 },
         { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    numero_appuntamenti: 33, totale_incassato: 1180 },
-        { id: 'd3', nome: 'Martina', cognome: 'Colasanti',  numero_appuntamenti: 22, totale_incassato: 520 },
+        { id: 'd3', nome: 'Martina', cognome: '',  numero_appuntamenti: 22, totale_incassato: 520 },
       ],
       clienti_report: {
         acquisiti_questo_mese: clienti.slice(0, 2).map(c => ({
@@ -188,7 +196,10 @@ export const catalogoApi = {
 
 export const dipendentiApi = {
   getPublic: async () => eco(dipendenti),
-  getAll: async () => eco(dipendenti),
+  getAll: async () => eco(ordinaOperatori(dipendenti)),
+  salvaOrdine: async (cambi: { id: string; ordine: number }[]) => {
+    cambi.forEach(c => { const d: any = dipendenti.find(x => x.id === c.id); if (d) d.ordine = c.ordine; });
+  },
   create: nulla,
   update: async (id: string, dati: any) => {
     const i = dipendenti.findIndex(d => d.id === id);
@@ -199,6 +210,7 @@ export const dipendentiApi = {
 };
 
 export const appuntamentiApi = {
+  ascolta: () => () => {},
   getAgendaPublic: async () => eco(appuntamenti),
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
   getAgenda: async (data?: string, da?: string, a?: string) => {
@@ -294,4 +306,25 @@ export const buoniApi = {
     avvisaBuoni();
     return eco({ success: true });
   },
+};
+
+
+const oggiIso = new Date().toISOString();
+const giornoOggi = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+const registro = [
+  { id: 'r1', tipo: 'promemoria_ora', cliente: 'Maria Rossi', a: '+393331234567', testo: 'RD Salon: ciao Maria, ti aspettiamo alle 17:00 con Giulia. A tra poco!', esito: 'errore', motivo: "il gettone di Traccar non è più valido: copia il nuovo Cloud token dall'app sul tablet e mettilo su Vercel (TRACCAR_SMS_TOKEN) (401).", quando: oggiIso, giorno: giornoOggi },
+  { id: 'r2', tipo: 'avviso_salone', cliente: 'Salone', a: '+393470000000', testo: "Rosy: nuova richiesta online da Anna Bianchi, sab 10/10 alle 10:00 (Piega). Confermala dall'agenda.", esito: 'consegnato', quando: oggiIso, giorno: giornoOggi },
+  { id: 'r3', tipo: 'ricevuta', cliente: 'Anna Bianchi', a: '+393409876543', testo: 'RD Salon: grazie Anna! Abbiamo ricevuto la tua richiesta per sab 10/10 alle 10:00. Ti scriveremo appena sarà confermata.', esito: 'consegnato', quando: oggiIso, giorno: giornoOggi },
+  { id: 'r4', tipo: 'conferma', cliente: 'Chiara Esposito', a: '+393401112222', testo: 'RD Salon: ciao Chiara, il tuo appuntamento è confermato per lun 12/10 alle 11:00 con Rosanna. Ti aspettiamo! Per info 0775 123456', esito: 'consegnato', quando: oggiIso, giorno: giornoOggi }
+];
+
+export const registroSmsApi = {
+  ascolta: (_giorni: number, cb: (v: any[]) => void) => { setTimeout(() => cb(registro), 0); return () => {}; },
+  prova: async (telefono: string) => eco({ mandato: true, a: `+39${telefono.replace(/\D/g, '')}` })
+};
+
+let telefonoAvvisi = '347 000 0000';
+export const impostazioniPrivateApi = {
+  get: async () => eco({ telefono_avvisi: telefonoAvvisi }),
+  salva: async (d: { telefono_avvisi: string }) => { telefonoAvvisi = d.telefono_avvisi; }
 };

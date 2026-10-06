@@ -10,6 +10,7 @@
 
 import { normalizza, soloCifre, leggiCsv } from './importa';
 import { aNumero } from './numeri';
+import { scadenzaDa } from './buoni';
 
 export { leggiCsv };
 
@@ -187,7 +188,9 @@ export function aBuono(riga: any[], mappatura: CampoBuono[], tipo: 'spa' | 'salo
     valore,
     valore_residuo: stato === 'attivo' ? valore : 0,
     data_emissione: aGiorno(preso.data_acquisto),
-    data_scadenza: aGiorno(preso.data_scadenza),
+    // 6 mesi dall'acquisto, sempre: la colonna del foglio conta solo se la
+    // data di acquisto manca.
+    data_scadenza: scadenzaDa(aGiorno(preso.data_acquisto)) || aGiorno(preso.data_scadenza),
     stato,
     piega_inclusa: valeSi(preso.piega),
     note: note.join(' · '),

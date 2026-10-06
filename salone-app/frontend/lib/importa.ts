@@ -285,3 +285,29 @@ export function completamento(esistente: any, nuovo: any): Record<string, any> |
 
   return Object.keys(modifiche).length ? modifiche : null;
 }
+
+/**
+ * Che cosa cambiare in una cliente che c'è già, quando il file deve vincere:
+ * ogni campo pieno nel file prende il posto di quello in anagrafica. I campi
+ * vuoti nel file non cancellano niente: un foglio con la colonna email vuota
+ * non deve svuotare le email di tutte. Nome e cognome restano quelli della
+ * scheda (sono loro che l'hanno fatta riconoscere). Null se non cambia niente.
+ */
+export function sovrascrittura(esistente: any, nuovo: any): Record<string, any> | null {
+  const modifiche: Record<string, any> = {};
+  const nuovi = datiCliente(nuovo);
+
+  for (const campo of CAMPI_SCHEDA) {
+    if (campo === 'canale_acquisizione') continue;
+    const valore = nuovi[campo];
+    if (!pieno(valore)) continue;
+    if (`${esistente?.[campo] ?? ''}`.trim() !== `${valore}`.trim()) modifiche[campo] = valore;
+  }
+
+  if (nuovi.extra) {
+    const extra = { ...(esistente?.extra || {}), ...nuovi.extra };
+    if (JSON.stringify(extra) !== JSON.stringify(esistente?.extra || {})) modifiche.extra = extra;
+  }
+
+  return Object.keys(modifiche).length ? modifiche : null;
+}

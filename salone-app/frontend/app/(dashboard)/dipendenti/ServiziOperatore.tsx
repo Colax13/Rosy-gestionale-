@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Check, Save, Scissors, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { catalogoApi, dipendentiApi } from '@/lib/api-client';
 import { haElencoServizi } from '@/lib/operatori';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface Props {
   dipendenti: any[];
@@ -122,11 +123,11 @@ export default function ServiziOperatore({ dipendenti, refreshData }: Props) {
                   className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${attiva ? 'bg-fuchsia-50' : 'hover:bg-zinc-50'}`}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${attiva ? 'bg-fuchsia-500 text-white' : 'bg-zinc-100 text-zinc-600'}`}>
-                    {(d.nome || '?').charAt(0)}{(d.cognome || '').charAt(0)}
+                    {inizialiOperatore(d)}
                   </div>
                   <div className="min-w-0">
                     <div className={`text-sm font-medium truncate ${attiva ? 'text-fuchsia-700' : 'text-zinc-900'}`}>
-                      {d.nome} {d.cognome}
+                      {nomeOperatore(d)}
                     </div>
                     <div className="text-[11px] text-zinc-500 truncate">
                       {haElencoServizi(d)

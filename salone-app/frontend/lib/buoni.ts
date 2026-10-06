@@ -64,8 +64,36 @@ export function noteVisibili(b: any): string {
 
 export const oggiIso = () => new Date().toISOString().split('T')[0];
 
-export const isScaduto = (b: any, oggi = oggiIso()) =>
-  !!b?.data_scadenza && b.data_scadenza < oggi && b.stato === 'attivo';
+/** Un buono vale 6 mesi dal giorno in cui è stato rilasciato. Non si sceglie a mano. */
+export const MESI_VALIDITA = 6;
+
+/**
+ * Il giorno di scadenza, da un giorno di rilascio "AAAA-MM-GG".
+ * 31 agosto + 6 mesi = 28 (o 29) febbraio: se il mese non ha quel giorno, si
+ * prende l'ultimo del mese invece di scivolare a marzo.
+ */
+export function scadenzaDa(rilascio?: string | null, mesi = MESI_VALIDITA): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(rilascio || '');
+  if (!m) return '';
+  const anno = Number(m[1]), mese = Number(m[2]) - 1 + mesi, giorno = Number(m[3]);
+  const annoFin = anno + Math.floor(mese / 12), meseFin = ((mese % 12) + 12) % 12;
+  const ultimo = new Date(Date.UTC(annoFin, meseFin + 1, 0)).getUTCDate();
+  const g = Math.min(giorno, ultimo);
+  return `${annoFin}-${String(meseFin + 1).padStart(2, '0')}-${String(g).padStart(2, '0')}`;
+}
+
+/**
+ * La scadenza vera di un buono: 6 mesi dal rilascio. Vale anche per i buoni
+ * scritti prima, che avevano una scadenza messa a mano; solo quelli senza
+ * data di rilascio tengono quella che hanno.
+ */
+export const scadenzaDi = (b: any): string =>
+  scadenzaDa(b?.data_emissione) || (b?.data_scadenza || '');
+
+export const isScaduto = (b: any, oggi = oggiIso()) => {
+  const scade = scadenzaDi(b);
+  return !!scade && scade < oggi && b?.stato === 'attivo';
+};
 
 /** Le tre tabelle di ogni registro: da usare, scaduti, già usati. */
 export type Fase = 'attivi' | 'scaduti' | 'usati';
@@ -110,7 +138,7 @@ export function contaPerFase(buoni: any[], oggi = oggiIso()): Record<Fase, numbe
 export function ordinaBuoni<T>(buoni: T[], fase: Fase): T[] {
   return [...buoni].sort((a: any, b: any) => {
     if (fase === 'usati') return (b.data_emissione || '').localeCompare(a.data_emissione || '');
-    return (a.data_scadenza || '9999').localeCompare(b.data_scadenza || '9999');
+    return (scadenzaDi(a) || '9999').localeCompare(scadenzaDi(b) || '9999');
   });
 }
 

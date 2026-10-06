@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { KeyRound, Plus, Trash2, Check, AlertCircle, CheckCircle2, Pause, Play, Copy } from 'lucide-react';
 import { pagineConcedibili, PROFILI, ChiavePagina, idSalone, sessioneCorrente } from '@/lib/sessione';
 import { elencoMembri, creaAccesso, aggiornaAccesso, revocaAccesso, spiegaErroreAccesso, Membro } from '@/lib/accessi';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface Props {
   dipendenti: any[];
@@ -311,7 +312,7 @@ export default function AccessiOperatrici({ dipendenti }: Props) {
                     >
                       <option value="">— nessuna in particolare —</option>
                       {dipendenti.map(d => (
-                        <option key={d.id} value={d.id}>{d.nome} {d.cognome}</option>
+                        <option key={d.id} value={d.id}>{nomeOperatore(d)}</option>
                       ))}
                     </select>
                   </div>

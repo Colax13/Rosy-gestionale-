@@ -138,7 +138,13 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
       });
       if (!risposta.ok) {
         const dettaglio = await risposta.text().catch(() => '');
-        return { mandato: false, canale: 'sms', motivo: `il tablet del salone non ha accettato il messaggio (${risposta.status}). ${dettaglio}`.trim() };
+        // Le risposte di Traccar, dette in modo che si sappia cosa fare.
+        const perche = [400, 401, 403, 404].includes(risposta.status)
+          ? 'il gettone di Traccar non è più valido: copia il nuovo Cloud token dall\'app sul tablet e mettilo su Vercel (TRACCAR_SMS_TOKEN)'
+          : risposta.status >= 500
+            ? 'il servizio di Traccar non risponde: riprova fra qualche minuto'
+            : 'il tablet del salone non ha accettato il messaggio';
+        return { mandato: false, canale: 'sms', motivo: `${perche} (${risposta.status}). ${dettaglio}`.trim() };
       }
       return { mandato: true, canale: 'sms', a: `+${numero}` };
     } catch (err: any) {

@@ -311,3 +311,29 @@ Cosa non fa, apposta:
 Se qualcosa non va, la pagina Buoni lo dice in una riga gialla: foglio non
 condiviso, Sheets API spenta, ID sbagliato. `/api/salute` dice se
 `BUONI_FOGLIO_ID` c'è.
+
+## Promemoria 24 ore e 1 ora prima: cron-job.org
+
+Vercel gratis fa partire il giro dei promemoria una volta al giorno. Per il
+promemoria di un'ora prima serve un giro ogni 15 minuti: lo fa cron-job.org,
+gratis.
+
+1. Registrati su **cron-job.org** → **Create cronjob**.
+2. **URL**: `https://rosygestionale.rdsalon.com/api/promemoria`
+3. **Execution schedule**: ogni **15 minuti**.
+4. **Advanced** → **Headers** → aggiungi:
+   - Key: `Authorization`
+   - Value: `Bearer ` seguito dal valore di `CRON_SECRET` che hai su Vercel
+     (con lo spazio dopo "Bearer").
+5. Salva, poi **Test run**: deve rispondere **200**. Un **401** vuol dire che
+   il valore dopo "Bearer " non è uguale a `CRON_SECRET`.
+
+Ogni promemoria parte una volta sola: il giro di cron-job.org e quello di
+riserva di Vercel non mandano mai doppioni.
+
+## Regole di Firestore da ripubblicare
+
+Le regole nuove aprono in lettura il **registro SMS** (`registro_sms`) e il
+documento privato con il **cellulare per gli avvisi** (`impostazioni_private`).
+Senza ripubblicarle, la pagina Automazioni dice che non riesce a leggere il
+registro e il cellulare per gli avvisi non si salva.

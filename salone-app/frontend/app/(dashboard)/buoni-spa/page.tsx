@@ -7,7 +7,7 @@ import FloatingActionBar from '@/components/FloatingActionBar';
 import ImportaBuoni from '@/components/ImportaBuoni';
 import {
   PREZZO_SPA, PREZZO_PIEGA, prezzoSpa, canaleDi, persone, noteVisibili,
-  filtraBuoni, tipoDi, contaPerFase, ordinaBuoni, faseDi,
+  filtraBuoni, tipoDi, scadenzaDi, scadenzaDa, MESI_VALIDITA, contaPerFase, ordinaBuoni, faseDi,
   type Tipo, type Canale, type Fase
 } from '@/lib/buoni';
 import {
@@ -46,11 +46,6 @@ const STATI = {
 
 const oggi = () => new Date().toISOString().split('T')[0];
 
-const fraUnAnno = () => {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().split('T')[0];
-};
 
 /** Codice leggibile al telefono: niente caratteri che si confondono. */
 function generaCodice() {
@@ -110,7 +105,6 @@ export default function BuoniSpa() {
     stessaPersona: true,
     intestatario: '',
     telefono: '',
-    data_scadenza: fraUnAnno(),
     note: ''
   });
   // Il prezzo di un buono spa lo decide la piega. In modifica si tiene quello
@@ -201,8 +195,7 @@ export default function BuoniSpa() {
       stessaPersona: true,
       intestatario: '',
       telefono: '',
-      data_scadenza: fraUnAnno(),
-      note: ''
+        note: ''
     });
     setPrezzoLibero(false);
     setErroreForm(null);
@@ -224,7 +217,6 @@ export default function BuoniSpa() {
       stessaPersona: stessa,
       intestatario: riceve.nome,
       telefono: riceve.telefono,
-      data_scadenza: b.data_scadenza || '',
       note: noteVisibili(b)
     });
     // Un buono spa che costa già il prezzo giusto segue la spunta; uno
@@ -265,7 +257,8 @@ export default function BuoniSpa() {
         acquirente_email: form.acquirente_email.trim(),
         intestatario: form.stessaPersona ? acquirente : form.intestatario.trim(),
         telefono: form.stessaPersona ? acquirenteTelefono : form.telefono.trim(),
-        data_scadenza: form.data_scadenza,
+        // 6 mesi dal rilascio: per un buono nuovo il rilascio è oggi.
+        data_scadenza: scadenzaDa(inModifica?.data_emissione || oggi()),
         note: form.note.trim()
       };
       // Online o in salone si sceglie solo per i buoni fatti a mano: quelli
@@ -495,7 +488,7 @@ export default function BuoniSpa() {
                       <span className="md:hidden text-zinc-400">Per </span>{usa}
                     </td>
                     <td className="md:px-4 md:py-3 text-zinc-600 tabular-nums row-start-3 md:row-auto text-xs md:text-sm">
-                      <span className="md:hidden text-zinc-400">Scade </span>{formattaData(b.data_scadenza)}
+                      <span className="md:hidden text-zinc-400">Scade </span>{formattaData(scadenzaDi(b))}
                     </td>
                     <td className="md:px-4 md:py-3 md:text-center col-start-2 row-start-2 md:col-auto md:row-auto text-right">
                       <span className={`text-xs font-semibold ${b.piega_inclusa ? 'text-fuchsia-700' : 'text-zinc-400'}`}>
@@ -591,7 +584,7 @@ export default function BuoniSpa() {
               </div>
               <div className="flex items-center justify-between py-2 border-b border-zinc-100">
                 <span className="text-sm text-zinc-500 flex items-center gap-2"><Calendar size={15} className="text-zinc-400" /> Scadenza</span>
-                <span className="text-sm text-zinc-900">{formattaData(dettaglio.data_scadenza)}</span>
+                <span className="text-sm text-zinc-900">{formattaData(scadenzaDi(dettaglio))}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-zinc-100">
                 <span className="text-sm text-zinc-500 flex items-center gap-2"><Scissors size={15} className="text-zinc-400" /> Piega</span>
@@ -875,14 +868,12 @@ export default function BuoniSpa() {
                 </fieldset>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-zinc-600 mb-1">Scadenza</label>
-                <input
-                  type="date"
-                  value={form.data_scadenza}
-                  onChange={e => setForm({ ...form, data_scadenza: e.target.value })}
-                  className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-fuchsia-400"
-                />
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-sm">
+                <span className="text-zinc-600">Scadenza</span>
+                <span className="text-zinc-900 font-medium text-right">
+                  {formattaData(scadenzaDa(inModifica?.data_emissione || oggi()))}
+                  <span className="block text-xs font-normal text-zinc-500">{MESI_VALIDITA} mesi dal rilascio, in automatico</span>
+                </span>
               </div>
 
               <div>

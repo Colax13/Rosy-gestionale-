@@ -213,6 +213,16 @@ service cloud.firestore {
       allow delete: if isValidId(appuntamentoId) && nelSaloneCon(resource.data.userId, 'agenda');
     }
 
+    // Il registro degli SMS: ogni messaggio che il gestionale prova a mandare,
+    // partito o no. Lo scrive solo il server (api/_invio.ts); dal gestionale
+    // si legge, con lo stesso permesso dell'agenda, perché dentro ci sono i
+    // numeri delle clienti.
+    match /registro_sms/{voceId} {
+      allow get: if nelSaloneCon(resource.data.userId, 'agenda');
+      allow list: if nelSaloneCon(resource.data.userId, 'agenda');
+      allow write: if false;
+    }
+
     match /clienti/{clienteId} {
       // L'agenda mostra il nome della cliente sull'appuntamento: chi ha
       // l'agenda deve poter leggere l'anagrafica, ma per modificarla serve il
@@ -337,6 +347,14 @@ service cloud.firestore {
                     && incoming().salonId == resource.data.salonId
                     && incoming().permessi is list && incoming().permessi.size() <= 20;
       allow delete: if isSignedIn() && request.auth.uid == resource.data.salonId;
+    }
+
+    // Impostazioni private del salone (per ora: il cellulare per gli avvisi).
+    // Solo il titolare; il server le legge con la sua chiave.
+    match /impostazioni_private/{salonId} {
+      allow read: if isSignedIn() && request.auth.uid == salonId;
+      allow write: if isSignedIn() && request.auth.uid == salonId
+                   && (!('telefono_avvisi' in incoming()) || (incoming().telefono_avvisi is string && incoming().telefono_avvisi.size() <= 30));
     }
 
     match /salons/{salonId} {

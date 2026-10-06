@@ -3,11 +3,13 @@
 import FloatingActionBar from '@/components/FloatingActionBar';
 import { useState, useEffect } from 'react';
 import { dipendentiApi } from '@/lib/api-client';
-import { Plus, Edit2, Shield, User, X, Check, AlertCircle, Trash2, Eye, FileText, Download } from 'lucide-react';
+import { ArrowLeftRight, Plus, Edit2, Shield, User, X, Check, AlertCircle, Trash2, Eye, FileText, Download } from 'lucide-react';
 
 import TurniCalendario from './TurniCalendario';
 import ServiziOperatore from './ServiziOperatore';
 import AccessiOperatrici from './AccessiOperatrici';
+import OrdinaOperatori from '@/components/OrdinaOperatori';
+import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
 
 interface Dipendente {
   id: string;
@@ -44,6 +46,7 @@ export default function GestioneDipendenti() {
 
   // Stato Profilo
   const [profileView, setProfileView] = useState<Dipendente | null>(null);
+  const [ordinaAperto, setOrdinaAperto] = useState(false);
 
   useEffect(() => {
     caricaDipendenti();
@@ -202,7 +205,7 @@ export default function GestioneDipendenti() {
                          <img src={dip.fotoUrl} alt="Profilo" className="w-12 h-12 rounded-full object-cover shadow-sm" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="w-12 h-12 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-xl font-playfair shadow-sm">
-                          {dip.nome.charAt(0)}{dip.cognome.charAt(0)}
+                          {inizialiOperatore(dip)}
                         </div>
                       )}
                       <div className={`px-2 py-1 text-xs font-medium rounded-full ${dip.ruolo === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100 text-zinc-900'} flex items-center gap-1`}>
@@ -211,7 +214,7 @@ export default function GestioneDipendenti() {
                       </div>
                     </div>
                     
-                    <h3 className="text-xl font-semibold text-zinc-900">{dip.nome} {dip.cognome}</h3>
+                    <h3 className="text-xl font-semibold text-zinc-900">{nomeOperatore(dip)}</h3>
                     <p className="text-sm text-zinc-500 mt-1 truncate">{dip.email}</p>
                   </div>
 
@@ -297,11 +300,10 @@ export default function GestioneDipendenti() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-500 mb-1">Cognome *</label>
+                    <label className="block text-sm font-medium text-zinc-500 mb-1">Cognome <span className="text-zinc-400 font-normal">(facoltativo)</span></label>
                     <input
                       name="cognome"
                       type="text"
-                      required
                       value={formData.cognome}
                       onChange={handleChange}
                       className="w-full p-2 border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none font-sans"
@@ -414,7 +416,7 @@ export default function GestioneDipendenti() {
           <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-zinc-900 mb-2">Conferma eliminazione</h3>
             <p className="text-zinc-500 text-sm mb-6">
-              Vuoi davvero eliminare definitivamente il dipendente {confirmDelete.nome} {confirmDelete.cognome}? Questa operazione non può essere annullata.
+              Vuoi davvero eliminare definitivamente il dipendente {nomeOperatore(confirmDelete)}? Questa operazione non può essere annullata.
             </p>
             <div className="flex gap-3 mt-6">
               <button 
@@ -447,12 +449,12 @@ export default function GestioneDipendenti() {
                   <img src={profileView.fotoUrl} alt="Profilo" className="w-14 h-14 rounded-full object-cover border border-fuchsia-500/30" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-14 h-14 bg-fuchsia-500/20 rounded-full flex items-center justify-center text-zinc-900 text-2xl font-playfair shadow-sm border border-fuchsia-500/30">
-                    {profileView.nome.charAt(0)}{profileView.cognome.charAt(0)}
+                    {inizialiOperatore(profileView)}
                   </div>
                 )}
                 <div>
                   <h2 className="text-2xl font-playfair text-zinc-900 font-semibold leading-tight">
-                    {profileView.nome} {profileView.cognome}
+                    {nomeOperatore(profileView)}
                   </h2>
                   <p className="text-sm text-zinc-500 capitalize">{profileView.ruolo} • {profileView.email}</p>
                 </div>
@@ -535,7 +537,21 @@ export default function GestioneDipendenti() {
       )}
 
       {/* Floating Action Bar */}
+      {ordinaAperto && (
+        <OrdinaOperatori
+          dipendenti={dipendenti}
+          onChiudi={() => setOrdinaAperto(false)}
+          onSalvato={() => caricaDipendenti(true)}
+        />
+      )}
+
       <FloatingActionBar>
+        <button
+          onClick={() => setOrdinaAperto(true)}
+          className="bg-white hover:bg-zinc-50 text-zinc-800 border border-zinc-200 shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm"
+        >
+          <ArrowLeftRight size={16} /> <span>Ordina colonne</span>
+        </button>
         <button
           onClick={() => handleOpenModal()}
           className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm"

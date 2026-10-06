@@ -3,6 +3,7 @@ import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { chiaviCliente } from './importa';
+import { ordinaOperatori } from './operatori';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -250,7 +251,7 @@ export const clientiApi = {
  * e a mandare, ci pensa il server.
  */
 export const messaggiApi = {
-  manda: async (appuntamentoId: string, tipo: 'conferma' | 'promemoria' = 'conferma') => {
+  manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
 
@@ -315,6 +316,25 @@ export const precontoApi = {
     const dati = await risposta.json().catch(() => ({}));
     if (!risposta.ok) throw new Error(dati?.errore || 'Il server non ha dato il numero.');
     return dati;
+  }
+};
+
+/**
+ * Le impostazioni che non devono vedersi da fuori. Il documento del salone
+ * (`salons/{id}`) lo legge anche la pagina di prenotazione pubblica: il
+ * cellulare personale del titolare lì finirebbe sotto gli occhi di tutti.
+ * Qui legge e scrive solo il titolare; il server lo legge per gli avvisi.
+ */
+export const impostazioniPrivateApi = {
+  get: async (): Promise<{ telefono_avvisi?: string }> => {
+    const d = await getDoc(doc(db, 'impostazioni_private', getUserId()));
+    return d.exists() ? (d.data() as any) : {};
+  },
+  salva: async (dati: { telefono_avvisi: string }) => {
+    await setDoc(doc(db, 'impostazioni_private', getUserId()), {
+      telefono_avvisi: (dati.telefono_avvisi || '').trim().slice(0, 30),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
   }
 };
 
@@ -406,10 +426,22 @@ export const dipendentiApi = {
     const vetrina = await vetrinaApi.getPublic(salonId);
     return (vetrina?.operatori || []).map(o => ({ ...o, attivo: true }));
   },
+  /** Già nell'ordine delle colonne del calendario, da sinistra a destra. */
   getAll: async (): Promise<any[]> => {
     const q = query(collection(db, 'dipendenti'), where('userId', '==', getUserId()));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return ordinaOperatori(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  /**
+   * Salva il nuovo ordine: `ordine` è la posizione da sinistra (0 = prima
+   * colonna). Si scrive solo chi ha cambiato posto, poi si rifà la vetrina
+   * una volta sola, così anche la prenotazione online segue l'ordine.
+   */
+  salvaOrdine: async (cambi: { id: string; ordine: number }[]) => {
+    await Promise.all(cambi.map(c =>
+      updateDoc(doc(db, 'dipendenti', c.id), { ordine: c.ordine, updatedAt: serverTimestamp() })
+    ));
+    if (cambi.length) await vetrinaApi.aggiorna();
   },
   // Come per il listino: turni e servizi cambiano, la vetrina li segue.
   create: async (data: any) => {
@@ -502,6 +534,40 @@ export const appuntamentiApi = {
     }
 
     return items;
+  },
+  /**
+   * L'agenda in diretta: chiama `quandoCambia` ogni volta che un appuntamento
+   * del periodo mostrato cambia (anche da un altro computer), e
+   * `quandoArrivaRichiesta` quando cambia l'elenco delle richieste dal sito.
+   * Non scarica niente in più: avvisa e basta, e chi ascolta ricarica.
+   * Se il database non può ascoltare (indice mancante, rete giù) chiama
+   * `quandoNonPuo`, e chi ascolta ripiega sul ricaricare ogni tanto.
+   */
+  ascolta: (
+    daGiorno: string,
+    aGiorno: string,
+    quandoCambia: () => void,
+    quandoArrivaRichiesta: () => void,
+    quandoNonPuo: () => void
+  ): (() => void) => {
+    const da = new Date(`${daGiorno}T00:00:00`); da.setDate(da.getDate() - 1);
+    const a = new Date(`${aGiorno}T23:59:59`); a.setDate(a.getDate() + 1);
+    const uid = getUserId();
+    // Il primo giro di ogni ascolto riporta quello che c'è già: non è un
+    // cambio, e si salta.
+    let primoAgenda = true, primoRichieste = true;
+    const smettiAgenda = onSnapshot(
+      query(collection(db, 'appuntamenti'), where('userId', '==', uid),
+        where('data_ora', '>=', da.toISOString()), where('data_ora', '<=', a.toISOString())),
+      () => { if (primoAgenda) { primoAgenda = false; return; } quandoCambia(); },
+      () => quandoNonPuo()
+    );
+    const smettiRichieste = onSnapshot(
+      query(collection(db, 'appuntamenti'), where('userId', '==', uid), where('stato', '==', 'in_attesa')),
+      () => { if (primoRichieste) { primoRichieste = false; return; } quandoArrivaRichiesta(); },
+      () => quandoNonPuo()
+    );
+    return () => { smettiAgenda(); smettiRichieste(); };
   },
   /** Le prenotazioni arrivate dal sito e non ancora confermate dal salone. */
   getRichieste: async (): Promise<any[]> => {
@@ -708,5 +774,67 @@ export const disponibilitaApi = {
       }
     }
     return scritti;
+  }
+};
+
+
+// ---------------------------------------------------------
+// Registro SMS: ogni messaggio che il gestionale prova a mandare, partito o
+// no. Lo scrive solo il server; qui si legge.
+// ---------------------------------------------------------
+
+export interface VoceRegistroSms {
+  id: string;
+  tipo: string;
+  appuntamentoId?: string;
+  cliente?: string;
+  a: string;
+  testo: string;
+  esito: 'consegnato' | 'errore';
+  motivo?: string;
+  quando: string;
+  giorno: string;
+}
+
+/** Gli ultimi `giorni` giorni, da oggi all'indietro, scritti 2026-10-06. */
+const giorniFra = (giorni: number): string[] => {
+  const fuori: string[] = [];
+  const d = new Date();
+  for (let i = 0; i < giorni; i++) {
+    const g = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
+    fuori.push(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, '0')}-${String(g.getDate()).padStart(2, '0')}`);
+  }
+  return fuori;
+};
+
+export const registroSmsApi = {
+  /**
+   * Gli ultimi giorni di registro, in diretta. Si filtra per giorno con
+   * uguaglianze (`in`), così il database non ha bisogno di indici in più.
+   */
+  ascolta: (giorni: number, quandoCambia: (voci: VoceRegistroSms[]) => void, quandoSbaglia?: (e: Error) => void): (() => void) => {
+    const q = query(
+      collection(db, 'registro_sms'),
+      where('userId', '==', getUserId()),
+      where('giorno', 'in', giorniFra(Math.min(30, Math.max(1, giorni))))
+    );
+    return onSnapshot(q, snap => {
+      const voci = snap.docs.map(d => ({ id: d.id, ...d.data() })) as VoceRegistroSms[];
+      voci.sort((a, b) => (b.quando || '').localeCompare(a.quando || ''));
+      quandoCambia(voci);
+    }, err => quandoSbaglia?.(err));
+  },
+  /** Manda un SMS di prova al numero scritto: serve a controllare il tablet. */
+  prova: async (telefono: string): Promise<{ mandato: boolean; a?: string; motivo?: string }> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+    const risposta = await fetch('/api/messaggi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ azione: 'prova', telefono })
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok && risposta.status !== 202) throw new Error(dati?.errore || 'Il server non ha risposto.');
+    return dati;
   }
 };

@@ -36,7 +36,7 @@ check('va alla beneficiaria',  'Anna Bianchi',  buono.intestatario);
 check('importo',               80,              buono.valore);
 check('residuo pieno',         80,              buono.valore_residuo);
 check('data acquisto',         '2026-06-19',    buono.data_emissione);
-check('scadenza',              '2027-06-19',    buono.data_scadenza);
+check('scadenza a 6 mesi dall\'acquisto', '2026-12-19', buono.data_scadenza);
 check('stato',                 'attivo',        buono.stato);
 check('piega compresa',        true,            buono.piega_inclusa);
 check('chi regala ha il suo campo',       'Stefania Mucci', buono.acquirente);
