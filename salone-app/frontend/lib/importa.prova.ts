@@ -119,5 +119,19 @@ check('stesso file due volte: niente da fare', null, sovrascrittura({ ...schedaO
 check('colonne in più: il file vince', { Lingua: 'Inglese', Zona: 'Frosinone' },
   sovrascrittura({ extra: { Lingua: 'Italiano', Zona: 'Frosinone' } }, { nome: 'A', extra: { Lingua: 'Inglese' } })!.extra);
 
+// --- Le colonne delle note, comunque si chiamino ---
+const colonneNote: [string, string][] = [
+  ['Note', 'note'], ['Note cliente', 'note'], ['Note sul cliente', 'note'], ['Note del cliente', 'note'],
+  ['Nota cliente', 'note'], ['Note interne', 'note'], ['Commento', 'note'], ['Commenti', 'note'],
+  ['Osservazioni', 'note'], ['Allergie', 'note'], ['Client notes', 'note'],
+  ['Note appuntamento', 'note_appuntamento'], ["Note sull'appuntamento", 'note_appuntamento'],
+  ['Note prenotazione', 'note_appuntamento'],
+  ['Nome cliente', 'nome_completo'], ['Cliente', 'nome_completo']
+];
+for (const [titolo, atteso] of colonneNote) check(`colonna "${titolo}"`, atteso, indoviniMappatura([titolo])[0]);
+const conNoteCliente = aCliente(['Maria', 'Rossi', 'Allergica al nichel'], indoviniMappatura(['Nome', 'Cognome', 'Note cliente']));
+check('"Note cliente" non cambia il nome', 'Maria', conNoteCliente.nome);
+check('e la nota arriva', 'Allergica al nichel', conNoteCliente.note);
+
 console.log(`\n${ok} passati, ${ko} falliti`);
 process.exit(ko ? 1 : 0);

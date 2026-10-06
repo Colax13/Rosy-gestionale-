@@ -41,7 +41,7 @@ const SINONIMI: Record<Exclude<Campo, ''>, string[]> = {
   nome_completo: ['nomecompleto', 'nomeecognome', 'cliente', 'nomecliente', 'nominativo', 'fullname'],
   telefono: ['telefono', 'tel', 'cellulare', 'cell', 'numero', 'phone', 'mobile', 'recapito'],
   email: ['email', 'mail', 'posta', 'indirizzoemail'],
-  note: ['note', 'nota', 'appunti', 'notes', 'commenti'],
+  note: ['note', 'nota', 'appunti', 'notes', 'commenti', 'commento', 'osservazioni', 'annotazioni', 'allergie', 'allergia'],
   canale_acquisizione: ['canale', 'provenienza', 'origine', 'fonte', 'comecihaconosciuto'],
   sesso: ['sesso', 'genere', 'gender', 'sex'],
   data_nascita: ['datadinascita', 'datanascita', 'nascita', 'compleanno', 'birthday', 'dateofbirth', 'dob'],
@@ -102,6 +102,12 @@ export function indoviniMappatura(intestazioni: string[]): Campo[] {
     if (!n) return '' as Campo;
     for (const [campo, alias] of Object.entries(SINONIMI)) {
       if (alias.some(a => n === a)) return campo as Campo;
+    }
+    // Una colonna che comincia con "Note"/"Nota" è sempre una nota: "Note
+    // cliente" non è il nome della cliente, anche se dentro c'è "cliente".
+    // Se parla di appuntamenti è la nota degli appuntamenti.
+    if (/^(note|nota|notes|annotazion|comment|osservazion)/.test(n)) {
+      return (/appuntament|booking|appointment|prenotazion/.test(n) ? 'note_appuntamento' : 'note') as Campo;
     }
     // Fra le corrispondenze parziali vince la più lunga: "Note
     // sull'appuntamento" contiene sia "note" sia "appuntamento", ed è la
