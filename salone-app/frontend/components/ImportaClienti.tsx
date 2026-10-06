@@ -4,7 +4,7 @@ import { useState } from 'react';
 import readXlsxFile from 'read-excel-file/browser';
 import { clientiApi } from '@/lib/api-client';
 import { X, Upload, AlertCircle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
-import { Campo, CAMPI, leggiCsv, indoviniMappatura, aCliente, chiaviCliente, datiCliente, completamento } from '@/lib/importa';
+import { Campo, CAMPI, leggiCsv, indoviniMappatura, aCliente, chiaviCliente, datiCliente, completamento, sovrascrittura } from '@/lib/importa';
 
 interface Props {
   clientiEsistenti: any[];
@@ -19,7 +19,9 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
   const [intestazioni, setIntestazioni] = useState<string[]>([]);
   const [righe, setRighe] = useState<string[][]>([]);
   const [mappatura, setMappatura] = useState<Campo[]>([]);
-  const [completaDoppioni, setCompletaDoppioni] = useState(true);
+  // Che cosa fare con chi c'è già in anagrafica: sovrascrivere con i dati del
+  // file, completare solo i campi vuoti, o lasciarla com'è.
+  const [modoDoppioni, setModoDoppioni] = useState<'sovrascrivi' | 'completa' | 'salta'>('sovrascrivi');
   const [avanzamento, setAvanzamento] = useState({ fatti: 0, totale: 0 });
   const [esito, setEsito] = useState<{ importati: number; completati: number; saltati: number; errori: string[] } | null>(null);
 
@@ -64,9 +66,12 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
 
   const nuove = validi.filter(c => !giaPresente(c));
   const doppioni = validi.length - nuove.length;
-  const daCompletare = completaDoppioni
-    ? validi.filter(giaPresente).filter(c => completamento(giaPresente(c), c))
-    : [];
+  const modificheDi = (c: any) => modoDoppioni === 'sovrascrivi'
+    ? sovrascrittura(giaPresente(c), c)
+    : modoDoppioni === 'completa' ? completamento(giaPresente(c), c) : null;
+  const daCompletare = modoDoppioni === 'salta'
+    ? []
+    : validi.filter(giaPresente).filter(c => modificheDi(c));
   const totale = nuove.length + daCompletare.length;
 
   const avvia = async () => {
@@ -91,7 +96,7 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
 
     for (const c of daCompletare) {
       const esistente = giaPresente(c);
-      const modifiche = completamento(esistente, c);
+      const modifiche = modificheDi(c);
       try {
         if (modifiche) {
           await clientiApi.update(esistente.id, modifiche);
@@ -209,16 +214,25 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
                   <div className="flex justify-between"><span className="text-amber-700">Righe senza nome, saltate</span><span className="font-semibold tabular-nums text-amber-700">{senzaNome}</span></div>
                 )}
                 {doppioni > 0 && (
-                  <label className="flex items-start gap-2 pt-2 border-t border-zinc-200 cursor-pointer">
-                    <input type="checkbox" checked={completaDoppioni} onChange={e => setCompletaDoppioni(e.target.checked)} className="accent-fuchsia-600 mt-0.5" />
-                    <span className="text-zinc-700">
-                      Completa i {doppioni} già presenti in anagrafica
-                      <span className="block text-xs text-zinc-500">
-                        Aggiungo note e dati che mancano, senza cancellare niente di quello che c'è.
-                        {completaDoppioni && ` ${daCompletare.length} hanno qualcosa da aggiungere.`}
-                      </span>
-                    </span>
-                  </label>
+                  <div className="pt-2 border-t border-zinc-200 flex flex-col gap-1.5">
+                    <span className="text-zinc-700 font-medium">{doppioni} già presenti in anagrafica:</span>
+                    {([
+                      ['sovrascrivi', 'Sovrascrivi con i dati del file', 'Le colonne piene del file prendono il posto di quello che c\'è. Quelle vuote non cancellano niente.'],
+                      ['completa', 'Completa solo i campi vuoti', 'Aggiunge note e dati che mancano, senza cambiare quello che c\'è.'],
+                      ['salta', 'Lasciali come sono', 'Si importano solo le clienti nuove.']
+                    ] as const).map(([valore, titolo, spiega]) => (
+                      <label key={valore} className="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="modoDoppioni" checked={modoDoppioni === valore} onChange={() => setModoDoppioni(valore)} className="accent-fuchsia-600 mt-1" />
+                        <span>
+                          <span className="text-zinc-800">{titolo}</span>
+                          <span className="block text-xs text-zinc-500">{spiega}</span>
+                        </span>
+                      </label>
+                    ))}
+                    {modoDoppioni !== 'salta' && (
+                      <span className="text-xs text-zinc-500">{daCompletare.length} hanno qualcosa da aggiornare.</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -247,7 +261,7 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
               <p className="text-base font-semibold text-zinc-900">
                 {esito.importati} {esito.importati === 1 ? 'cliente importato' : 'clienti importati'}
               </p>
-              {esito.completati > 0 && <p className="text-sm text-zinc-500">{esito.completati} già presenti completati con i dati del file.</p>}
+              {esito.completati > 0 && <p className="text-sm text-zinc-500">{esito.completati} già presenti aggiornati con i dati del file.</p>}
               {esito.saltati > 0 && <p className="text-sm text-zinc-500">{esito.saltati} già presenti, lasciati come erano.</p>}
               {esito.errori.length > 0 && (
                 <div className="w-full text-left bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
@@ -273,8 +287,8 @@ export default function ImportaClienti({ clientiEsistenti, onChiudi, onImportato
                 className="flex-1 px-4 py-2.5 font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-500 rounded-xl transition-colors disabled:opacity-50"
               >
                 {nuove.length > 0
-                  ? `Importa ${nuove.length} ${nuove.length === 1 ? 'cliente' : 'clienti'}${daCompletare.length ? ` e completa ${daCompletare.length}` : ''}`
-                  : `Completa ${daCompletare.length} ${daCompletare.length === 1 ? 'cliente' : 'clienti'}`}
+                  ? `Importa ${nuove.length} ${nuove.length === 1 ? 'cliente' : 'clienti'}${daCompletare.length ? ` e aggiorna ${daCompletare.length}` : ''}`
+                  : `Aggiorna ${daCompletare.length} ${daCompletare.length === 1 ? 'cliente' : 'clienti'}`}
               </button>
             </>
           )}

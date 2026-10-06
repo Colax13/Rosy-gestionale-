@@ -1,4 +1,4 @@
-import { leggiCsv, indoviniMappatura, aCliente, chiaviCliente, aDataIso, numeroMese, datiCliente, completamento } from './importa';
+import { leggiCsv, indoviniMappatura, aCliente, chiaviCliente, aDataIso, numeroMese, datiCliente, completamento, sovrascrittura } from './importa';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -105,6 +105,19 @@ check('campo vuoto riempito', 'Donna', agg.sesso);
 check('il telefono non si tocca', false, 'telefono' in agg);
 check('reimportare due volte non raddoppia', null,
   completamento({ ...vecchia, ...agg, extra: { Lingua: 'Italiano' } }, laura));
+
+// --- Sovrascrittura: il file vince, ma i suoi campi vuoti non cancellano ---
+const schedaOra = { nome: 'Laura', cognome: 'Neri', telefono: '3471234567', email: 'vecchia@x.it', note: 'Viene il martedì', sesso: 'Donna' };
+const daFile = { nome: 'Laura', cognome: 'Neri', telefono: '3471234567', email: '', note: 'Allergica al nichel', note_appuntamento: 'Colore 6.3' };
+const sov = sovrascrittura(schedaOra, daFile)!;
+check('sovrascrive le note', 'Allergica al nichel', sov.note);
+check('aggiunge quello che mancava', 'Colore 6.3', sov.note_appuntamento);
+check('l\'email vuota nel file non cancella', false, 'email' in sov);
+check('i campi uguali non si riscrivono', false, 'telefono' in sov);
+check('nome e cognome non si toccano', false, 'nome' in sov || 'cognome' in sov);
+check('stesso file due volte: niente da fare', null, sovrascrittura({ ...schedaOra, ...sov }, daFile));
+check('colonne in più: il file vince', { Lingua: 'Inglese', Zona: 'Frosinone' },
+  sovrascrittura({ extra: { Lingua: 'Italiano', Zona: 'Frosinone' } }, { nome: 'A', extra: { Lingua: 'Inglese' } })!.extra);
 
 console.log(`\n${ok} passati, ${ko} falliti`);
 process.exit(ko ? 1 : 0);
