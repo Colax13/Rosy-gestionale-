@@ -7,6 +7,7 @@ import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno
 import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
 import { ultimoAppuntamento, serviziDi, serviziDaRipetere } from '@/lib/storico';
 import { quandoScritto, elencoScritto } from '@/lib/messaggi';
+import { noteDaMostrare } from '@/lib/cliente';
 
 interface Client {
   id: string;
@@ -687,12 +688,12 @@ export default function AggiungiCalendarioSidebar({
                           )}
                         </div>
                       )}
-                      {selectedClient.note && (
+                      {noteDaMostrare(selectedClient) && (
                         <div className="mt-2 p-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl flex gap-2 animate-in fade-in zoom-in-95 duration-200">
                           <FileText size={16} className="text-fuchsia-700 shrink-0 mt-0.5" />
                           <div>
                             <p className="text-xs font-bold text-fuchsia-800 uppercase tracking-wider mb-0.5 font-mono">Nota cliente</p>
-                            <p className="text-sm text-zinc-700 leading-relaxed italic pr-2">{selectedClient.note}</p>
+                            <p className="text-sm text-zinc-700 leading-relaxed italic pr-2 whitespace-pre-line">{noteDaMostrare(selectedClient)}</p>
                           </div>
                         </div>
                       )}

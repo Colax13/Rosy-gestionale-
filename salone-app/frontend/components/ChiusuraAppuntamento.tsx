@@ -6,6 +6,7 @@ import { X, Check, Plus, Printer, Trash2, ArrowLeft, CheckCircle2, AlertCircle, 
 import { catalogoApi, clientiApi, appuntamentiApi, precontoApi } from '@/lib/api-client';
 import { righeDaAppuntamento, contiPreconto, prezzoDiListino, euro, RigaPreconto } from '@/lib/preconto';
 import { aNumero } from '@/lib/numeri';
+import { noteDaMostrare } from '@/lib/cliente';
 
 interface Props {
   app: any;
@@ -77,7 +78,7 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
     const idCliente = app?.id_cliente || app?.clienti?.id;
     if (!idCliente) { setNoteCaricate(true); return; }
     clientiApi.getById(idCliente)
-      .then(c => setNoteCliente(c?.note || ''))
+      .then(c => setNoteCliente(noteDaMostrare(c)))
       .catch(() => {})
       .finally(() => setNoteCaricate(true));
   }, [app?.id]);

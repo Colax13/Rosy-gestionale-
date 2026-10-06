@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom';
 import { clientiApi, appuntamentiApi } from '@/lib/api-client';
 import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2 } from 'lucide-react';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
-import { CAMPI_EXTRA_CLIENTE, haAltriDati, mostra } from '@/lib/cliente';
+import { CAMPI_EXTRA_CLIENTE, haAltriDati, mostra, noteDaMostrare } from '@/lib/cliente';
 
 interface Cliente {
   id: string;
@@ -287,7 +287,7 @@ export default function SchedaCliente() {
                 </div>
                 {!isEditing ? (
                   <p className="text-sm text-zinc-500 leading-relaxed whitespace-pre-line">
-                    {cliente.note || <span className="italic text-zinc-500/50">Nessuna nota aggiuntiva.</span>}
+                    {noteDaMostrare(cliente) || <span className="italic text-zinc-500/50">Nessuna nota aggiuntiva.</span>}
                   </p>
                 ) : (
                   <textarea 

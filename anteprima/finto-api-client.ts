@@ -143,7 +143,11 @@ export const reportApi = {
 export const clientiApi = {
   getAll: async () => eco(clienti),
   getById: async (id: string) => eco(clienti.find(c => c.id === id) || clienti[0]),
-  create: nulla,
+  create: async (dati: any) => {
+    const nuova = { id: `c${clienti.length + 1}-${Math.random().toString(36).slice(2, 6)}`, ...dati };
+    (clienti as any[]).push(nuova);
+    return eco(nuova);
+  },
   update: async (id: string, dati: any) => {
     const i = clienti.findIndex(c => c.id === id);
     if (i >= 0) clienti[i] = { ...clienti[i], ...dati };
