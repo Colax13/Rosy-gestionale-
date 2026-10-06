@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { clientiApi } from '@/lib/api-client';
 import { Users, Search, Plus, Phone, Mail, FileText, ChevronRight } from 'lucide-react';
 import FormNuovoCliente from '@/components/FormNuovoCliente';
+import { noteDaMostrare } from '@/lib/cliente';
 
 interface Cliente {
   id: string;
@@ -147,10 +148,10 @@ export default function GestioneClienti() {
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    {cliente.note ? (
+                    {noteDaMostrare(cliente) ? (
                       <div className="flex items-start gap-2 text-sm text-zinc-500 max-w-xs truncate">
                         <FileText size={14} className="shrink-0 mt-0.5" />
-                        <span className="truncate">{cliente.note}</span>
+                        <span className="truncate">{noteDaMostrare(cliente)}</span>
                       </div>
                     ) : (
                       <span className="text-sm text-zinc-400 italic">Nessuna nota</span>
