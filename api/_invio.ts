@@ -4,8 +4,44 @@
 // qui, una volta sola.
 
 import type { Firestore } from 'firebase-admin/firestore';
-import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio } from './_messaggi';
+import { FieldValue } from 'firebase-admin/firestore';
+import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio, Messaggio } from './_messaggi';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
+import { avvisoNuovaRichiesta, giornoDelSalone } from '../salone-app/frontend/lib/messaggi';
+
+/**
+ * Il registro: ogni SMS che il gestionale prova a mandare lascia una riga, che
+ * sia partito o no. Dal browser si legge (pagina Automazioni → Registro SMS),
+ * scrive solo il server. Serve a sapere che cosa è arrivato a chi, e
+ * soprattutto a vedere quello che NON è partito, che altrimenti nessuno nota.
+ */
+export const COLLEZIONE_REGISTRO = 'registro_sms';
+
+export interface VoceRegistro {
+  userId: string;
+  tipo: TipoMessaggio | 'avviso_salone';
+  appuntamentoId?: string;
+  cliente?: string;
+  a: string;
+  testo: string;
+  esito: 'consegnato' | 'errore';
+  motivo?: string;
+}
+
+export async function registra(db: Firestore, voce: VoceRegistro): Promise<void> {
+  try {
+    const adesso = new Date();
+    await db.collection(COLLEZIONE_REGISTRO).add({
+      ...voce,
+      quando: adesso.toISOString(),
+      giorno: giornoDelSalone(adesso),
+      createdAt: FieldValue.serverTimestamp()
+    });
+  } catch (err) {
+    // Il registro non deve mai fermare un invio.
+    console.error('Registro SMS non scritto:', err);
+  }
+}
 
 export interface RisultatoInvio {
   mandato: boolean;
@@ -80,14 +116,35 @@ export async function mandaPerAppuntamento(
   ]);
 
   const riusciti = esiti.filter(e => e.mandato) as Extract<EsitoInvio, { mandato: true }>[];
+  const sms = esiti.find(e => e.canale === 'sms')!;
+  const nomeCliente = `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim();
 
+  await registra(db, {
+    userId: app.userId,
+    tipo: quale,
+    appuntamentoId,
+    cliente: nomeCliente,
+    a: sms.mandato ? sms.a : telefono,
+    testo: messaggio.sms,
+    esito: sms.mandato ? 'consegnato' : 'errore',
+    ...(sms.mandato ? {} : { motivo: (sms as { motivo: string }).motivo })
+  });
+
+  const quando = new Date().toISOString();
   if (riusciti.length) {
     await db.collection('appuntamenti').doc(appuntamentoId).update({
       [`messaggi.${quale}`]: {
-        quando: new Date().toISOString(),
+        quando,
         arrivati: riusciti.map(e => ({ canale: e.canale, a: e.a }))
-      }
+      },
+      [`messaggi_errore.${quale}`]: FieldValue.delete()
     });
+  } else {
+    // Segnato sull'appuntamento: l'agenda lo mostra con "SMS non partito",
+    // così la cliente si avvisa a mano.
+    await db.collection('appuntamenti').doc(appuntamentoId).update({
+      [`messaggi_errore.${quale}`]: { quando, motivo: (sms as { motivo?: string }).motivo || 'non partito' }
+    }).catch(() => {});
   }
 
   return {
@@ -98,4 +155,43 @@ export async function mandaPerAppuntamento(
       ? undefined
       : esiti.filter(e => !e.mandato).map(e => `${e.canale}: ${(e as { motivo: string }).motivo}`).join(' ')
   };
+}
+
+
+/**
+ * L'SMS al salone per una richiesta nuova dal sito. Va al numero scritto in
+ * Impostazioni ("Cellulare per gli avvisi"); se non c'è, non parte niente.
+ */
+export async function mandaAvvisoSalone(db: Firestore, appuntamentoId: string, app: any): Promise<RisultatoInvio> {
+  const scheda = await schedaSalone(db, app.userId);
+  if (!funzioneAccesa('messaggi_automatici', scheda.ownerEmail)) {
+    return { mandato: false, canali: [], a: [], motivo: 'i messaggi automatici non sono attivi per questo salone.' };
+  }
+  const numero = (scheda.dettagli.telefono_avvisi || '').trim();
+  if (!numero) return { mandato: false, canali: [], a: [], motivo: 'nessun cellulare per gli avvisi in Impostazioni.' };
+
+  const testo = avvisoNuovaRichiesta({
+    nomeCliente: `${app.clienti?.nome || ''} ${app.clienti?.cognome || ''}`.trim(),
+    quando: new Date(app.data_ora),
+    servizi: (app.righe_appuntamento || []).map((r: any) => r?.servizi_catalogo?.nome).filter(Boolean),
+    operatore: app.dipendenti?.nome || '',
+    telefonoCliente: app.clienti?.telefono || ''
+  });
+  const messaggio = { oggetto: '', testo, html: '', sms: testo } as Messaggio;
+  const esito = await mandaSms(numero, messaggio);
+
+  await registra(db, {
+    userId: app.userId,
+    tipo: 'avviso_salone',
+    appuntamentoId,
+    cliente: 'Salone',
+    a: esito.mandato ? esito.a : numero,
+    testo,
+    esito: esito.mandato ? 'consegnato' : 'errore',
+    ...(esito.mandato ? {} : { motivo: (esito as { motivo: string }).motivo })
+  });
+
+  return esito.mandato
+    ? { mandato: true, canali: ['sms'], a: [esito.a] }
+    : { mandato: false, canali: [], a: [], motivo: (esito as { motivo: string }).motivo };
 }

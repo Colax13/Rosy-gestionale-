@@ -395,6 +395,17 @@ export default function PaginaAgenda() {
           console.error('Messaggio di conferma non partito:', err);
           setAvvisoSpostamento(`Confermato, ma alla cliente non è partito niente: ${err?.message || 'il server non risponde.'} Avvisala tu con Ricontatta.`);
         }
+      } else {
+        // Rifiutata: la cliente riceve "l'orario non è più disponibile,
+        // chiamaci e troviamo un altro orario". Non la si lascia ad aspettare.
+        try {
+          const esito = await messaggiApi.manda(richiesta.id, 'rifiuto');
+          setAvvisoSpostamento(esito.mandato
+            ? `Richiesta rifiutata. La cliente è stata avvisata con un SMS a ${(esito.a || []).join(', ')}.`
+            : `Richiesta rifiutata, ma alla cliente non è partito niente — ${esito.motivo} Avvisala tu con Ricontatta.`);
+        } catch (err: any) {
+          setAvvisoSpostamento(`Richiesta rifiutata, ma alla cliente non è partito niente: ${err?.message || 'il server non risponde.'} Avvisala tu con Ricontatta.`);
+        }
       }
 
       await caricaRichieste();

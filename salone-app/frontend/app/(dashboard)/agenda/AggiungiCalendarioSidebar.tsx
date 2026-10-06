@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw } from 'lucide-react';
-import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi } from '@/lib/api-client';
+import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw, MessageSquare } from 'lucide-react';
+import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi, messaggiApi } from '@/lib/api-client';
 import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
 import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
 
@@ -109,6 +109,9 @@ export default function AggiungiCalendarioSidebar({
   // Expandable Note
   const [noteOpen, setNoteOpen] = useState(true);
   const [noteText, setNoteText] = useState('');
+  // Appuntamento fissato dal salone: la cliente riceve subito la conferma via
+  // SMS (poi i promemoria a 24 ore e a 1 ora). Si toglie per chi è già lì.
+  const [avvisaCliente, setAvvisaCliente] = useState(true);
 
   // --- BLOCCA TAB STATE ---
   const [blockType, setBlockType] = useState<'Pausa' | 'Pranzo' | 'Riunione' | 'Tempo libero' | 'Personalizza'>('Pausa');
@@ -464,7 +467,13 @@ export default function AggiungiCalendarioSidebar({
       if (appuntamentoEdit) {
          await appuntamentiApi.update(appuntamentoEdit.id, payload);
       } else {
-         await appuntamentiApi.create(payload);
+         const avvisa = avvisaCliente && payload.id_cliente !== 'block-client';
+         const creato = await appuntamentiApi.create(avvisa ? payload : { ...payload, sms_spenti: true });
+         // La conferma parte senza far aspettare: se non parte, lo dicono il
+         // registro SMS e l'etichetta sull'appuntamento.
+         if (avvisa && payload.stato === 'confermato') {
+           messaggiApi.manda(creato.id, 'conferma').catch(err => console.error('Conferma SMS non partita:', err));
+         }
       }
       setOverlapPendingPayload(null);
       onSaved();
@@ -970,6 +979,21 @@ export default function AggiungiCalendarioSidebar({
                       </div>
                     )}
                   </div>
+
+                  {!appuntamentoEdit && (
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-200 bg-white cursor-pointer hover:bg-zinc-50 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={avvisaCliente}
+                        onChange={e => setAvvisaCliente(e.target.checked)}
+                        className="accent-fuchsia-600 mt-0.5"
+                      />
+                      <span className="text-sm">
+                        <span className="font-semibold text-zinc-900 flex items-center gap-1.5"><MessageSquare size={14} className="text-fuchsia-600" /> Avvisa la cliente con SMS</span>
+                        <span className="block text-xs text-zinc-500 mt-0.5">Conferma subito, poi promemoria 24 ore e 1 ora prima.</span>
+                      </span>
+                    </label>
+                  )}
 
                   {/* NOTES EXPNADABLE */}
                   <div className="pt-2">

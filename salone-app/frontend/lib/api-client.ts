@@ -251,7 +251,7 @@ export const clientiApi = {
  * e a mandare, ci pensa il server.
  */
 export const messaggiApi = {
-  manda: async (appuntamentoId: string, tipo: 'conferma' | 'promemoria' = 'conferma') => {
+  manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
 

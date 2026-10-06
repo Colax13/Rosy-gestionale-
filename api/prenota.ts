@@ -19,7 +19,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { database } from './_firebase';
 import { mandaSms, postinoSms } from './_messaggi';
-import { schedaSalone } from './_invio';
+import { schedaSalone, mandaPerAppuntamento, mandaAvvisoSalone } from './_invio';
 import {
   idVerifica, nuovoCodice, puoMandareCodice, controllaCodice, inviiRecenti, testoCodice,
   pulisciPrenotazione, StatoCodice, DURATA_CODICE_MS, SENZA_CODICE_MS, MAX_CODICI_ORA_SALONE
@@ -151,6 +151,18 @@ async function prenota(salonId: string, dati: any, codice: string, res: Risposta
   // Il giorno si calcola sul calendario del salone: il server vive in UTC.
   const riga = disponibilitaPerAppuntamento(salonId, { id: rifApp.id, ...app });
   await db.collection('disponibilita').doc(rifApp.id).set({ ...riga, giorno: giornoDelSalone(new Date(app.data_ora)) });
+
+  // La ricevuta alla cliente e l'avviso al salone partono insieme, prima di
+  // rispondere: su Vercel quello che resta da fare dopo la risposta può
+  // venire interrotto. Se un SMS non parte la prenotazione resta valida: lo
+  // si vede nel registro e in agenda.
+  const scritto = { ...app, userId: salonId, stato: 'in_attesa' };
+  const [ricevuta, avviso] = await Promise.allSettled([
+    mandaPerAppuntamento(db, rifApp.id, scritto, 'ricevuta'),
+    mandaAvvisoSalone(db, rifApp.id, scritto)
+  ]);
+  if (ricevuta.status === 'rejected') console.error('Ricevuta non mandata:', ricevuta.reason);
+  if (avviso.status === 'rejected') console.error('Avviso al salone non mandato:', avviso.reason);
 
   res.status(200).json({ id: rifApp.id, verificato });
 }

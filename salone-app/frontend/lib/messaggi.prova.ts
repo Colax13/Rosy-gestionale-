@@ -1,4 +1,4 @@
-import { componi, quandoScritto, quandoCorto, elencoScritto, segmentiSms, giornoDelSalone, giornoDopo } from './messaggi';
+import { componi, avvisoNuovaRichiesta, TIPI_MESSAGGIO, quandoScritto, quandoCorto, elencoScritto, segmentiSms, giornoDelSalone, giornoDopo } from './messaggi';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -83,8 +83,8 @@ check('le parentesi graffe contano doppio', 6, segmentiSms('a{b}').caratteri);
 const smsConferma = componi('conferma', dati).sms;
 check('la conferma sta in un SMS solo', 1, segmentiSms(smsConferma).segmenti);
 check('e usa l\'alfabeto che non costa', 'normale', segmentiSms(smsConferma).alfabeto);
-check('dice il salone, quando e cosa', true,
-  smsConferma.startsWith('RD Salon:') && smsConferma.includes('gio 1/10 alle 15:30') && smsConferma.includes('Colore e Piega'));
+check('dice il salone, il nome e quando', true,
+  smsConferma.startsWith('RD Salon:') && smsConferma.includes('gio 1/10 alle 15:30') && smsConferma.includes('ciao Maria'));
 
 const smsPromemoria = componi('promemoria', dati).sms;
 check('anche il promemoria sta in uno', 1, segmentiSms(smsPromemoria).segmenti);
@@ -100,7 +100,27 @@ const pieno = componi('conferma', {
 check('anche col nome lungo resta un SMS', 1, segmentiSms(pieno.sms).segmenti);
 check('ma quando e dove non si perdono', true,
   pieno.sms.includes('gio 1/10 alle 15:30') && pieno.sms.includes('RD Salon Parrucchieri Ceccano'));
-check('i servizi si accorciano, non spariscono', true, pieno.sms.includes('Colore e altro'));
+check('niente elenco di servizi nell\'SMS', false, pieno.sms.includes('Colore'));
+
+// --- tutti i messaggi del percorso: un SMS solo, alfabeto che non costa ----
+for (const t of TIPI_MESSAGGIO) {
+  for (const prova of [dati, { ...dati, nomeSalone: 'RD Salon Parrucchieri Ceccano', nomeCliente: 'Mariagrazia Esposito', operatore: 'Annamaria' }]) {
+    const m = componi(t, prova as any);
+    check(`${t}: un SMS solo (${prova.nomeSalone})`, 1, segmentiSms(m.sms).segmenti);
+    check(`${t}: alfabeto normale`, 'normale', segmentiSms(m.sms).alfabeto);
+    check(`${t}: firmato dal salone`, true, m.sms.startsWith(`${prova.nomeSalone}:`));
+  }
+}
+check('ricevuta: dice che arriverà la conferma', true, componi('ricevuta', dati).sms.includes('confermata'));
+check('rifiuto: invita a chiamare', true, /chiamaci/i.test(componi('rifiuto', dati).sms));
+check('1 ora prima: dice l\'ora', true, componi('promemoria_ora', dati).sms.includes('15:30'));
+check('senza nome non scrive "ciao ,"', false, componi('conferma', { ...dati, nomeCliente: '' }).sms.includes('ciao ,'));
+
+const avviso = avvisoNuovaRichiesta({ nomeCliente: 'Maria Rossi', quando: dati.quando, servizi: ['Colore', 'Piega'], operatore: 'Giulia', telefonoCliente: '333 123 4567' });
+check('avviso salone: un SMS solo', 1, segmentiSms(avviso).segmenti);
+check('avviso salone: chi e quando', true, avviso.includes('Maria Rossi') && avviso.includes('gio 1/10 alle 15:30'));
+const avvisoLungo = avvisoNuovaRichiesta({ nomeCliente: 'Mariagrazia Esposito De Santis', quando: dati.quando, servizi: ['Colore', 'Piega', 'Taglio donna', 'Trattamento ricostruzione profonda'], operatore: 'Annamaria', telefonoCliente: '333 123 4567' });
+check('avviso salone lungo: resta un SMS', 1, segmentiSms(avvisoLungo).segmenti);
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

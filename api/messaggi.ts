@@ -43,7 +43,11 @@ export default async function handler(req: Richiesta, res: Risposta) {
 
   try {
     const { appuntamentoId, tipo } = corpo(req);
-    const quale: TipoMessaggio = tipo === 'promemoria' ? 'promemoria' : 'conferma';
+    // Dal gestionale si mandano a mano solo questi: la ricevuta parte dal
+    // server quando la cliente prenota, i promemoria li manda il giro
+    // automatico.
+    const AMMESSI: TipoMessaggio[] = ['conferma', 'rifiuto', 'promemoria'];
+    const quale: TipoMessaggio = AMMESSI.includes(tipo) ? tipo : 'conferma';
 
     if (!appuntamentoId || typeof appuntamentoId !== 'string') {
       res.status(400).json({ errore: "Manca il numero dell'appuntamento." });
