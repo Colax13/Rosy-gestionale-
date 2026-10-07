@@ -2,7 +2,9 @@
 // Si prova che gli strumenti leggano bene e che la proposta sia giusta.
 process.env.TZ = 'Europe/Rome';
 
-import { chiediARosy, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Dati, Proposta } from '../../../api/_rosy';
+import { chiediARosy, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Maschera, STRUMENTI, Dati, Proposta } from '../../../api/_rosy';
+import { richiestaPerOpenAI, rispostaDaOpenAI } from '../../../api/_traduttore';
+import { iaVera } from '../../../api/rosy';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -62,7 +64,9 @@ const dati: Dati = {
 
   // --- scheda cliente
   const scheda = await eseguiStrumento('cerca_cliente', { testo: 'Maria Rossi' }, dati, adesso, []);
-  check('cliente: note', 'Allergica alla PPD', scheda.clienti[0].note);
+  check('cliente: telefono e note NON vanno all\'IA', [undefined, undefined, true, true],
+    [scheda.clienti[0].telefono, scheda.clienti[0].note, scheda.clienti[0].ha_telefono, scheda.clienti[0].ha_note]);
+  check('cliente: nessun numero nel risultato', false, /333|1234567/.test(JSON.stringify(scheda)));
   check('cliente: ultima visita con i servizi', true, /Piega/.test(scheda.clienti[0].ultima_visita));
 
   // --- orari liberi
@@ -134,6 +138,78 @@ const dati: Dati = {
   try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, async () => ({ ok: false, stato: 429, json: { error: { message: 'quota' } } }), adesso); }
   catch (e) { errore = e; }
   check('chat: limite di Google spiegato', true, errore instanceof ErroreGemini && /limite/.test(spiegaErroreGemini(errore)));
+
+  // --- privacy: telefoni ed email non arrivano all'IA
+  const m = new Maschera();
+  const nascosto = m.nascondi('Fissa Lucia Verdi 320 999 8888, lucia@posta.it, sabato 2026-10-10 alle 10:00');
+  check('maschera: telefono ed email sostituiti', 'Fissa Lucia Verdi [telefono 1], [email 1], sabato 2026-10-10 alle 10:00', nascosto);
+  check('maschera: stesso numero, stesso segnaposto', '[telefono 1]', m.nascondi('320 999 8888'));
+  check('maschera: rimessi negli argomenti', { telefono: '320 999 8888', servizi: ['Piega'] }, m.mostra({ telefono: '[telefono 1]', servizi: ['Piega'] }));
+  check('maschera: +39 e trattini', '[telefono 1]', new Maschera().nascondi('+39 333-1234567'));
+  check('maschera: date e prezzi restano', 'il 10/10 costa 45 €, ore 15:30', new Maschera().nascondi('il 10/10 costa 45 €, ore 15:30'));
+
+  const visti: any[] = [];
+  const spia = async (corpo: any) => {
+    visti.push(JSON.parse(JSON.stringify(corpo)));
+    if (visti.length === 1) {
+      return { ok: true, stato: 200, json: { candidates: [{ content: { role: 'model', parts: [
+        { functionCall: { name: 'proponi_appuntamento', args: { cliente_nome: 'Lucia Verdi', telefono: '[telefono 1]', servizi: ['Piega'], data: '2026-10-10', ora: '15:00' } } }
+      ] } }] } };
+    }
+    return { ok: true, stato: 200, json: { candidates: [{ content: { parts: [{ text: 'Fatto: la richiamo al [telefono 1].' }] } }] } };
+  };
+  const conNumero = await chiediARosy([{ ruolo: 'utente', testo: 'Piega per Lucia Verdi 320 999 8888 sabato alle 15' }], dati, spia, adesso);
+  check('privacy: il numero non è mai partito', false, visti.some(v => /999 ?8888/.test(JSON.stringify(v))));
+  check('privacy: la proposta ha il numero vero', '320 999 8888', conNumero.proposte[0]?.cliente.telefono);
+  check('privacy: la risposta mostra il numero vero', 'Fatto: la richiamo al 320 999 8888.', conNumero.testo);
+
+  // --- traduttore Gemini ⇄ OpenAI
+  const corpoGemini = {
+    systemInstruction: { parts: [{ text: 'Sei Rosy' }] },
+    contents: [
+      { role: 'user', parts: [{ text: 'chi ho domani?' }] },
+      { role: 'model', parts: [{ functionCall: { name: 'leggi_agenda', args: { dal: '2026-10-08' } }, thoughtSignature: 'x' }] },
+      { role: 'user', parts: [{ functionResponse: { name: 'leggi_agenda', response: { totale: 0 } } }] }
+    ],
+    tools: [{ functionDeclarations: STRUMENTI }],
+    generationConfig: { temperature: 0.3 }
+  };
+  const oa = richiestaPerOpenAI(corpoGemini, 'openai/gpt-oss-120b', { reasoning_effort: 'low' });
+  check('traduttore: ruoli', ['system', 'user', 'assistant', 'tool'], oa.messages.map((x: any) => x.role));
+  check('traduttore: chiamata e risposta abbinate', oa.messages[2].tool_calls[0].id, oa.messages[3].tool_call_id);
+  check('traduttore: argomenti in JSON', '{"dal":"2026-10-08"}', oa.messages[2].tool_calls[0].function.arguments);
+  check('traduttore: tipi in minuscolo', 'object', oa.tools[0].function.parameters.type);
+  check('traduttore: niente maiuscole negli schemi', false, /"(OBJECT|STRING|ARRAY)"/.test(JSON.stringify(oa.tools)));
+  check('traduttore: impostazioni extra', ['low', 'openai/gpt-oss-120b'], [oa.reasoning_effort, oa.model]);
+  const ritorno = rispostaDaOpenAI({ choices: [{ message: { content: null, tool_calls: [{ id: 'q', type: 'function', function: { name: 'listino', arguments: '{}' } }] } }] });
+  check('traduttore: ritorno con strumento', [{ functionCall: { name: 'listino', args: {} } }], ritorno.candidates[0].content.parts);
+  check('traduttore: ritorno con testo', [{ text: 'Ciao!' }], rispostaDaOpenAI({ choices: [{ message: { content: 'Ciao!' } }] }).candidates[0].content.parts);
+
+  // --- la catena: Gemini sovraccarico → Groq
+  const fetchVero = (globalThis as any).fetch;
+  const indirizzi: string[] = [];
+  (globalThis as any).fetch = async (url: string, init: any) => {
+    indirizzi.push(url.includes('groq') ? 'groq' : url.includes('openrouter') ? 'openrouter' : 'gemini');
+    const risposta = (status: number, j: any) => ({ ok: status === 200, status, json: async () => j });
+    if (url.includes('googleapis')) return risposta(503, { error: { message: 'The model is overloaded' } });
+    if (url.includes('groq')) {
+      const b = JSON.parse(init.body);
+      return b.messages?.[0]?.role === 'system' && b.tools?.length
+        ? risposta(200, { choices: [{ message: { content: 'Ciao da Groq' } }] })
+        : risposta(400, { error: { message: 'richiesta strana' } });
+    }
+    return risposta(500, {});
+  };
+  const riserveFinte = [{ fornitore: 'groq' as const, url: 'https://api.groq.com/openai/v1/chat/completions', chiave: 'k', modello: 'openai/gpt-oss-120b', intestazioni: {} }];
+  const viaGroq = await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), riserveFinte), adesso);
+  check('catena: risponde Groq quando Gemini è giù', 'Ciao da Groq', viaGroq.testo);
+  check('catena: un solo tentativo per modello Gemini sovraccarico', true, indirizzi.filter(x => x === 'gemini').length <= 6 && indirizzi.at(-1) === 'groq');
+  (globalThis as any).fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: { message: 'overloaded' } }) });
+  let tuttiGiu: any = null;
+  try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), riserveFinte), adesso); }
+  catch (e) { tuttiGiu = e; }
+  check('catena: tutti giù → messaggio chiaro', true, tuttiGiu instanceof ErroreGemini && /sovraccarichi/.test(spiegaErroreGemini(tuttiGiu)));
+  (globalThis as any).fetch = fetchVero;
 
   console.log(`\n${ok} ok, ${ko} ko`);
   if (ko) process.exit(1);
