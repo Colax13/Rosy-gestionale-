@@ -56,6 +56,8 @@ check('fissato: dalla conferma', new Date(LONTANO).getTime(), fissatoIl({ messag
 check('fissato: dalla creazione (Timestamp)', 1000, fissatoIl({ createdAt: { toMillis: () => 1000 } }));
 check('fissato: dalla creazione (secondi)', 2000, fissatoIl({ createdAt: { _seconds: 2 } }));
 check('fissato: sconosciuto', 0, fissatoIl({}));
+check('fissato: lo spostamento più recente vince', new Date('2026-09-30T08:00:00Z').getTime(),
+  fissatoIl({ messaggi: { conferma: { quando: LONTANO }, spostamento: { quando: '2026-09-30T08:00:00Z' } } }));
 
 // Il giorno del cambio dell'ora: 24 ore prima resta "domani".
 const cambio = sceltaPromemoria([app('dopo-cambio', '2026-10-25T10:00:00+01:00')], new Date('2026-10-24T11:15:00+02:00'));

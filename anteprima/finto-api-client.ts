@@ -159,6 +159,8 @@ export const clientiApi = {
 
 // Nell'anteprima non parte niente: si finge che sia arrivato, così si vede
 // che cosa dice l'agenda quando va bene.
+export const azzeraPromemoria = () => ({});
+
 export const messaggiApi = {
   manda: async (id: string, tipo?: string) => {
     console.log(`[anteprima] SMS ${tipo || 'conferma'} per ${id}`);

@@ -5,6 +5,7 @@
 //   ricevuta        → ha prenotato dal sito: "abbiamo ricevuto la richiesta"
 //   conferma        → il salone l'ha messa in agenda (o l'ha fissata lui)
 //   rifiuto         → l'orario non va bene: "chiamaci e troviamo un altro orario"
+//   spostamento     → il salone ha spostato un appuntamento già confermato
 //   promemoria      → 24 ore prima
 //   promemoria_ora  → 1 ora prima
 //
@@ -16,15 +17,16 @@
 // le mette dentro WhatsApp quando l'email non c'è o non è ancora accesa. Un
 // posto solo da cambiare, e la cliente legge sempre la stessa cosa.
 
-export type TipoMessaggio = 'ricevuta' | 'conferma' | 'rifiuto' | 'promemoria' | 'promemoria_ora';
+export type TipoMessaggio = 'ricevuta' | 'conferma' | 'rifiuto' | 'spostamento' | 'promemoria' | 'promemoria_ora';
 
-export const TIPI_MESSAGGIO: TipoMessaggio[] = ['ricevuta', 'conferma', 'rifiuto', 'promemoria', 'promemoria_ora'];
+export const TIPI_MESSAGGIO: TipoMessaggio[] = ['ricevuta', 'conferma', 'rifiuto', 'spostamento', 'promemoria', 'promemoria_ora'];
 
 /** Come si chiama ogni messaggio nel registro e negli avvisi. */
 export const NOME_MESSAGGIO: Record<TipoMessaggio | 'avviso_salone' | 'prova', string> = {
   ricevuta: 'Richiesta ricevuta',
   conferma: 'Appuntamento confermato',
   rifiuto: 'Orario non disponibile',
+  spostamento: 'Appuntamento spostato',
   promemoria: 'Promemoria 24 ore prima',
   promemoria_ora: 'Promemoria 1 ora prima',
   avviso_salone: 'Avviso nuova richiesta al salone',
@@ -163,6 +165,12 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
       '',
       `Ci dispiace! ${chiamaci.charAt(0).toUpperCase() + chiamaci.slice(1)} e troviamo insieme un altro orario.`
     ],
+    spostamento: [
+      `il tuo appuntamento da ${d.nomeSalone} è stato spostato:`,
+      appuntamento,
+      '',
+      `Se il nuovo orario non ti va bene, ${chiamaci}. Ti aspettiamo!`
+    ],
     promemoria: [
       `ti ricordiamo il tuo appuntamento di domani da ${d.nomeSalone}:`,
       appuntamento,
@@ -204,6 +212,8 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
         return `${salone}: ${ciaoSms}il tuo appuntamento è confermato per ${quandoSms}${chi}. Ti aspettiamo!${conTel && telSms ? ` Per info ${telSms}` : ''}`;
       case 'rifiuto':
         return `${salone}: ${ciaoSms}purtroppo ${quandoSms} non è più disponibile. ${conTel && telSms ? `Chiamaci allo ${telSms}` : 'Chiamaci'} e troviamo insieme un altro orario.`;
+      case 'spostamento':
+        return `${salone}: ${ciaoSms}il tuo appuntamento è stato spostato a ${quandoSms}${chi}. Ti aspettiamo!${conTel && telSms ? ` Per info ${telSms}` : ''}`;
       case 'promemoria':
         return `${salone}: ${ciaoSms}ti ricordiamo il tuo appuntamento di domani, ${quandoSms}${chi}. ${conTel && telSms ? `Per spostarlo chiamaci allo ${telSms}.` : 'A domani!'}`;
       case 'promemoria_ora':
@@ -218,6 +228,7 @@ export function componi(tipo: TipoMessaggio, d: DatiMessaggio): Messaggio {
     ricevuta: `Richiesta ricevuta — ${quandoScritto(d.quando)}`,
     conferma: `Appuntamento confermato — ${quandoScritto(d.quando)}`,
     rifiuto: `Orario non disponibile — ${quandoScritto(d.quando)}`,
+    spostamento: `Appuntamento spostato — ${quandoScritto(d.quando)}`,
     promemoria: `Promemoria: domani ${quandoScritto(d.quando)}`,
     promemoria_ora: `Ti aspettiamo alle ${oraSms}`
   };

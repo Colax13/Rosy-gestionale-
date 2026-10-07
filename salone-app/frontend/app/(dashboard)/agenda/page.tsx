@@ -3,7 +3,7 @@
 // Top of the file imports ...
 // We just need to add the state for selected user.
 import { useState, useEffect, useRef } from 'react';
-import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi, messaggiApi } from '@/lib/api-client';
+import { appuntamentiApi, dipendentiApi, salonApi, disponibilitaApi, vetrinaApi, clientiApi, messaggiApi, azzeraPromemoria } from '@/lib/api-client';
 import { Calendar as CalendarIcon, Clock, User, Users, Scissors, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Filter, Trash2, ChevronDown, MoreVertical, Edit2, Shield, X, FileText, Download, CheckCircle2, Ticket, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
@@ -189,6 +189,41 @@ export default function PaginaAgenda() {
   const [appuntamenti, setAppuntamenti] = useState<Appuntamento[]>([]);
   const [dipendenti, setDipendenti] = useState<any[]>([]);
   const [ordinaAperto, setOrdinaAperto] = useState(false);
+
+  // SMS "appuntamento spostato" dopo un trascinamento: parte fra qualche
+  // secondo, così chi aggiusta l'orario due volte di fila manda un SMS solo,
+  // e chi ha sbagliato a trascinare fa in tempo a dire "Non avvisare".
+  const ATTESA_SMS_SPOSTAMENTO = 8000;
+  const [smsSpostamento, setSmsSpostamento] = useState<{ id: string; chi: string; quando: string } | null>(null);
+  const timerSpostamento = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const daAvvisare = useRef<string | null>(null);
+  const mandaSpostamento = (id: string) => {
+    messaggiApi.manda(id, 'spostamento')
+      .then(esito => { if (!esito.mandato) setAvvisoSpostamento(`Spostato, ma l'SMS alla cliente non è partito — ${esito.motivo} Avvisala tu con Ricontatta.`); })
+      .catch(() => setAvvisoSpostamento("Spostato, ma l'SMS alla cliente non è partito. Avvisala tu con Ricontatta."));
+  };
+  const programmaSmsSpostamento = (id: string, chi: string, quando: string) => {
+    // Un altro appuntamento in attesa: quello parte subito, non si perde.
+    if (daAvvisare.current && daAvvisare.current !== id) mandaSpostamento(daAvvisare.current);
+    if (timerSpostamento.current) clearTimeout(timerSpostamento.current);
+    daAvvisare.current = id;
+    setSmsSpostamento({ id, chi, quando });
+    timerSpostamento.current = setTimeout(() => {
+      if (daAvvisare.current) mandaSpostamento(daAvvisare.current);
+      daAvvisare.current = null;
+      setSmsSpostamento(null);
+    }, ATTESA_SMS_SPOSTAMENTO);
+  };
+  const annullaSmsSpostamento = () => {
+    if (timerSpostamento.current) clearTimeout(timerSpostamento.current);
+    daAvvisare.current = null;
+    setSmsSpostamento(null);
+  };
+  // Se si lascia la pagina prima dello scadere, l'SMS parte lo stesso.
+  useEffect(() => () => {
+    if (timerSpostamento.current) clearTimeout(timerSpostamento.current);
+    if (daAvvisare.current) mandaSpostamento(daAvvisare.current);
+  }, []);
 
   // L'ora di adesso, per la linea verde sul calendario. Si aggiorna ogni 30
   // secondi: abbastanza per vederla scendere, senza ridisegnare per niente.
@@ -761,8 +796,16 @@ export default function PaginaAgenda() {
         id_dipendente: dipendente.id === 'unassigned' ? null : dipendente.id,
         dipendenti: dipendente.id === 'unassigned'
           ? null
-          : { id: dipendente.id, nome: dipendente.nome, cognome: dipendente.cognome || '' }
+          : { id: dipendente.id, nome: dipendente.nome, cognome: dipendente.cognome || '' },
+        // Orario nuovo: i promemoria ripartono per quello.
+        ...(stessoOrario ? {} : azzeraPromemoria())
       });
+      // Appuntamento già confermato con l'orario cambiato: la cliente lo
+      // deve sapere. Se cambia solo l'operatrice, niente SMS.
+      if (!stessoOrario && app.stato === 'confermato' && (app as any).id_cliente !== 'block-client' && !(app as any).sms_spenti) {
+        const chi = (app.clienti?.nome || '').trim().split(/\s+/)[0] || 'la cliente';
+        programmaSmsSpostamento(app.id, chi, formattaOrario(nuovaData.toISOString()));
+      }
       caricaAgenda();
     } catch (err) {
       setAppuntamenti(precedenti);
@@ -1689,6 +1732,15 @@ export default function PaginaAgenda() {
                </>
              )}
           </div>
+        </div>
+      )}
+
+      {smsSpostamento && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 pl-4 pr-2 py-2 rounded-full bg-zinc-900 text-white text-sm shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[calc(100vw-2rem)]">
+          <span className="truncate">SMS a {smsSpostamento.chi}: spostato alle {smsSpostamento.quando}</span>
+          <button onClick={annullaSmsSpostamento} className="shrink-0 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 font-semibold transition-colors">
+            Non avvisare
+          </button>
         </div>
       )}
 

@@ -47,7 +47,7 @@ export default async function handler(req: Richiesta, res: Risposta) {
     // Dal gestionale si mandano a mano solo questi: la ricevuta parte dal
     // server quando la cliente prenota, i promemoria li manda il giro
     // automatico.
-    const AMMESSI: TipoMessaggio[] = ['conferma', 'rifiuto', 'promemoria'];
+    const AMMESSI: TipoMessaggio[] = ['conferma', 'rifiuto', 'spostamento', 'promemoria'];
     const quale: TipoMessaggio = AMMESSI.includes(tipo) ? tipo : 'conferma';
 
     if (azione !== 'prova' && (!appuntamentoId || typeof appuntamentoId !== 'string')) {

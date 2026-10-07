@@ -113,6 +113,7 @@ for (const t of TIPI_MESSAGGIO) {
 }
 check('ricevuta: dice che arriverà la conferma', true, componi('ricevuta', dati).sms.includes('confermata'));
 check('rifiuto: invita a chiamare', true, /chiamaci/i.test(componi('rifiuto', dati).sms));
+check('spostamento: dice il nuovo orario', true, componi('spostamento', dati).sms.includes('spostato') && componi('spostamento', dati).sms.includes('gio 1/10 alle 15:30'));
 check('1 ora prima: dice l\'ora', true, componi('promemoria_ora', dati).sms.includes('15:30'));
 check('senza nome non scrive "ciao ,"', false, componi('conferma', { ...dati, nomeCliente: '' }).sms.includes('ciao ,'));
 
