@@ -156,5 +156,7 @@ dalla cartella del progetto.
 
 - Non servono variabili d'ambiente su Vercel.
 - `GEMINI_API_KEY` serve solo a Rosy (la chat IA): senza, la chat risponde che non è accesa.
+  Riserve facoltative, gratuite: `GROQ_API_KEY` e `OPENROUTER_API_KEY` (modelli
+  cambiabili con `GROQ_MODEL` e `OPENROUTER_MODEL`).
 - Non serve cancellare il progetto Vercel vecchio: si tiene finché il nuovo
   non è collaudato, poi si spegne con calma.

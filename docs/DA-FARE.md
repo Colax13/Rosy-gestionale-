@@ -813,3 +813,11 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   ricordato; all'apertura della chat il server si prepara (listino,
   operatrici, rubrica); operatrici, listino e agenda di oggi e domani sono già
   nelle istruzioni, così le domande comuni si risolvono in un giro solo.
+- **Rosy: riserve gratuite e riservatezza.** Se Gemini è sovraccarico, ha
+  finito le domande gratuite o non risponde, Rosy passa a **Groq** e poi a
+  **OpenRouter** (modello di base `gpt-oss-120b` di OpenAI, aperto). Si
+  accendono mettendo `GROQ_API_KEY` / `OPENROUTER_API_KEY` su Vercel; i
+  modelli si cambiano con `GROQ_MODEL` / `OPENROUTER_MODEL`. `/api/salute`
+  dice se funzionano (`rosy_ia_riserve`).
+  All'IA non arrivano più telefoni, email e note delle clienti: nella chat i
+  numeri diventano "[telefono 1]" e il gestionale rimette quelli veri dopo.

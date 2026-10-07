@@ -122,7 +122,7 @@ export const STRUMENTI = [
   },
   {
     name: 'cerca_cliente',
-    description: "Cerca una cliente per nome, cognome o telefono. Restituisce contatti, note, ultima visita con i servizi fatti e il prossimo appuntamento.",
+    description: "Cerca una cliente per nome, cognome o telefono. Restituisce se ha telefono e note in scheda, ultima visita con i servizi fatti e il prossimo appuntamento.",
     parameters: {
       type: 'OBJECT',
       properties: { testo: { type: 'STRING', description: 'Nome, cognome o numero di telefono' } },
@@ -213,8 +213,9 @@ export async function eseguiStrumento(nome: string, args: any, dati: Dati, adess
         return {
           id: c.id,
           nome: `${c.nome || ''} ${c.cognome || ''}`.trim(),
-          telefono: c.telefono || '',
-          note: noteDaMostrare(c),
+          // Telefono e note restano nel gestionale: all'IA si dice solo se ci sono.
+          ha_telefono: !!soloCifre(c.telefono),
+          ha_note: !!noteDaMostrare(c),
           ultima_visita: ultimo ? `${quandoCorto(new Date(ultimo.data_ora))} — ${elencoScritto(serviziDi(ultimo)) || 'servizi non indicati'}${ultimo.dipendenti?.nome ? ` con ${nomeOperatore(ultimo.dipendenti)}` : ''}` : 'mai venuta',
           prossimo_appuntamento: prossimo ? `${quandoCorto(new Date(prossimo.data_ora))} — ${elencoScritto(serviziDi(prossimo))}` : 'nessuno'
         };
@@ -362,6 +363,7 @@ export function istruzioni(nomeSalone: string, adesso: Date, contesto = ''): str
     'Per fissare un appuntamento: trova la cliente con cerca_cliente, controlla gli orari con orari_liberi, poi usa proponi_appuntamento. L’appuntamento NON è salvato finché chi ti scrive non preme "Conferma": dillo chiaramente e non dire mai che è già fissato.',
     'Se mancano informazioni (quale cliente, quale servizio, che ora), chiedile in una frase.',
     'Non puoi cancellare né spostare appuntamenti: per quello si usa l’agenda.',
+    'Per riservatezza non vedi telefoni, email e note delle clienti: i numeri e le email scritti in chat ti arrivano come [telefono 1], [email 1]; passali agli strumenti così come sono. Se ti chiedono le note o il numero di una cliente, di’ di aprire la sua scheda nel gestionale.',
     'Risposte corte: elenchi puntati per gli appuntamenti, niente tabelle, niente codici o id.',
     ...(contesto ? [
       'Qui sotto ci sono già operatrici, listino e agenda di oggi e domani: se la risposta è lì, rispondi subito senza usare strumenti. Per gli altri giorni, le clienti e gli orari liberi usa gli strumenti.',
@@ -407,6 +409,47 @@ export async function contestoGiornata(dati: Dati, adesso: Date): Promise<string
 
 export interface MessaggioChat { ruolo: 'utente' | 'rosy'; testo: string }
 
+/**
+ * Telefoni ed email non arrivano mai all'IA. Nella chat si sostituiscono con
+ * un segnaposto ("[telefono 1]"); quando l'IA lo usa in uno strumento, o lo
+ * scrive nella risposta, qui si rimette il valore vero. Il segnaposto vale
+ * solo per la domanda in corso.
+ */
+export class Maschera {
+  private veri = new Map<string, string>();
+  private conti = { telefono: 0, email: 0 };
+
+  private segnaposto(tipo: 'telefono' | 'email', vero: string): string {
+    for (const [k, v] of this.veri) if (v === vero) return k;
+    const k = `[${tipo} ${++this.conti[tipo]}]`;
+    this.veri.set(k, vero);
+    return k;
+  }
+
+  nascondi(testo: string): string {
+    return testo
+      .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, e => this.segnaposto('email', e))
+      .replace(/\+?\d[\d\s-]{6,}\d/g, n => {
+        const cifre = n.replace(/\D/g, '');
+        // Le date (2026-10-10) e i numeri corti non sono telefoni.
+        if (cifre.length < 8 || cifre.length > 15 || /^\d{4}-\d{2}-\d{2}$/.test(n.trim())) return n;
+        return this.segnaposto('telefono', n.trim());
+      });
+  }
+
+  /** Rimette i valori veri, anche dentro gli argomenti di uno strumento. */
+  mostra<T>(valore: T): T {
+    if (typeof valore === 'string') {
+      return valore.replace(/\[(telefono|email) \d+\]/g, k => this.veri.get(k) ?? k) as any;
+    }
+    if (Array.isArray(valore)) return valore.map(v => this.mostra(v)) as any;
+    if (valore && typeof valore === 'object') {
+      return Object.fromEntries(Object.entries(valore).map(([k, v]) => [k, this.mostra(v)])) as any;
+    }
+    return valore;
+  }
+}
+
 export type ChiamaGemini = (corpo: any) => Promise<{ ok: boolean; stato: number; json: any }>;
 
 export interface RispostaRosy { testo: string; proposte: Proposta[] }
@@ -419,10 +462,11 @@ export async function chiediARosy(
   adesso = new Date(),
   giri = 6
 ): Promise<RispostaRosy> {
+  const maschera = new Maschera();
   const contents: any[] = storia
     .filter(m => m && typeof m.testo === 'string' && m.testo.trim())
     .slice(-12)
-    .map(m => ({ role: m.ruolo === 'rosy' ? 'model' : 'user', parts: [{ text: m.testo.slice(0, 2000) }] }));
+    .map(m => ({ role: m.ruolo === 'rosy' ? 'model' : 'user', parts: [{ text: maschera.nascondi(m.testo.slice(0, 2000)) }] }));
   if (!contents.length || contents[contents.length - 1].role !== 'user') {
     return { testo: 'Scrivimi pure una domanda.', proposte: [] };
   }
@@ -437,21 +481,21 @@ export async function chiediARosy(
       tools: [{ functionDeclarations: STRUMENTI }],
       generationConfig: { temperature: 0.3 }
     });
-    if (!risposta.ok) throw new ErroreGemini(risposta.stato, risposta.json?.error?.message || '');
+    if (!risposta.ok) throw new ErroreGemini(risposta.stato, risposta.json?.error?.message || '', risposta.json?.error?.fornitore);
 
     const contenuto = risposta.json?.candidates?.[0]?.content;
     const parti: any[] = contenuto?.parts || [];
     const chiamate = parti.filter(p => p.functionCall);
     if (!chiamate.length) {
       const testo = parti.map(p => p.text || '').join('').trim();
-      return { testo: testo || 'Non sono riuscita a rispondere: prova a riformulare.', proposte };
+      return { testo: maschera.mostra(testo) || 'Non sono riuscita a rispondere: prova a riformulare.', proposte };
     }
 
     // Il turno del modello va rimesso com'è (con le sue firme), poi le risposte.
     contents.push({ role: 'model', parts: parti });
     const risultati = await Promise.all(chiamate.map(async p => {
       let esito: any;
-      try { esito = await eseguiStrumento(p.functionCall.name, p.functionCall.args, dati, adesso, proposte); }
+      try { esito = await eseguiStrumento(p.functionCall.name, maschera.mostra(p.functionCall.args), dati, adesso, proposte); }
       catch (err: any) { esito = { errore: `Non sono riuscita a leggere i dati: ${err?.message || 'errore'}` }; }
       return { functionResponse: { name: p.functionCall.name, response: esito } };
     }));
@@ -461,18 +505,24 @@ export async function chiediARosy(
 }
 
 export class ErroreGemini extends Error {
-  constructor(public stato: number, public dettaglio: string) { super(`Gemini ${stato}: ${dettaglio}`); }
+  constructor(public stato: number, public dettaglio: string, public fornitore = 'gemini') {
+    super(`${fornitore} ${stato}: ${dettaglio}`);
+  }
 }
+
+const CHIAVE_DI: Record<string, string> = { gemini: 'GEMINI_API_KEY', groq: 'GROQ_API_KEY', openrouter: 'OPENROUTER_API_KEY' };
 
 /** Che cosa dire a chi usa il gestionale quando Gemini rifiuta. */
 export function spiegaErroreGemini(err: ErroreGemini): string {
-  if (err.stato === 429) return 'Ho ricevuto troppe domande in poco tempo (limite del piano gratuito di Google): riprova fra un minuto.';
-  if (err.stato === 400 && /api key/i.test(err.dettaglio)) return 'La chiave di Gemini non è valida: controlla GEMINI_API_KEY su Vercel.';
-  if (err.stato === 401 || err.stato === 403) return 'La chiave di Gemini non è valida o non ha i permessi: controlla GEMINI_API_KEY su Vercel.';
-  if (err.stato === 504) return 'Google ci sta mettendo troppo a rispondere: riprova fra poco, o fai una domanda più semplice.';
-  if (err.stato === 404) return 'Il modello di Gemini indicato non esiste: controlla GEMINI_MODEL su Vercel, o toglila.';
-  if (err.stato >= 500) return 'Google in questo momento è sovraccarico (succede nelle ore di punta): riprova fra qualche secondo.';
-  return `Gemini ha rifiutato la domanda (${err.stato}): ${err.dettaglio || 'senza spiegazione'}`;
+  const chiave = CHIAVE_DI[err.fornitore] || 'la chiave';
+  const chi = err.fornitore === 'gemini' ? 'Gemini' : err.fornitore === 'groq' ? 'Groq' : err.fornitore === 'openrouter' ? 'OpenRouter' : err.fornitore;
+  if (err.stato === 429) return 'Ho ricevuto troppe domande in poco tempo (limite dei piani gratuiti): riprova fra un minuto.';
+  if (err.stato === 400 && /api key/i.test(err.dettaglio)) return `La chiave di ${chi} non è valida: controlla ${chiave} su Vercel.`;
+  if (err.stato === 401 || err.stato === 403) return `La chiave di ${chi} non è valida o non ha i permessi: controlla ${chiave} su Vercel.`;
+  if (err.stato === 504) return 'Il servizio di IA ci sta mettendo troppo a rispondere: riprova fra poco, o fai una domanda più semplice.';
+  if (err.stato === 404) return `Il modello di ${chi} indicato non esiste più: controlla le variabili del modello su Vercel, o toglile.`;
+  if (err.stato >= 500) return 'I servizi di IA in questo momento sono sovraccarichi: riprova fra qualche secondo.';
+  return `${chi} ha rifiutato la domanda (${err.stato}): ${err.dettaglio || 'senza spiegazione'}`;
 }
 
 export { GIORNI_TURNI };

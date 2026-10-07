@@ -4,7 +4,7 @@
 // Non mostra mai una chiave né un pezzo di essa: dice solo se funzionano.
 
 import { credenziali, firebase } from './_firebase';
-import { MODELLI_GEMINI } from './_gemini';
+import { MODELLI_GEMINI, riserve, Riserva } from './_gemini';
 
 /**
  * Rosy (Gemini): la chiave c'è, e Google la accetta? Si chiede solo la scheda
@@ -42,6 +42,34 @@ interface Risposta {
   setHeader(nome: string, valore: string): void;
 }
 
+/**
+ * Le riserve (Groq, OpenRouter): la chiave è accettata e il modello scelto
+ * c'è ancora? Si leggono solo gli elenchi dei modelli, che non consumano
+ * domande gratuite.
+ */
+async function statoRiserva(r: Riserva): Promise<string> {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 8000);
+  try {
+    const base = r.fornitore === 'groq' ? 'https://api.groq.com/openai/v1' : 'https://openrouter.ai/api/v1';
+    const intestazioni = { Authorization: `Bearer ${r.chiave}` };
+    if (r.fornitore === 'openrouter') {
+      // L'elenco dei modelli di OpenRouter è pubblico: la chiave si prova a parte.
+      const k = await fetch(`${base}/key`, { headers: intestazioni, signal: stop.signal });
+      if (!k.ok) return `non funziona — la chiave è rifiutata (${k.status})`;
+    }
+    const m = await fetch(`${base}/models`, { headers: intestazioni, signal: stop.signal });
+    if (!m.ok) return `non funziona — ${m.status}`;
+    const dati: any = await m.json().catch(() => ({}));
+    const presente = (dati.data || []).some((x: any) => x?.id === r.modello);
+    return presente ? `a posto (${r.modello})` : `chiave a posto, ma il modello ${r.modello} non c'è più: cambialo su Vercel`;
+  } catch {
+    return 'non risponde (più di 8 secondi)';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default async function handler(_req: unknown, res: Risposta) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -60,9 +88,17 @@ export default async function handler(_req: unknown, res: Risposta) {
 
   const buoniDalFoglio = process.env.BUONI_FOGLIO_ID ? 'acceso' : 'spento (manca BUONI_FOGLIO_ID)';
 
-  const gemini = await statoGemini();
+  const elencoRiserve = riserve();
+  const [gemini, ...statiRiserve] = await Promise.all([statoGemini(), ...elencoRiserve.map(statoRiserva)]);
+  const rosyRiserve = Object.fromEntries([
+    ['groq', process.env.GROQ_API_KEY ? '' : 'spenta (manca GROQ_API_KEY)'],
+    ['openrouter', process.env.OPENROUTER_API_KEY ? '' : 'spenta (manca OPENROUTER_API_KEY)']
+  ].map(([nome, spenta]) => {
+    const i = elencoRiserve.findIndex(r => r.fornitore === nome);
+    return [nome, i >= 0 ? statiRiserve[i] : spenta];
+  }));
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio, rosy_ia: gemini };
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio, rosy_ia: gemini, rosy_ia_riserve: rosyRiserve };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({
