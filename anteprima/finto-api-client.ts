@@ -161,6 +161,31 @@ export const clientiApi = {
 // che cosa dice l'agenda quando va bene.
 export const azzeraPromemoria = () => ({});
 
+// Rosy finta: risponde sempre con una proposta, per vedere il pulsante Conferma.
+export const rosyApi = {
+  chiedi: async (storia: any[]) => {
+    await new Promise(r => setTimeout(r, 600));
+    const domanda = (storia[storia.length - 1]?.testo || '').toLowerCase();
+    if (!/fiss|prenot|appuntamento/.test(domanda)) {
+      return { testo: 'Domani hai 3 appuntamenti:\n• 09:00 Maria Rossi — Piega con Giulia\n• 11:00 Anna Verdi — Colore\n• 15:30 Sara Neri — Taglio', proposte: [] };
+    }
+    const data = new Date(); data.setDate(data.getDate() + 3); data.setHours(10, 0, 0, 0);
+    return {
+      testo: 'Ho preparato la proposta qui sotto: non è ancora salvata, premi "Conferma" per fissarla.',
+      proposte: [{
+        riepilogo: `Maria Rossi · ${data.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })} 10:00 · Piega · con Giulia`,
+        cliente: { id: clienti[0]?.id, nome: 'Maria', cognome: 'Rossi', telefono: '+39 333 1234567' },
+        appuntamento: {
+          data_ora: data.toISOString(), id_cliente: clienti[0]?.id, id_dipendente: 'd2', note: '', stato: 'confermato',
+          clienti: { nome: 'Maria', cognome: 'Rossi', telefono: '+39 333 1234567' },
+          dipendenti: { id: 'd2', nome: 'Giulia', cognome: 'Ferraro' },
+          righe_appuntamento: [{ id_dipendente: null, id_dipendente_finitura: null, servizi_catalogo: { nome: 'Piega', durata_minuti: 30 } }]
+        }
+      }]
+    };
+  }
+};
+
 export const messaggiApi = {
   manda: async (id: string, tipo?: string) => {
     console.log(`[anteprima] SMS ${tipo || 'conferma'} per ${id}`);

@@ -261,6 +261,26 @@ export const azzeraPromemoria = () => ({
   'messaggi_errore.promemoria_ora': deleteField()
 });
 
+/**
+ * Rosy, l'assistente: si manda la conversazione, torna la risposta e le
+ * eventuali proposte di appuntamento. Le proposte NON sono salvate: le salva
+ * il gestionale quando si preme "Conferma".
+ */
+export const rosyApi = {
+  chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[] }> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+    const risposta = await fetch('/api/rosy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ storia })
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok) throw new Error(dati?.errore || 'Rosy non ha risposto: riprova fra poco.');
+    return { testo: dati.testo || '', proposte: Array.isArray(dati.proposte) ? dati.proposte : [] };
+  }
+};
+
 export const messaggiApi = {
   manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'spostamento' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();

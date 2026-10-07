@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import '../src/index.css';
 import Layout from '../src/components/Layout';
+import RosyChat from '../src/components/RosyChat';
 import SchermataAccesso from '../src/components/SchermataAccesso';
 import { impostaSessione } from '@/lib/sessione';
 
@@ -72,6 +73,12 @@ createRoot(document.getElementById('root')!).render(
         {/* Come nel programma vero: l'indirizzo porta l'identificativo del salone. */}
         <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
         <Route path="/accesso" element={<AnteprimaAccesso />} />
+        {/* La chat di Rosy da sola: nell'anteprima nessuno è collegato, e il pulsante tondo non compare. */}
+        <Route path="/rosy-chat" element={
+          <div className="min-h-screen bg-zinc-100 flex items-center justify-center p-6">
+            <div className="w-[400px] h-[640px] bg-white border border-zinc-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden"><RosyChat /></div>
+          </div>
+        } />
         <Route path="*" element={
           <Layout>
             <Routes>
