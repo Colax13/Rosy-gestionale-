@@ -267,6 +267,18 @@ export const azzeraPromemoria = () => ({
  * il gestionale quando si preme "Conferma".
  */
 export const rosyApi = {
+  /** All'apertura della chat: sveglia il server e fa leggere in anticipo i dati. Se non va, pazienza. */
+  riscalda: async (): Promise<void> => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await fetch('/api/rosy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ riscalda: true })
+      });
+    } catch { /* la domanda vera ci riproverà */ }
+  },
   chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[] }> => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');

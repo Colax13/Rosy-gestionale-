@@ -163,6 +163,7 @@ export const azzeraPromemoria = () => ({});
 
 // Rosy finta: risponde sempre con una proposta, per vedere il pulsante Conferma.
 export const rosyApi = {
+  riscalda: async () => {},
   chiedi: async (storia: any[]) => {
     await new Promise(r => setTimeout(r, 600));
     const domanda = (storia[storia.length - 1]?.testo || '').toLowerCase();

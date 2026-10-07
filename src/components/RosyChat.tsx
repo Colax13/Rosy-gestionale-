@@ -54,6 +54,9 @@ export default function RosyChat() {
   const [penso, setPenso] = useState(false);
   const fondo = useRef<HTMLDivElement>(null);
 
+  // Appena si apre la chat il server si prepara: la prima domanda è più veloce.
+  useEffect(() => { rosyApi.riscalda(); }, []);
+
   useEffect(() => {
     fondo.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messaggi, penso]);
