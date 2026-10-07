@@ -78,47 +78,77 @@ function datiDelSalone(salonId: string, nomeSalone: string): Dati {
 
 // Vercel chiude la funzione dopo 60 secondi: meglio rispondere prima con un
 // errore chiaro che lasciare la chat appesa e poi muta.
-const TEMPO_MASSIMO_MS = 45_000;
-const TEMPO_PER_CHIAMATA_MS = 25_000;
+const TEMPO_MASSIMO_MS = 50_000;
+const TEMPO_PER_CHIAMATA_MS = 20_000;
 
 /**
- * Gemini per davvero. Se il modello scelto non esiste più si prova il
- * successivo. Sui modelli "flash" il ragionamento lungo si spegne: per leggere
- * un'agenda non serve, e senza risponde in un paio di secondi invece di venti.
+ * Quanto lasciar "ragionare" il modello prima di rispondere. Per leggere
+ * un'agenda non serve: senza, risponde in pochi secondi invece che in trenta.
+ * Ogni famiglia di modelli lo chiede a modo suo; se Google rifiuta
+ * un'impostazione si prova la successiva, e per ultimo nessuna.
  */
-function geminiVero(chiave: string, partenza: number): ChiamaGemini {
-  const modelli = MODELLI_GEMINI();
-  return async (corpoRichiesta) => {
-    let ultima = { ok: false, stato: 500, json: {} as any };
-    for (const modello of modelli) {
-      const resta = TEMPO_MASSIMO_MS - (Date.now() - partenza);
-      if (resta < 3000) return { ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } };
+function ragionamentoPer(modello: string): (Record<string, any> | null)[] {
+  if (/2\.5-flash/.test(modello)) return [{ thinkingBudget: 0 }, null];
+  if (/gemini-3|latest/.test(modello)) return [{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, { thinkingBudget: 0 }, null];
+  return [null];
+}
 
-      const corpo = /2\.5-flash/.test(modello)
-        ? { ...corpoRichiesta, generationConfig: { ...corpoRichiesta.generationConfig, thinkingConfig: { thinkingBudget: 0 } } }
-        : corpoRichiesta;
-      const stop = new AbortController();
-      const timer = setTimeout(() => stop.abort(), Math.min(TEMPO_PER_CHIAMATA_MS, resta));
-      const inizio = Date.now();
-      try {
-        const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modello)}:generateContent`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chiave },
-            body: JSON.stringify(corpo),
-            signal: stop.signal
-          }
-        );
-        ultima = { ok: r.ok, stato: r.status, json: await r.json().catch(() => ({})) };
-        console.log(`Rosy: ${modello} ha risposto ${r.status} in ${Date.now() - inizio} ms`);
-      } catch (err: any) {
-        console.error(`Rosy: ${modello} non ha risposto in tempo (${Date.now() - inizio} ms)`, err?.name || err);
-        return { ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } };
-      } finally {
-        clearTimeout(timer);
+type EsitoGemini = { ok: boolean; stato: number; json: any };
+const scaduto = (): EsitoGemini => ({ ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } });
+
+/**
+ * Gemini per davvero. Si prova il modello scelto; se non esiste più o non
+ * risponde in tempo, il successivo.
+ */
+export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
+  const modelli = MODELLI_GEMINI();
+  // Il modello che ha funzionato si tiene per i giri successivi della stessa domanda.
+  let buono: { modello: string; ragionamento: Record<string, any> | null } | null = null;
+
+  const prova = async (corpoRichiesta: any, modello: string, ragionamento: Record<string, any> | null): Promise<EsitoGemini> => {
+    const resta = TEMPO_MASSIMO_MS - (Date.now() - partenza);
+    if (resta < 4000) return scaduto();
+    const corpo = ragionamento
+      ? { ...corpoRichiesta, generationConfig: { ...corpoRichiesta.generationConfig, thinkingConfig: ragionamento } }
+      : corpoRichiesta;
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), Math.min(TEMPO_PER_CHIAMATA_MS, resta));
+    const inizio = Date.now();
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modello)}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chiave },
+          body: JSON.stringify(corpo),
+          signal: stop.signal
+        }
+      );
+      const json = await r.json().catch(() => ({}));
+      console.log(`Rosy: ${modello} ${JSON.stringify(ragionamento)} ha risposto ${r.status} in ${Date.now() - inizio} ms${r.ok ? '' : ` — ${json?.error?.message || ''}`}`);
+      return { ok: r.ok, stato: r.status, json };
+    } catch (err: any) {
+      console.error(`Rosy: ${modello} ${JSON.stringify(ragionamento)} non ha risposto in tempo (${Date.now() - inizio} ms)`, err?.name || err);
+      return scaduto();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  return async (corpoRichiesta) => {
+    if (buono) return prova(corpoRichiesta, buono.modello, buono.ragionamento);
+    let ultima: EsitoGemini = scaduto();
+    for (const modello of modelli) {
+      for (const ragionamento of ragionamentoPer(modello)) {
+        ultima = await prova(corpoRichiesta, modello, ragionamento);
+        if (ultima.ok) { buono = { modello, ragionamento }; return ultima; }
+        // Impostazione del ragionamento non accettata da questo modello: la prossima.
+        if (ultima.stato === 400 && /think/i.test(ultima.json?.error?.message || '')) continue;
+        break;
       }
-      if (ultima.stato !== 404) return ultima;
+      // Modello sparito o troppo lento: il prossimo. Gli altri errori (chiave,
+      // limite del piano) valgono per tutti, e si dicono subito.
+      if (ultima.stato !== 404 && ultima.stato !== 504) return ultima;
     }
     return ultima;
   };
