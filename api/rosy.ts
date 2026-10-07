@@ -96,22 +96,34 @@ function ragionamentoPer(modello: string): (Record<string, any> | null)[] {
 type EsitoGemini = { ok: boolean; stato: number; json: any };
 const scaduto = (): EsitoGemini => ({ ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } });
 
+type Scelta = { modello: string; ragionamento: Record<string, any> | null };
+
 /**
- * Il modello che ha funzionato l'ultima volta. Resta finché il server è
- * acceso: le domande dopo la prima vanno dritte lì, senza tentativi a vuoto.
+ * Il modello che ha funzionato. Resta finché il server è acceso: le domande
+ * dopo la prima vanno dritte lì, senza tentativi a vuoto. Si dimentica solo
+ * se il modello sparisce, non per un momento di traffico.
  */
-let modelloBuono: { modello: string; ragionamento: Record<string, any> | null } | null = null;
+let preferito: Scelta | null = null;
 
-/** Errori che dicono "questo modello no, prova un altro". */
+const rifiutaRagionamento = (e: EsitoGemini) => e.stato === 400 && /think/i.test(e.json?.error?.message || '');
+/** Google è sovraccarico: di solito passa in un attimo. */
+const passeggero = (e: EsitoGemini) => e.stato === 500 || e.stato === 502 || e.stato === 503;
+/**
+ * Errori che dicono "questo modello no, adesso: prova un altro". Il limite
+ * del piano gratuito (429) vale modello per modello, quindi anche lui.
+ */
 const daCambiare = (e: EsitoGemini) =>
-  e.stato === 404 || e.stato === 504 || (e.stato === 400 && /think/i.test(e.json?.error?.message || ''));
+  passeggero(e) || e.stato === 404 || e.stato === 504 || e.stato === 429 || rifiutaRagionamento(e);
+
+const aspetta = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 /**
- * Gemini per davvero. Si prova il modello ricordato; se non c'è, la lista:
- * se un modello non esiste più o non risponde in tempo, il successivo.
+ * Gemini per davvero. Prima il modello preferito, poi la lista: se un modello
+ * è sovraccarico si riprova una volta, poi si passa al successivo; se non
+ * esiste più o non risponde in tempo, subito al successivo.
  */
 export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
-  const prova = async (corpoRichiesta: any, modello: string, ragionamento: Record<string, any> | null): Promise<EsitoGemini> => {
+  const prova = async (corpoRichiesta: any, { modello, ragionamento }: Scelta): Promise<EsitoGemini> => {
     const resta = TEMPO_MASSIMO_MS - (Date.now() - partenza);
     if (resta < 4000) return scaduto();
     const corpo = ragionamento
@@ -141,24 +153,48 @@ export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
     }
   };
 
+  /** Una scelta, con un secondo tentativo se Google è solo sovraccarico. */
+  const provaConPazienza = async (corpo: any, scelta: Scelta): Promise<EsitoGemini> => {
+    const esito = await prova(corpo, scelta);
+    if (!passeggero(esito)) return esito;
+    await aspetta(800);
+    return prova(corpo, scelta);
+  };
+
+  // Per i giri successivi della stessa domanda: quello che ha appena risposto.
+  let quiBuono: Scelta | null = null;
+  const stessa = (a: Scelta, b: Scelta) => a.modello === b.modello && JSON.stringify(a.ragionamento) === JSON.stringify(b.ragionamento);
+
   return async (corpoRichiesta) => {
-    if (modelloBuono) {
-      const esito = await prova(corpoRichiesta, modelloBuono.modello, modelloBuono.ragionamento);
-      if (!daCambiare(esito)) return esito;
-      modelloBuono = null;
-    }
+    const candidati: Scelta[] = [];
+    const aggiungi = (c: Scelta | null) => { if (c && !candidati.some(x => stessa(x, c))) candidati.push(c); };
+    aggiungi(quiBuono);
+    aggiungi(preferito);
+    MODELLI_GEMINI().forEach(modello => ragionamentoPer(modello).forEach(ragionamento => aggiungi({ modello, ragionamento })));
+
     let ultima: EsitoGemini = scaduto();
-    for (const modello of MODELLI_GEMINI()) {
-      for (const ragionamento of ragionamentoPer(modello)) {
-        ultima = await prova(corpoRichiesta, modello, ragionamento);
-        if (ultima.ok) { modelloBuono = { modello, ragionamento }; return ultima; }
-        // Impostazione del ragionamento non accettata da questo modello: la prossima.
-        if (ultima.stato === 400 && /think/i.test(ultima.json?.error?.message || '')) continue;
-        break;
+    const saltati = new Set<string>();
+    // Se si è arrivati a una riserva solo per un momento di traffico, la
+    // riserva non diventa la preferita: la prossima domanda riprova il primo.
+    let perTraffico = false;
+    for (const scelta of candidati) {
+      // Un modello sparito o sovraccarico non si riprova con un'altra impostazione.
+      if (saltati.has(scelta.modello)) continue;
+      ultima = await provaConPazienza(corpoRichiesta, scelta);
+      if (ultima.ok) {
+        quiBuono = scelta;
+        if (!preferito && !perTraffico) preferito = scelta;
+        return ultima;
       }
-      // Modello sparito o troppo lento: il prossimo. Gli altri errori (chiave,
-      // limite del piano) valgono per tutti, e si dicono subito.
-      if (ultima.stato !== 404 && ultima.stato !== 504) return ultima;
+      if (!daCambiare(ultima)) return ultima;
+      if (rifiutaRagionamento(ultima)) {
+        if (preferito && stessa(preferito, scelta)) preferito = null;
+        continue;
+      }
+      if (ultima.stato === 404 && preferito?.modello === scelta.modello) preferito = null;
+      if (ultima.stato !== 404) perTraffico = true;
+      saltati.add(scelta.modello);
+      if (ultima.stato === 504 && TEMPO_MASSIMO_MS - (Date.now() - partenza) < 4000) return ultima;
     }
     return ultima;
   };
