@@ -34,16 +34,24 @@ const ORA = 60 * MINUTO;
 /** Sotto quest'anticipo il promemoria di un'ora non serve più: la cliente è già per strada. */
 const TROPPO_TARDI = 10 * MINUTO;
 
-/** Quando è stato fissato l'appuntamento: la conferma, o in mancanza la creazione. */
+/**
+ * Quando è stato fissato l'appuntamento (o spostato l'ultima volta): il più
+ * recente fra conferma, spostamento e creazione. Spostato a domani mattina
+ * vale come fissato adesso: la cliente ha appena ricevuto l'SMS.
+ */
 export function fissatoIl(d: any): number {
-  const conferma = d?.messaggi?.conferma?.quando;
-  if (conferma) return new Date(conferma).getTime() || 0;
+  const daIso = (v: any) => (v ? new Date(v).getTime() || 0 : 0);
   const c = d?.createdAt;
-  if (!c) return 0;
-  if (typeof c.toMillis === 'function') return c.toMillis();
-  if (typeof c._seconds === 'number') return c._seconds * 1000;
-  if (typeof c.seconds === 'number') return c.seconds * 1000;
-  return new Date(c).getTime() || 0;
+  const creato = !c ? 0
+    : typeof c.toMillis === 'function' ? c.toMillis()
+    : typeof c._seconds === 'number' ? c._seconds * 1000
+    : typeof c.seconds === 'number' ? c.seconds * 1000
+    : daIso(c);
+  const conferma = daIso(d?.messaggi?.conferma?.quando);
+  const spostamento = daIso(d?.messaggi?.spostamento?.quando);
+  // Senza conferma registrata conta la creazione (appuntamenti fissati dal
+  // salone prima che esistesse l'SMS di conferma).
+  return Math.max(conferma || creato, spostamento);
 }
 
 export function sceltaPromemoria(appuntamenti: Candidato[], adesso: Date): Scelta {

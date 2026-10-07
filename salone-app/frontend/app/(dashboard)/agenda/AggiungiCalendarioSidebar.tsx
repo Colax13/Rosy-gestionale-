@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, Plus, ChevronLeft, Check, UserPlus, FileText, User, RotateCw, MessageSquare, History } from 'lucide-react';
-import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi, messaggiApi } from '@/lib/api-client';
+import { clientiApi, catalogoApi, dipendentiApi, appuntamentiApi, messaggiApi, azzeraPromemoria } from '@/lib/api-client';
 import { tempiServizio, durataTotale, turnoDelGiorno, dentroTurno, descriviTurno, siAccavallano } from '@/lib/servizi';
 import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
 import { ultimoAppuntamento, serviziDi, serviziDaRipetere } from '@/lib/storico';
@@ -115,6 +115,8 @@ export default function AggiungiCalendarioSidebar({
   // Appuntamento fissato dal salone: la cliente riceve subito la conferma via
   // SMS (poi i promemoria a 24 ore e a 1 ora). Si toglie per chi è già lì.
   const [avvisaCliente, setAvvisaCliente] = useState(true);
+  // Spostamento di un appuntamento già confermato: SMS col nuovo orario.
+  const [avvisaSpostamento, setAvvisaSpostamento] = useState(true);
 
   // L'ultima volta della cliente scelta: si mostra sotto il nome, con
   // "Ripeti" per rimettere gli stessi servizi (e la stessa operatrice).
@@ -137,6 +139,16 @@ export default function AggiungiCalendarioSidebar({
     const chi = ultimo.id_dipendente || ultimo.dipendenti?.id;
     if (chi && dipendenti.some(d => d.id === chi && d.attivo !== false)) setSelectedDipendenteId(chi);
   };
+
+  /** L'orario scelto nel pannello è diverso da quello salvato? */
+  const orarioCambiato = (() => {
+    if (!appuntamentoEdit?.data_ora || !data || !oraInizio) return false;
+    const [y, mm, d] = data.split('-').map(Number);
+    const [h, mi] = oraInizio.split(':').map(Number);
+    return new Date(y, mm - 1, d, h, mi).getTime() !== new Date(appuntamentoEdit.data_ora).getTime();
+  })();
+  const avvisoSpostamentoPossibile = !!appuntamentoEdit && appuntamentoEdit.stato === 'confermato'
+    && appuntamentoEdit.id_cliente !== 'block-client' && orarioCambiato;
 
   // --- BLOCCA TAB STATE ---
   const [blockType, setBlockType] = useState<'Pausa' | 'Pranzo' | 'Riunione' | 'Tempo libero' | 'Personalizza'>('Pausa');
@@ -167,8 +179,13 @@ export default function AggiungiCalendarioSidebar({
     loadResources();
   }, []);
 
-  // Sync date/time from props or appuntamentoEdit
+  // Riempie il pannello ogni volta che si APRE, non solo quando cambia
+  // l'appuntamento: prima, chiudendo e riaprendo "Modifica" sullo stesso
+  // appuntamento, il pannello usciva vuoto come un appuntamento nuovo.
   useEffect(() => {
+    if (!isOpen) return;
+    setAvvisaCliente(true);
+    setAvvisaSpostamento(true);
     if (appuntamentoEdit) {
       const dateObj = new Date(appuntamentoEdit.data_ora);
       const year = dateObj.getFullYear();
@@ -188,7 +205,9 @@ export default function AggiungiCalendarioSidebar({
 
       if (appuntamentoEdit.clienti) {
          setSelectedClient({
-           id: appuntamentoEdit.id_cliente || appuntamentoEdit.clienti.id || 'unknown',
+           // Una richiesta dal sito non ha ancora una scheda: l'id resta vuoto
+           // e al salvataggio la si collega (o la si crea) in rubrica.
+           id: appuntamentoEdit.id_cliente || appuntamentoEdit.clienti.id || '',
            nome: appuntamentoEdit.clienti.nome || '',
            cognome: appuntamentoEdit.clienti.cognome || '',
            telefono: appuntamentoEdit.clienti.telefono || ''
@@ -205,8 +224,9 @@ export default function AggiungiCalendarioSidebar({
                 tempo_lavorazione_minuti: riga.servizi_catalogo.tempo_lavorazione_minuti,
                 tempo_posa_minuti: riga.servizi_catalogo.tempo_posa_minuti,
                 tempo_finitura_minuti: riga.servizi_catalogo.tempo_finitura_minuti,
-                prezzo_base: 0,
-                categoria: 'Varie',
+                // Il prezzo non è scritto sull'appuntamento: si prende dal listino.
+                prezzo_base: Number(catalogoSer.find(c => c.nome.trim().toLowerCase() === (riga.servizi_catalogo.nome || '').trim().toLowerCase())?.prezzo_base) || 0,
+                categoria: catalogoSer.find(c => c.nome.trim().toLowerCase() === (riga.servizi_catalogo.nome || '').trim().toLowerCase())?.categoria || 'Varie',
                 attivo: true,
                 // Chi fa questo servizio, e chi ne fa la finitura, se sono
                 // state affidate ad altre: senza questo, salvando una modifica
@@ -250,7 +270,7 @@ export default function AggiungiCalendarioSidebar({
         setBlockTimeFine(`${endH}:${endM}`);
       }
     }
-  }, [initialDate, initialTime, appuntamentoEdit, initialDipendenteId]);
+  }, [isOpen, initialDate, initialTime, appuntamentoEdit, initialDipendenteId]);
 
   const toggleServiceSelection = (service: Service) => {
     if (selectedServices.find(s => s.id === service.id)) {
@@ -490,7 +510,26 @@ export default function AggiungiCalendarioSidebar({
   const eseguiSalvataggio = async (payload: any) => {
     try {
       if (appuntamentoEdit) {
-         await appuntamentiApi.update(appuntamentoEdit.id, payload);
+         // Una richiesta dal sito, sistemata con "Modifica" e salvata, diventa
+         // un appuntamento confermato: deve succedere quello che succede col
+         // pulsante "Conferma" — la cliente entra in rubrica e riceve l'SMS.
+         const eraRichiesta = appuntamentoEdit.stato === 'in_attesa' && payload.id_cliente !== 'block-client';
+         let dati = payload;
+         if (eraRichiesta) {
+           const stessaCliente = !payload.id_cliente || payload.id_cliente === appuntamentoEdit.id_cliente;
+           const clienti = stessaCliente ? { ...(appuntamentoEdit.clienti || {}), ...payload.clienti } : payload.clienti;
+           const idCliente = payload.id_cliente
+             || await clientiApi.assicuraDaAppuntamento({ ...appuntamentoEdit, clienti, id_cliente: undefined }).catch(() => null);
+           dati = { ...payload, clienti, ...(idCliente ? { id_cliente: idCliente } : {}) };
+         }
+         const spostato = new Date(dati.data_ora).getTime() !== new Date(appuntamentoEdit.data_ora).getTime();
+         // Orario nuovo: i promemoria ripartono per quello.
+         await appuntamentiApi.update(appuntamentoEdit.id, spostato ? { ...dati, ...azzeraPromemoria() } : dati);
+         if (eraRichiesta && avvisaCliente && dati.stato === 'confermato') {
+           messaggiApi.manda(appuntamentoEdit.id, 'conferma').catch(err => console.error('Conferma SMS non partita:', err));
+         } else if (spostato && avvisaSpostamento && appuntamentoEdit.stato === 'confermato' && dati.id_cliente !== 'block-client') {
+           messaggiApi.manda(appuntamentoEdit.id, 'spostamento').catch(err => console.error('SMS di spostamento non partito:', err));
+         }
       } else {
          const avvisa = avvisaCliente && payload.id_cliente !== 'block-client';
          const creato = await appuntamentiApi.create(avvisa ? payload : { ...payload, sms_spenti: true });
@@ -1029,7 +1068,22 @@ export default function AggiungiCalendarioSidebar({
                     )}
                   </div>
 
-                  {!appuntamentoEdit && (
+                  {avvisoSpostamentoPossibile && (
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60 cursor-pointer hover:bg-amber-50 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={avvisaSpostamento}
+                        onChange={e => setAvvisaSpostamento(e.target.checked)}
+                        className="accent-fuchsia-600 mt-0.5"
+                      />
+                      <span className="text-sm">
+                        <span className="font-semibold text-zinc-900 flex items-center gap-1.5"><MessageSquare size={14} className="text-fuchsia-600" /> Avvisa la cliente dello spostamento</span>
+                        <span className="block text-xs text-zinc-500 mt-0.5">Le arriva un SMS con il nuovo orario. I promemoria seguono l'orario nuovo.</span>
+                      </span>
+                    </label>
+                  )}
+
+                  {(!appuntamentoEdit || appuntamentoEdit.stato === 'in_attesa') && (
                     <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-200 bg-white cursor-pointer hover:bg-zinc-50 transition-colors select-none">
                       <input
                         type="checkbox"

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, deleteField } from 'firebase/firestore';
 import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
@@ -250,8 +250,19 @@ export const clientiApi = {
  * chi è entrato; a controllare che l'appuntamento sia davvero di quel salone,
  * e a mandare, ci pensa il server.
  */
+/**
+ * Da aggiungere a un aggiornamento quando l'orario cambia: i promemoria già
+ * partiti erano per l'orario vecchio, e devono ripartire per quello nuovo.
+ */
+export const azzeraPromemoria = () => ({
+  'messaggi.promemoria': deleteField(),
+  'messaggi.promemoria_ora': deleteField(),
+  'messaggi_errore.promemoria': deleteField(),
+  'messaggi_errore.promemoria_ora': deleteField()
+});
+
 export const messaggiApi = {
-  manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'promemoria' = 'conferma') => {
+  manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'spostamento' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
 

@@ -789,3 +789,11 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
 - **Da fare**: ripubblicare le regole di Firestore; creare il cron su
   cron-job.org; poi nascondere anche la barra in alto insieme al pannello
   laterale (quando il cliente conferma che il resto funziona).
+
+## 7 ottobre
+- "Modifica" riempie sempre il pannello (anche riaprendo lo stesso
+  appuntamento); prezzi dal listino.
+- Richiesta online modificata e salvata = confermata: rubrica + SMS.
+- SMS "appuntamento spostato": dal pannello Modifica (spunta) e dal
+  trascinamento (parte dopo 8 secondi, con "Non avvisare"). Spostando
+  l'orario, i promemoria 24 ore / 1 ora ripartono sull'orario nuovo.
