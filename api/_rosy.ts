@@ -173,8 +173,19 @@ export const STRUMENTI = [
 
 const GIORNI_TURNI = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];
 
-/** Esegue uno strumento. Le proposte preparate finiscono in `proposte`. */
-export async function eseguiStrumento(nome: string, args: any, dati: Dati, adesso: Date, proposte: Proposta[]): Promise<any> {
+/** Una scheda cliente da aprire dalla chat: la mette il gestionale, non l'IA. */
+export interface SchedaTrovata { id: string; nome: string }
+
+/** Al massimo tante schede sotto un messaggio: di più confonde. */
+export const MASSIMO_SCHEDE = 3;
+
+/**
+ * Esegue uno strumento. Le proposte preparate finiscono in `proposte`; le
+ * clienti trovate in `schede`, per il pulsante "Apri scheda" sotto la risposta.
+ */
+export async function eseguiStrumento(
+  nome: string, args: any, dati: Dati, adesso: Date, proposte: Proposta[], schede: SchedaTrovata[] = []
+): Promise<any> {
   const a = args || {};
   switch (nome) {
     case 'leggi_agenda': {
@@ -204,7 +215,12 @@ export async function eseguiStrumento(nome: string, args: any, dati: Dati, adess
     case 'cerca_cliente': {
       const trovate = cercaClienti(a.testo || '', await dati.clienti());
       if (!trovate.length) return { trovate: 0, nota: 'Nessuna cliente con questo nome o numero.' };
-      const schede = await Promise.all(trovate.map(async c => {
+      trovate.forEach(c => {
+        if (schede.length < MASSIMO_SCHEDE && !schede.some(s => s.id === c.id)) {
+          schede.push({ id: c.id, nome: `${c.nome || ''} ${c.cognome || ''}`.trim() || 'Cliente' });
+        }
+      });
+      const risultati = await Promise.all(trovate.map(async c => {
         const storico = await dati.appuntamentiCliente(c.id);
         const ultimo = ultimoAppuntamento(storico.filter(x => new Date(x.data_ora).getTime() <= adesso.getTime()), adesso);
         const prossimo = storico
@@ -220,7 +236,7 @@ export async function eseguiStrumento(nome: string, args: any, dati: Dati, adess
           prossimo_appuntamento: prossimo ? `${quandoCorto(new Date(prossimo.data_ora))} — ${elencoScritto(serviziDi(prossimo))}` : 'nessuno'
         };
       }));
-      return { trovate: schede.length, clienti: schede };
+      return { trovate: risultati.length, clienti: risultati };
     }
 
     case 'orari_liberi': {
@@ -363,7 +379,8 @@ export function istruzioni(nomeSalone: string, adesso: Date, contesto = ''): str
     'Per fissare un appuntamento: trova la cliente con cerca_cliente, controlla gli orari con orari_liberi, poi usa proponi_appuntamento. L’appuntamento NON è salvato finché chi ti scrive non preme "Conferma": dillo chiaramente e non dire mai che è già fissato.',
     'Se mancano informazioni (quale cliente, quale servizio, che ora), chiedile in una frase.',
     'Non puoi cancellare né spostare appuntamenti: per quello si usa l’agenda.',
-    'Per riservatezza non vedi telefoni, email e note delle clienti: i numeri e le email scritti in chat ti arrivano come [telefono 1], [email 1]; passali agli strumenti così come sono. Se ti chiedono le note o il numero di una cliente, di’ di aprire la sua scheda nel gestionale.',
+    'Per riservatezza non vedi telefoni, email e note delle clienti: i numeri e le email scritti in chat ti arrivano come [telefono 1], [email 1]; passali agli strumenti così come sono.',
+    'Se ti chiedono il numero, l’email, le note o altri dati di una cliente: cercala con cerca_cliente (così sotto il tuo messaggio compare il pulsante "Apri scheda") e rispondi in una frase che per riservatezza non vedi quei dati e che li trova nella scheda, con il pulsante qui sotto. Non inventare né indovinare numeri.',
     'Risposte corte: elenchi puntati per gli appuntamenti, niente tabelle, niente codici o id.',
     ...(contesto ? [
       'Qui sotto ci sono già operatrici, listino e agenda di oggi e domani: se la risposta è lì, rispondi subito senza usare strumenti. Per gli altri giorni, le clienti e gli orari liberi usa gli strumenti.',
@@ -452,7 +469,7 @@ export class Maschera {
 
 export type ChiamaGemini = (corpo: any) => Promise<{ ok: boolean; stato: number; json: any }>;
 
-export interface RispostaRosy { testo: string; proposte: Proposta[] }
+export interface RispostaRosy { testo: string; proposte: Proposta[]; schede: SchedaTrovata[] }
 
 /** Una domanda a Rosy, con gli strumenti: al massimo qualche giro. */
 export async function chiediARosy(
@@ -468,10 +485,11 @@ export async function chiediARosy(
     .slice(-12)
     .map(m => ({ role: m.ruolo === 'rosy' ? 'model' : 'user', parts: [{ text: maschera.nascondi(m.testo.slice(0, 2000)) }] }));
   if (!contents.length || contents[contents.length - 1].role !== 'user') {
-    return { testo: 'Scrivimi pure una domanda.', proposte: [] };
+    return { testo: 'Scrivimi pure una domanda.', proposte: [], schede: [] };
   }
 
   const proposte: Proposta[] = [];
+  const schede: SchedaTrovata[] = [];
   const contesto = await contestoGiornata(dati, adesso).catch(() => '');
   const sistema = istruzioni(dati.nomeSalone, adesso, contesto);
   for (let i = 0; i < giri; i++) {
@@ -488,20 +506,20 @@ export async function chiediARosy(
     const chiamate = parti.filter(p => p.functionCall);
     if (!chiamate.length) {
       const testo = parti.map(p => p.text || '').join('').trim();
-      return { testo: maschera.mostra(testo) || 'Non sono riuscita a rispondere: prova a riformulare.', proposte };
+      return { testo: maschera.mostra(testo) || 'Non sono riuscita a rispondere: prova a riformulare.', proposte, schede };
     }
 
     // Il turno del modello va rimesso com'è (con le sue firme), poi le risposte.
     contents.push({ role: 'model', parts: parti });
     const risultati = await Promise.all(chiamate.map(async p => {
       let esito: any;
-      try { esito = await eseguiStrumento(p.functionCall.name, maschera.mostra(p.functionCall.args), dati, adesso, proposte); }
+      try { esito = await eseguiStrumento(p.functionCall.name, maschera.mostra(p.functionCall.args), dati, adesso, proposte, schede); }
       catch (err: any) { esito = { errore: `Non sono riuscita a leggere i dati: ${err?.message || 'errore'}` }; }
       return { functionResponse: { name: p.functionCall.name, response: esito } };
     }));
     contents.push({ role: 'user', parts: risultati });
   }
-  return { testo: 'Ci ho messo troppo a trovare la risposta: prova con una domanda più precisa.', proposte };
+  return { testo: 'Ci ho messo troppo a trovare la risposta: prova con una domanda più precisa.', proposte, schede };
 }
 
 export class ErroreGemini extends Error {

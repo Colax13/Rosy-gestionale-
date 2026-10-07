@@ -353,7 +353,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               <X size={18} />
             </button>
-            <RosyChat />
+            <RosyChat onChiudi={() => setIsChatOpen(false)} />
             <div className="absolute -bottom-3 right-8 w-6 h-6 bg-white border-b border-r border-zinc-200 transform rotate-45 z-[60]"></div>
           </motion.div>
         )}

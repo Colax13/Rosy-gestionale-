@@ -821,3 +821,7 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   dice se funzionano (`rosy_ia_riserve`).
   All'IA non arrivano più telefoni, email e note delle clienti: nella chat i
   numeri diventano "[telefono 1]" e il gestionale rimette quelli veri dopo.
+- Rosy, "Apri scheda": quando Rosy trova una cliente (anche se le si chiede
+  il numero o le note, che per riservatezza non vede), sotto la risposta
+  compare il pulsante "Apri scheda di …" (al massimo 3) che porta alla scheda
+  vera. Il pulsante lo mette il gestionale, non l'IA.

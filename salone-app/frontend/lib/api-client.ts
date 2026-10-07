@@ -279,7 +279,7 @@ export const rosyApi = {
       });
     } catch { /* la domanda vera ci riproverà */ }
   },
-  chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[] }> => {
+  chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[]; schede: { id: string; nome: string }[] }> => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
     const risposta = await fetch('/api/rosy', {
@@ -296,7 +296,11 @@ export const rosyApi = {
         ? 'Rosy ci ha messo troppo a rispondere (504): riprova fra poco.'
         : `Rosy non ha risposto (errore ${risposta.status}): riprova fra poco.`);
     }
-    return { testo: dati.testo || '', proposte: Array.isArray(dati.proposte) ? dati.proposte : [] };
+    return {
+      testo: dati.testo || '',
+      proposte: Array.isArray(dati.proposte) ? dati.proposte : [],
+      schede: Array.isArray(dati.schede) ? dati.schede : []
+    };
   }
 };
 
