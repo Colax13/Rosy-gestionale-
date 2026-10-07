@@ -155,6 +155,6 @@ dalla cartella del progetto.
 ## Quello che NON serve fare
 
 - Non servono variabili d'ambiente su Vercel.
-- Non serve toccare `GEMINI_API_KEY`: riguarda solo Rosie, che per ora è ferma.
+- `GEMINI_API_KEY` serve solo a Rosy (la chat IA): senza, la chat risponde che non è accesa.
 - Non serve cancellare il progetto Vercel vecchio: si tiene finché il nuovo
   non è collaudato, poi si spegne con calma.

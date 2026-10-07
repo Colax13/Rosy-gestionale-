@@ -24,7 +24,8 @@
     "prova:promemoria": "tsx salone-app/frontend/lib/promemoria.prova.ts",
     "prova:numerazione": "tsx salone-app/frontend/lib/numerazione.prova.ts",
     "prova:otp": "tsx salone-app/frontend/lib/otp.prova.ts",
-    "prova:prenotazione": "tsx salone-app/frontend/lib/prenotazione.prova.ts"
+    "prova:prenotazione": "tsx salone-app/frontend/lib/prenotazione.prova.ts",
+    "prova:rosy": "tsx salone-app/frontend/lib/rosy.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

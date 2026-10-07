@@ -797,3 +797,14 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
 - SMS "appuntamento spostato": dal pannello Modifica (spunta) e dal
   trascinamento (parte dopo 8 secondi, con "Non avvisare"). Spostando
   l'orario, i promemoria 24 ore / 1 ora ripartono sull'orario nuovo.
+- SMS di cambio orario riscritto: "purtroppo abbiamo dovuto cambiare il tuo
+  appuntamento a … Grazie per la disponibilità, ti aspettiamo in salone!".
+  Parte anche quando una richiesta online viene confermata con "Modifica" a
+  un orario diverso da quello chiesto (prima partiva un semplice "confermato").
+- **Rosy IA (Gemini)**: la chat in basso a destra legge agenda, clienti
+  (note, ultima visita), orari liberi, listino e operatrici. Può preparare un
+  appuntamento: compare una scheda con **Conferma** / **Scarta**, e si salva
+  solo premendo Conferma (con SMS di conferma, se spuntato). Non cancella e
+  non sposta niente. Serve `GEMINI_API_KEY` su Vercel (facoltativo
+  `GEMINI_MODEL`). Il server è `api/rosy.ts`, il cervello `api/_rosy.ts`,
+  le prove `npm run prova:rosy`.
