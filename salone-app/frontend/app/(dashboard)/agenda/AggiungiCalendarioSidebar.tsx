@@ -167,8 +167,11 @@ export default function AggiungiCalendarioSidebar({
     loadResources();
   }, []);
 
-  // Sync date/time from props or appuntamentoEdit
+  // Riempie il pannello ogni volta che si APRE, non solo quando cambia
+  // l'appuntamento: prima, chiudendo e riaprendo "Modifica" sullo stesso
+  // appuntamento, il pannello usciva vuoto come un appuntamento nuovo.
   useEffect(() => {
+    if (!isOpen) return;
     if (appuntamentoEdit) {
       const dateObj = new Date(appuntamentoEdit.data_ora);
       const year = dateObj.getFullYear();
@@ -188,7 +191,9 @@ export default function AggiungiCalendarioSidebar({
 
       if (appuntamentoEdit.clienti) {
          setSelectedClient({
-           id: appuntamentoEdit.id_cliente || appuntamentoEdit.clienti.id || 'unknown',
+           // Una richiesta dal sito non ha ancora una scheda: l'id resta vuoto
+           // e al salvataggio la si collega (o la si crea) in rubrica.
+           id: appuntamentoEdit.id_cliente || appuntamentoEdit.clienti.id || '',
            nome: appuntamentoEdit.clienti.nome || '',
            cognome: appuntamentoEdit.clienti.cognome || '',
            telefono: appuntamentoEdit.clienti.telefono || ''
@@ -205,8 +210,9 @@ export default function AggiungiCalendarioSidebar({
                 tempo_lavorazione_minuti: riga.servizi_catalogo.tempo_lavorazione_minuti,
                 tempo_posa_minuti: riga.servizi_catalogo.tempo_posa_minuti,
                 tempo_finitura_minuti: riga.servizi_catalogo.tempo_finitura_minuti,
-                prezzo_base: 0,
-                categoria: 'Varie',
+                // Il prezzo non è scritto sull'appuntamento: si prende dal listino.
+                prezzo_base: Number(catalogoSer.find(c => c.nome.trim().toLowerCase() === (riga.servizi_catalogo.nome || '').trim().toLowerCase())?.prezzo_base) || 0,
+                categoria: catalogoSer.find(c => c.nome.trim().toLowerCase() === (riga.servizi_catalogo.nome || '').trim().toLowerCase())?.categoria || 'Varie',
                 attivo: true,
                 // Chi fa questo servizio, e chi ne fa la finitura, se sono
                 // state affidate ad altre: senza questo, salvando una modifica
@@ -250,7 +256,7 @@ export default function AggiungiCalendarioSidebar({
         setBlockTimeFine(`${endH}:${endM}`);
       }
     }
-  }, [initialDate, initialTime, appuntamentoEdit, initialDipendenteId]);
+  }, [isOpen, initialDate, initialTime, appuntamentoEdit, initialDipendenteId]);
 
   const toggleServiceSelection = (service: Service) => {
     if (selectedServices.find(s => s.id === service.id)) {
@@ -490,7 +496,22 @@ export default function AggiungiCalendarioSidebar({
   const eseguiSalvataggio = async (payload: any) => {
     try {
       if (appuntamentoEdit) {
-         await appuntamentiApi.update(appuntamentoEdit.id, payload);
+         // Una richiesta dal sito, sistemata con "Modifica" e salvata, diventa
+         // un appuntamento confermato: deve succedere quello che succede col
+         // pulsante "Conferma" — la cliente entra in rubrica e riceve l'SMS.
+         const eraRichiesta = appuntamentoEdit.stato === 'in_attesa' && payload.id_cliente !== 'block-client';
+         let dati = payload;
+         if (eraRichiesta) {
+           const stessaCliente = !payload.id_cliente || payload.id_cliente === appuntamentoEdit.id_cliente;
+           const clienti = stessaCliente ? { ...(appuntamentoEdit.clienti || {}), ...payload.clienti } : payload.clienti;
+           const idCliente = payload.id_cliente
+             || await clientiApi.assicuraDaAppuntamento({ ...appuntamentoEdit, clienti, id_cliente: undefined }).catch(() => null);
+           dati = { ...payload, clienti, ...(idCliente ? { id_cliente: idCliente } : {}) };
+         }
+         await appuntamentiApi.update(appuntamentoEdit.id, dati);
+         if (eraRichiesta && avvisaCliente && dati.stato === 'confermato') {
+           messaggiApi.manda(appuntamentoEdit.id, 'conferma').catch(err => console.error('Conferma SMS non partita:', err));
+         }
       } else {
          const avvisa = avvisaCliente && payload.id_cliente !== 'block-client';
          const creato = await appuntamentiApi.create(avvisa ? payload : { ...payload, sms_spenti: true });
@@ -1029,7 +1050,7 @@ export default function AggiungiCalendarioSidebar({
                     )}
                   </div>
 
-                  {!appuntamentoEdit && (
+                  {(!appuntamentoEdit || appuntamentoEdit.stato === 'in_attesa') && (
                     <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-200 bg-white cursor-pointer hover:bg-zinc-50 transition-colors select-none">
                       <input
                         type="checkbox"

@@ -160,8 +160,10 @@ export const clientiApi = {
 // Nell'anteprima non parte niente: si finge che sia arrivato, così si vede
 // che cosa dice l'agenda quando va bene.
 export const messaggiApi = {
-  manda: async (_id: string, _tipo?: string) =>
-    eco({ mandato: true, canali: ['sms'], a: ['+39 333 000 0000'] }),
+  manda: async (id: string, tipo?: string) => {
+    console.log(`[anteprima] SMS ${tipo || 'conferma'} per ${id}`);
+    return eco({ mandato: true, canali: ['sms'], a: ['+39 333 000 0000'] });
+  },
 };
 
 // La prenotazione dal sito, finta: il codice giusto è sempre 123456, così
