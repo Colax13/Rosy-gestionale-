@@ -428,8 +428,10 @@ export function spiegaErroreGemini(err: ErroreGemini): string {
   if (err.stato === 429) return 'Ho ricevuto troppe domande in poco tempo (limite del piano gratuito di Google): riprova fra un minuto.';
   if (err.stato === 400 && /api key/i.test(err.dettaglio)) return 'La chiave di Gemini non è valida: controlla GEMINI_API_KEY su Vercel.';
   if (err.stato === 401 || err.stato === 403) return 'La chiave di Gemini non è valida o non ha i permessi: controlla GEMINI_API_KEY su Vercel.';
+  if (err.stato === 504) return 'Google ci sta mettendo troppo a rispondere: riprova fra poco, o fai una domanda più semplice.';
+  if (err.stato === 404) return 'Il modello di Gemini indicato non esiste: controlla GEMINI_MODEL su Vercel, o toglila.';
   if (err.stato >= 500) return 'Il servizio di Google in questo momento non risponde: riprova fra poco.';
-  return `Non sono riuscita a rispondere (${err.stato}).`;
+  return `Gemini ha rifiutato la domanda (${err.stato}): ${err.dettaglio || 'senza spiegazione'}`;
 }
 
 export { GIORNI_TURNI };
