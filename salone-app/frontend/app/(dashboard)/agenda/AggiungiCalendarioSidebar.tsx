@@ -526,7 +526,10 @@ export default function AggiungiCalendarioSidebar({
          // Orario nuovo: i promemoria ripartono per quello.
          await appuntamentiApi.update(appuntamentoEdit.id, spostato ? { ...dati, ...azzeraPromemoria() } : dati);
          if (eraRichiesta && avvisaCliente && dati.stato === 'confermato') {
-           messaggiApi.manda(appuntamentoEdit.id, 'conferma').catch(err => console.error('Conferma SMS non partita:', err));
+           // Confermata a un'altra ora rispetto a quella chiesta: un semplice
+           // "confermato" non fa notare il cambio, quindi parte il messaggio
+           // del cambio d'orario.
+           messaggiApi.manda(appuntamentoEdit.id, spostato ? 'spostamento' : 'conferma').catch(err => console.error('Conferma SMS non partita:', err));
          } else if (spostato && avvisaSpostamento && appuntamentoEdit.stato === 'confermato' && dati.id_cliente !== 'block-client') {
            messaggiApi.manda(appuntamentoEdit.id, 'spostamento').catch(err => console.error('SMS di spostamento non partito:', err));
          }
@@ -1093,7 +1096,11 @@ export default function AggiungiCalendarioSidebar({
                       />
                       <span className="text-sm">
                         <span className="font-semibold text-zinc-900 flex items-center gap-1.5"><MessageSquare size={14} className="text-fuchsia-600" /> Avvisa la cliente con SMS</span>
-                        <span className="block text-xs text-zinc-500 mt-0.5">Conferma subito, poi promemoria 24 ore e 1 ora prima.</span>
+                        <span className="block text-xs text-zinc-500 mt-0.5">
+                          {appuntamentoEdit?.stato === 'in_attesa' && orarioCambiato
+                            ? "Hai cambiato l'orario chiesto: le arriva l'SMS con il nuovo orario, poi i promemoria."
+                            : 'Conferma subito, poi promemoria 24 ore e 1 ora prima.'}
+                        </span>
                       </span>
                     </label>
                   )}
