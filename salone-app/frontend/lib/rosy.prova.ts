@@ -2,7 +2,7 @@
 // Si prova che gli strumenti leggano bene e che la proposta sia giusta.
 process.env.TZ = 'Europe/Rome';
 
-import { chiediARosy, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Dati, Proposta } from '../../../api/_rosy';
+import { chiediARosy, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Dati, Proposta } from '../../../api/_rosy';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -115,6 +115,17 @@ const dati: Dati = {
   check('chat: il turno del modello torna con la firma', 'firma', richieste[1].contents[1].parts[0].thoughtSignature);
   check('chat: la risposta dello strumento', 'proponi_appuntamento', richieste[1].contents[2].parts[0].functionResponse.name);
   check('chat: la data di oggi nelle istruzioni', true, /2026-10-07/.test(richieste[0].systemInstruction.parts[0].text));
+
+  check('chat: listino già nelle istruzioni', true, /LISTINO:[\s\S]*Piega: 20 €, 30 min/.test(richieste[0].systemInstruction.parts[0].text));
+
+  // --- il contesto della giornata: venerdì 9, quindi sabato 10 è "domani"
+  const contesto = await contestoGiornata(dati, new Date('2026-10-09T10:00:00+02:00'));
+  check('contesto: appuntamento di domani', true, contesto.includes('- domani 09:00: Mariangela Bianchi — Colore radici — Giulia'));
+  check('contesto: niente pause', false, contesto.includes('Pausa'));
+  check('contesto: operatrici in ordine', true, /OPERATRICI:\n- Giulia\n- Sara/.test(contesto));
+  check('contesto: servizi spenti fuori', false, contesto.includes('Taglio vecchio'));
+  const lontano = await contestoGiornata(dati, adesso);
+  check('contesto: giorni senza appuntamenti', true, lontano.includes('- nessun appuntamento'));
 
   const vuota = await chiediARosy([], dati, finto, adesso);
   check('chat: senza domanda non chiama Google', 'Scrivimi pure una domanda.', vuota.testo);

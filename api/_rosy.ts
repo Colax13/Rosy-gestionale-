@@ -353,7 +353,7 @@ export async function eseguiStrumento(nome: string, args: any, dati: Dati, adess
 // La conversazione con Gemini
 // ---------------------------------------------------------------------------
 
-export function istruzioni(nomeSalone: string, adesso: Date): string {
+export function istruzioni(nomeSalone: string, adesso: Date, contesto = ''): string {
   const oggi = `${GIORNI_TURNI[adesso.getDay()]} ${chiaveGiorno(adesso)}`;
   return [
     `Sei Rosy, l'assistente del gestionale del salone "${nomeSalone}". Parli italiano, con un tono caldo, professionale e breve: chi ti scrive lavora in salone e ha poco tempo.`,
@@ -362,8 +362,47 @@ export function istruzioni(nomeSalone: string, adesso: Date): string {
     'Per fissare un appuntamento: trova la cliente con cerca_cliente, controlla gli orari con orari_liberi, poi usa proponi_appuntamento. L’appuntamento NON è salvato finché chi ti scrive non preme "Conferma": dillo chiaramente e non dire mai che è già fissato.',
     'Se mancano informazioni (quale cliente, quale servizio, che ora), chiedile in una frase.',
     'Non puoi cancellare né spostare appuntamenti: per quello si usa l’agenda.',
-    'Risposte corte: elenchi puntati per gli appuntamenti, niente tabelle, niente codici o id.'
+    'Risposte corte: elenchi puntati per gli appuntamenti, niente tabelle, niente codici o id.',
+    ...(contesto ? [
+      'Qui sotto ci sono già operatrici, listino e agenda di oggi e domani: se la risposta è lì, rispondi subito senza usare strumenti. Per gli altri giorni, le clienti e gli orari liberi usa gli strumenti.',
+      contesto
+    ] : [])
   ].join('\n');
+}
+
+/**
+ * Quello che serve quasi sempre, già pronto: così le domande più comuni
+ * ("chi ho domani?", "quanto costa una piega?") si risolvono in un giro solo
+ * con Google invece di due o tre. Se qualcosa non si legge, si va avanti senza.
+ */
+export async function contestoGiornata(dati: Dati, adesso: Date): Promise<string> {
+  const oggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate());
+  const dopodomani = new Date(oggi); dopodomani.setDate(dopodomani.getDate() + 2);
+  const [ops, listino, agenda] = await Promise.all([
+    dati.operatrici(),
+    dati.servizi(),
+    dati.appuntamenti(oggi.toISOString(), dopodomani.toISOString())
+  ]);
+
+  const righeOp = ordinaOperatori(ops.filter(o => o.attivo !== false)).map(o => `- ${nomeOperatore(o)}`);
+  const righeListino = listino.filter(s => s.attivo !== false).slice(0, 120)
+    .map(s => `- ${s.nome}: ${Number(s.prezzo_base ?? s.prezzo) || 0} €, ${tempiServizio(s).totale} min`);
+  const domani = new Date(oggi); domani.setDate(domani.getDate() + 1);
+  const giornoDi = (iso: string) => (new Date(iso).getTime() < domani.getTime() ? 'oggi' : 'domani');
+  const righeAgenda = agenda
+    .filter(x => x.id_cliente !== 'block-client' && x.stato !== 'annullato')
+    .sort((x, y) => (x.data_ora || '').localeCompare(y.data_ora || ''))
+    .slice(0, 80)
+    .map(x => `- ${giornoDi(x.data_ora)} ${ora(new Date(x.data_ora))}: ${`${x.clienti?.nome || ''} ${x.clienti?.cognome || ''}`.trim() || 'cliente'}`
+      + ` — ${elencoScritto(serviziDi(x)) || 'servizi non indicati'}`
+      + ` — ${x.dipendenti ? nomeOperatore(x.dipendenti) : 'senza operatrice'}`
+      + (x.stato === 'in_attesa' ? ' (richiesta online da confermare)' : ''));
+
+  return [
+    `OPERATRICI:\n${righeOp.join('\n') || '- nessuna'}`,
+    `LISTINO:\n${righeListino.join('\n') || '- vuoto'}`,
+    `AGENDA DI OGGI E DOMANI:\n${righeAgenda.join('\n') || '- nessun appuntamento'}`
+  ].join('\n\n');
 }
 
 export interface MessaggioChat { ruolo: 'utente' | 'rosy'; testo: string }
@@ -389,9 +428,11 @@ export async function chiediARosy(
   }
 
   const proposte: Proposta[] = [];
+  const contesto = await contestoGiornata(dati, adesso).catch(() => '');
+  const sistema = istruzioni(dati.nomeSalone, adesso, contesto);
   for (let i = 0; i < giri; i++) {
     const risposta = await chiama({
-      systemInstruction: { parts: [{ text: istruzioni(dati.nomeSalone, adesso) }] },
+      systemInstruction: { parts: [{ text: sistema }] },
       contents,
       tools: [{ functionDeclarations: STRUMENTI }],
       generationConfig: { temperature: 0.3 }

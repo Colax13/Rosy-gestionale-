@@ -808,3 +808,8 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   non sposta niente. Serve `GEMINI_API_KEY` su Vercel (facoltativo
   `GEMINI_MODEL`). Il server è `api/rosy.ts`, il cervello `api/_rosy.ts`,
   le prove `npm run prova:rosy`.
+- Rosy più veloce: modello `gemini-3.8-flash` (il 2.5 non è più dato agli
+  account nuovi) con ragionamento al minimo; il modello che funziona resta
+  ricordato; all'apertura della chat il server si prepara (listino,
+  operatrici, rubrica); operatrici, listino e agenda di oggi e domani sono già
+  nelle istruzioni, così le domande comuni si risolvono in un giro solo.

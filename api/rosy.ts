@@ -97,14 +97,20 @@ type EsitoGemini = { ok: boolean; stato: number; json: any };
 const scaduto = (): EsitoGemini => ({ ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } });
 
 /**
- * Gemini per davvero. Si prova il modello scelto; se non esiste più o non
- * risponde in tempo, il successivo.
+ * Il modello che ha funzionato l'ultima volta. Resta finché il server è
+ * acceso: le domande dopo la prima vanno dritte lì, senza tentativi a vuoto.
+ */
+let modelloBuono: { modello: string; ragionamento: Record<string, any> | null } | null = null;
+
+/** Errori che dicono "questo modello no, prova un altro". */
+const daCambiare = (e: EsitoGemini) =>
+  e.stato === 404 || e.stato === 504 || (e.stato === 400 && /think/i.test(e.json?.error?.message || ''));
+
+/**
+ * Gemini per davvero. Si prova il modello ricordato; se non c'è, la lista:
+ * se un modello non esiste più o non risponde in tempo, il successivo.
  */
 export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
-  const modelli = MODELLI_GEMINI();
-  // Il modello che ha funzionato si tiene per i giri successivi della stessa domanda.
-  let buono: { modello: string; ragionamento: Record<string, any> | null } | null = null;
-
   const prova = async (corpoRichiesta: any, modello: string, ragionamento: Record<string, any> | null): Promise<EsitoGemini> => {
     const resta = TEMPO_MASSIMO_MS - (Date.now() - partenza);
     if (resta < 4000) return scaduto();
@@ -136,12 +142,16 @@ export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
   };
 
   return async (corpoRichiesta) => {
-    if (buono) return prova(corpoRichiesta, buono.modello, buono.ragionamento);
+    if (modelloBuono) {
+      const esito = await prova(corpoRichiesta, modelloBuono.modello, modelloBuono.ragionamento);
+      if (!daCambiare(esito)) return esito;
+      modelloBuono = null;
+    }
     let ultima: EsitoGemini = scaduto();
-    for (const modello of modelli) {
+    for (const modello of MODELLI_GEMINI()) {
       for (const ragionamento of ragionamentoPer(modello)) {
         ultima = await prova(corpoRichiesta, modello, ragionamento);
-        if (ultima.ok) { buono = { modello, ragionamento }; return ultima; }
+        if (ultima.ok) { modelloBuono = { modello, ragionamento }; return ultima; }
         // Impostazione del ragionamento non accettata da questo modello: la prossima.
         if (ultima.stato === 400 && /think/i.test(ultima.json?.error?.message || '')) continue;
         break;
@@ -152,6 +162,13 @@ export function geminiVero(chiave: string, partenza: number): ChiamaGemini {
     }
     return ultima;
   };
+}
+
+/** Il nome del salone, letto una volta ogni tanto come il resto. */
+async function nomeDelSalone(salonId: string): Promise<string> {
+  const [scheda] = await ricordato(`${salonId}:salone`, async () =>
+    [((await database().collection('salons').doc(salonId).get()).data() as any) || {}]);
+  return scheda?.salonDetails?.nomeSalone || 'il salone';
 }
 
 export default async function handler(req: Richiesta, res: Risposta) {
@@ -183,18 +200,28 @@ export default async function handler(req: Richiesta, res: Risposta) {
   }
 
   try {
-    const { storia } = corpo(req);
+    const { storia, riscalda } = corpo(req);
+    const salonId = await saloneDi(chi.uid);
+    const nomeSalone = await nomeDelSalone(salonId);
+    const dati = datiDelSalone(salonId, nomeSalone);
+
+    // Appena si apre la chat: il server si sveglia e legge in anticipo quello
+    // che serve, così la prima domanda non aspetta il database.
+    if (riscalda) {
+      await Promise.all([dati.servizi(), dati.operatrici(), dati.clienti()]);
+      console.log(`Rosy: pronta in ${Date.now() - partenza} ms`);
+      res.status(200).json({ pronta: true });
+      return;
+    }
+
     const messaggi: MessaggioChat[] = Array.isArray(storia)
       ? storia
           .filter((m: any) => m && (m.ruolo === 'utente' || m.ruolo === 'rosy') && typeof m.testo === 'string')
           .map((m: any) => ({ ruolo: m.ruolo, testo: m.testo }))
       : [];
 
-    const salonId = await saloneDi(chi.uid);
-    const scheda = (await database().collection('salons').doc(salonId).get()).data() as any;
-    const nomeSalone = scheda?.salonDetails?.nomeSalone || 'il salone';
-
-    const risposta = await chiediARosy(messaggi, datiDelSalone(salonId, nomeSalone), geminiVero(chiave, partenza));
+    const risposta = await chiediARosy(messaggi, dati, geminiVero(chiave, partenza));
+    console.log(`Rosy: risposta pronta in ${Date.now() - partenza} ms`);
     res.status(200).json(risposta);
   } catch (err: any) {
     if (err instanceof ErroreGemini) {
