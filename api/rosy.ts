@@ -10,6 +10,7 @@
 process.env.TZ = 'Europe/Rome';
 
 import { database, chiEntra, saloneDi } from './_firebase';
+import { MODELLI_GEMINI } from './_gemini';
 import { chiediARosy, ErroreGemini, spiegaErroreGemini, Dati, MessaggioChat, ChiamaGemini } from './_rosy';
 
 interface Richiesta {
@@ -74,23 +75,50 @@ function datiDelSalone(salonId: string, nomeSalone: string): Dati {
   };
 }
 
-/** Gemini per davvero. Se il modello scelto non esiste più si prova il successivo. */
-function geminiVero(chiave: string): ChiamaGemini {
-  const modelli = [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash']
-    .filter((m, i, l): m is string => !!m && l.indexOf(m) === i);
+
+// Vercel chiude la funzione dopo 60 secondi: meglio rispondere prima con un
+// errore chiaro che lasciare la chat appesa e poi muta.
+const TEMPO_MASSIMO_MS = 45_000;
+const TEMPO_PER_CHIAMATA_MS = 25_000;
+
+/**
+ * Gemini per davvero. Se il modello scelto non esiste più si prova il
+ * successivo. Sui modelli "flash" il ragionamento lungo si spegne: per leggere
+ * un'agenda non serve, e senza risponde in un paio di secondi invece di venti.
+ */
+function geminiVero(chiave: string, partenza: number): ChiamaGemini {
+  const modelli = MODELLI_GEMINI();
   return async (corpoRichiesta) => {
     let ultima = { ok: false, stato: 500, json: {} as any };
     for (const modello of modelli) {
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modello)}:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chiave },
-          body: JSON.stringify(corpoRichiesta)
-        }
-      );
-      ultima = { ok: r.ok, stato: r.status, json: await r.json().catch(() => ({})) };
-      if (r.status !== 404) return ultima;
+      const resta = TEMPO_MASSIMO_MS - (Date.now() - partenza);
+      if (resta < 3000) return { ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } };
+
+      const corpo = /2\.5-flash/.test(modello)
+        ? { ...corpoRichiesta, generationConfig: { ...corpoRichiesta.generationConfig, thinkingConfig: { thinkingBudget: 0 } } }
+        : corpoRichiesta;
+      const stop = new AbortController();
+      const timer = setTimeout(() => stop.abort(), Math.min(TEMPO_PER_CHIAMATA_MS, resta));
+      const inizio = Date.now();
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modello)}:generateContent`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chiave },
+            body: JSON.stringify(corpo),
+            signal: stop.signal
+          }
+        );
+        ultima = { ok: r.ok, stato: r.status, json: await r.json().catch(() => ({})) };
+        console.log(`Rosy: ${modello} ha risposto ${r.status} in ${Date.now() - inizio} ms`);
+      } catch (err: any) {
+        console.error(`Rosy: ${modello} non ha risposto in tempo (${Date.now() - inizio} ms)`, err?.name || err);
+        return { ok: false, stato: 504, json: { error: { message: 'tempo scaduto' } } };
+      } finally {
+        clearTimeout(timer);
+      }
+      if (ultima.stato !== 404) return ultima;
     }
     return ultima;
   };
@@ -104,6 +132,7 @@ export default async function handler(req: Richiesta, res: Risposta) {
     return;
   }
 
+  const partenza = Date.now();
   const chiave = (process.env.GEMINI_API_KEY || '').trim();
   if (!chiave) {
     res.status(503).json({ errore: 'Rosy non è ancora accesa: manca GEMINI_API_KEY su Vercel.' });
@@ -135,12 +164,12 @@ export default async function handler(req: Richiesta, res: Risposta) {
     const scheda = (await database().collection('salons').doc(salonId).get()).data() as any;
     const nomeSalone = scheda?.salonDetails?.nomeSalone || 'il salone';
 
-    const risposta = await chiediARosy(messaggi, datiDelSalone(salonId, nomeSalone), geminiVero(chiave));
+    const risposta = await chiediARosy(messaggi, datiDelSalone(salonId, nomeSalone), geminiVero(chiave, partenza));
     res.status(200).json(risposta);
   } catch (err: any) {
     if (err instanceof ErroreGemini) {
       console.error('Rosy: Gemini ha rifiutato', err.stato, err.dettaglio);
-      res.status(502).json({ errore: spiegaErroreGemini(err) });
+      res.status(502).json({ errore: spiegaErroreGemini(err), stato_gemini: err.stato });
       return;
     }
     if (err?.message === 'accesso-sospeso') {
@@ -148,6 +177,6 @@ export default async function handler(req: Richiesta, res: Risposta) {
       return;
     }
     console.error('Rosy: errore', err);
-    res.status(500).json({ errore: 'Rosy non è riuscita a rispondere: riprova fra poco.' });
+    res.status(500).json({ errore: `Rosy non è riuscita a rispondere: ${err?.message || 'errore sconosciuto'}` });
   }
 }

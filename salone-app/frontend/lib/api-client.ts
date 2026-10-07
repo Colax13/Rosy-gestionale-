@@ -276,7 +276,14 @@ export const rosyApi = {
       body: JSON.stringify({ storia })
     });
     const dati = await risposta.json().catch(() => ({}));
-    if (!risposta.ok) throw new Error(dati?.errore || 'Rosy non ha risposto: riprova fra poco.');
+    if (!risposta.ok) {
+      // Senza un errore scritto dal nostro server è Vercel che ha chiuso la
+      // porta (tempo scaduto, funzione caduta): il numero aiuta a capire quale.
+      if (dati?.errore) throw new Error(dati.errore);
+      throw new Error(risposta.status === 504
+        ? 'Rosy ci ha messo troppo a rispondere (504): riprova fra poco.'
+        : `Rosy non ha risposto (errore ${risposta.status}): riprova fra poco.`);
+    }
     return { testo: dati.testo || '', proposte: Array.isArray(dati.proposte) ? dati.proposte : [] };
   }
 };

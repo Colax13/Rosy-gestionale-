@@ -4,6 +4,37 @@
 // Non mostra mai una chiave né un pezzo di essa: dice solo se funzionano.
 
 import { credenziali, firebase } from './_firebase';
+import { MODELLI_GEMINI } from './_gemini';
+
+/**
+ * Rosy (Gemini): la chiave c'è, e Google la accetta? Si chiede solo la scheda
+ * del modello, che non consuma domande del piano gratuito.
+ */
+async function statoGemini(): Promise<string> {
+  const chiave = (process.env.GEMINI_API_KEY || '').trim();
+  if (!chiave) return 'spenta (manca GEMINI_API_KEY)';
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 8000);
+  try {
+    let ultimo = '';
+    for (const modello of MODELLI_GEMINI()) {
+      const inizio = Date.now();
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modello)}`, {
+        headers: { 'x-goog-api-key': chiave },
+        signal: stop.signal
+      });
+      if (r.ok) return `a posto (${modello}, ${Date.now() - inizio} ms)`;
+      const dati: any = await r.json().catch(() => ({}));
+      ultimo = `${modello}: ${r.status} ${dati?.error?.message || ''}`.trim();
+      if (r.status !== 404) break;
+    }
+    return `non funziona — ${ultimo}`;
+  } catch {
+    return 'Google non risponde (più di 8 secondi)';
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 interface Risposta {
   status(codice: number): Risposta;
@@ -29,7 +60,9 @@ export default async function handler(_req: unknown, res: Risposta) {
 
   const buoniDalFoglio = process.env.BUONI_FOGLIO_ID ? 'acceso' : 'spento (manca BUONI_FOGLIO_ID)';
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio };
+  const gemini = await statoGemini();
+
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio, rosy_ia: gemini };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({
