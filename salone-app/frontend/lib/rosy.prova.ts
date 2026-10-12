@@ -2,11 +2,12 @@
 // Si prova che gli strumenti leggano bene e che la proposta sia giusta.
 process.env.TZ = 'Europe/Rome';
 
-import { chiediARosy, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Maschera, STRUMENTI, Dati, Proposta } from '../../../api/_rosy';
+import { chiediARosy, istruzioni, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Maschera, STRUMENTI, Dati, Proposta } from '../../../api/_rosy';
 import { richiestaPerOpenAI, rispostaDaOpenAI } from '../../../api/_traduttore';
 import { iaVera } from '../../../api/rosy';
 
 let ok = 0, ko = 0;
+const istruzioniDi = () => istruzioni('RD Salon', new Date('2026-10-07T10:00:00+02:00'));
 const check = (nome: string, atteso: any, avuto: any) => {
   const uguale = JSON.stringify(atteso) === JSON.stringify(avuto);
   console.log(uguale ? `  OK   ${nome}` : `  KO   ${nome}\n       atteso: ${JSON.stringify(atteso)}\n       avuto:  ${JSON.stringify(avuto)}`);
@@ -138,6 +139,27 @@ const dati: Dati = {
   try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, async () => ({ ok: false, stato: 429, json: { error: { message: 'quota' } } }), adesso); }
   catch (e) { errore = e; }
   check('chat: limite di Google spiegato', true, errore instanceof ErroreGemini && /limite/.test(spiegaErroreGemini(errore)));
+
+  // --- "Apri scheda": le clienti trovate, messe dal gestionale
+  const schedeTrovate: any[] = [];
+  await eseguiStrumento('cerca_cliente', { testo: 'maria' }, dati, adesso, [], schedeTrovate);
+  check('schede: solo le clienti trovate', [{ id: 'c1', nome: 'Maria Rossi' }, { id: 'c2', nome: 'Mariangela Bianchi' }], schedeTrovate);
+  await eseguiStrumento('cerca_cliente', { testo: 'maria rossi' }, dati, adesso, [], schedeTrovate);
+  check('schede: niente doppioni', 2, schedeTrovate.length);
+  const nessuna: any[] = [];
+  await eseguiStrumento('cerca_cliente', { testo: 'zzz' }, dati, adesso, [], nessuna);
+  check('schede: nessuna se non trova', 0, nessuna.length);
+
+  let giro = 0;
+  const chiedeNumero = async () => {
+    giro++;
+    if (giro === 1) return { ok: true, stato: 200, json: { candidates: [{ content: { parts: [{ functionCall: { name: 'cerca_cliente', args: { testo: 'Maria Rossi' } } }] } }] } };
+    return { ok: true, stato: 200, json: { candidates: [{ content: { parts: [{ text: 'Per riservatezza non vedo il numero: lo trovi nella scheda qui sotto.' }] } }] } };
+  };
+  const numero = await chiediARosy([{ ruolo: 'utente', testo: 'Dammi il numero di Maria Rossi' }], dati, chiedeNumero, adesso);
+  check('schede: il pulsante arriva con la risposta', [{ id: 'c1', nome: 'Maria Rossi' }], numero.schede);
+  check('schede: la risposta non contiene il numero', false, /333|1234567/.test(numero.testo));
+  check('schede: le istruzioni spiegano il pulsante', true, /Apri scheda/.test(istruzioniDi()));
 
   // --- privacy: telefoni ed email non arrivano all'IA
   const m = new Maschera();

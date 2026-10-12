@@ -4,6 +4,7 @@
 // Il codice non si salva mai in chiaro: si salva la sua impronta (hash) con un
 // po' di sale. Chi leggesse il database non troverebbe codici da usare.
 
+import { VERSIONE_INFORMATIVA } from '../salone-app/frontend/lib/privacy';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 export const DURATA_CODICE_MS = 10 * 60 * 1000;   // il codice vale 10 minuti
@@ -92,6 +93,11 @@ export interface Prenotazione {
   id_dipendente: string;
   dipendenti: { nome: string; cognome: string };
   righe_appuntamento: { servizi_catalogo: { nome: string; durata_minuti: number; prezzo_base: number } }[];
+  /**
+   * La privacy, come l'ha vista e scelta la cliente prenotando. La data la
+   * mette il server: quella del telefono non fa fede.
+   */
+  consensi: { informativa_letta_il: string; versione_informativa: string; marketing: boolean; marketing_il: string };
 }
 
 const testo = (v: any, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -129,6 +135,11 @@ export function pulisciPrenotazione(dati: any, adesso: number): { ok: true; app:
     .filter((r: any) => r.servizi_catalogo.nome);
   if (!servizi.length) return { ok: false, motivo: 'Scegli almeno un servizio.' };
 
+  // Senza aver letto l'informativa non si prenota: è il controllo vero, la
+  // spunta nella pagina si potrebbe saltare.
+  if (dati?.privacy !== true) return { ok: false, motivo: 'Per prenotare devi aver letto l\'informativa privacy.' };
+  const ora = new Date(adesso).toISOString();
+
   return {
     ok: true,
     app: {
@@ -137,7 +148,13 @@ export function pulisciPrenotazione(dati: any, adesso: number): { ok: true; app:
       clienti: { nome, cognome, telefono, email: testo(dati?.clienti?.email, 200) },
       id_dipendente: testo(dati?.id_dipendente, 128),
       dipendenti: { nome: testo(dati?.dipendenti?.nome, 100), cognome: '' },
-      righe_appuntamento: servizi
+      righe_appuntamento: servizi,
+      consensi: {
+        informativa_letta_il: ora,
+        versione_informativa: VERSIONE_INFORMATIVA,
+        marketing: dati?.marketing === true,
+        marketing_il: ora
+      }
     }
   };
 }

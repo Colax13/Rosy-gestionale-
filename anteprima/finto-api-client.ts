@@ -167,12 +167,21 @@ export const rosyApi = {
   chiedi: async (storia: any[]) => {
     await new Promise(r => setTimeout(r, 600));
     const domanda = (storia[storia.length - 1]?.testo || '').toLowerCase();
+    if (/numero|telefono|note|email/.test(domanda)) {
+      const c: any = clienti[0];
+      return {
+        testo: `Per riservatezza non vedo i dati di contatto e le note di ${c.nome} ${c.cognome}: li trovi nella sua scheda, con il pulsante qui sotto.`,
+        proposte: [],
+        schede: [{ id: c.id, nome: `${c.nome} ${c.cognome}`.trim() }]
+      };
+    }
     if (!/fiss|prenot|appuntamento/.test(domanda)) {
-      return { testo: 'Domani hai 3 appuntamenti:\n• 09:00 Maria Rossi — Piega con Giulia\n• 11:00 Anna Verdi — Colore\n• 15:30 Sara Neri — Taglio', proposte: [] };
+      return { testo: 'Domani hai 3 appuntamenti:\n• 09:00 Maria Rossi — Piega con Giulia\n• 11:00 Anna Verdi — Colore\n• 15:30 Sara Neri — Taglio', proposte: [], schede: [] };
     }
     const data = new Date(); data.setDate(data.getDate() + 3); data.setHours(10, 0, 0, 0);
     return {
       testo: 'Ho preparato la proposta qui sotto: non è ancora salvata, premi "Conferma" per fissarla.',
+      schede: [],
       proposte: [{
         riepilogo: `Maria Rossi · ${data.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })} 10:00 · Piega · con Giulia`,
         cliente: { id: clienti[0]?.id, nome: 'Maria', cognome: 'Rossi', telefono: '+39 333 1234567' },

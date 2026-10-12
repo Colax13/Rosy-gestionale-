@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { clientiApi, appuntamentiApi } from '@/lib/api-client';
-import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2 } from 'lucide-react';
+import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2, ShieldCheck } from 'lucide-react';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { CAMPI_EXTRA_CLIENTE, haAltriDati, mostra, noteDaMostrare } from '@/lib/cliente';
 
@@ -77,6 +77,7 @@ export default function SchedaCliente() {
         email: cliente.email,
         note: cliente.note,
         canale_acquisizione: cliente.canale_acquisizione || 'Instagram',
+        consensi: cliente.consensi || { marketing: false },
         ...Object.fromEntries(CAMPI_EXTRA_CLIENTE.map(c => [c.chiave, cliente[c.chiave] ?? '']))
       });
       setIsEditing(true);
@@ -297,6 +298,52 @@ export default function SchedaCliente() {
                     className="w-full p-2 text-sm border border-zinc-200 rounded-md focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 outline-none resize-none bg-zinc-100" 
                   />
                 )}
+              </div>
+
+              {/* Privacy: l'informativa letta prenotando online e il consenso
+                  alle offerte, che si può dare o togliere da qui (per
+                  esempio quando la cliente lo chiede in salone). */}
+              <div className="pt-4 border-t border-zinc-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck size={16} className="text-zinc-500" />
+                  <span className="text-sm font-semibold text-zinc-900">Privacy</span>
+                </div>
+                <dl className="space-y-1.5 text-sm">
+                  <div className="flex flex-wrap gap-x-2">
+                    <dt className="text-zinc-500">Informativa:</dt>
+                    <dd className="text-zinc-800">
+                      {cliente.consensi?.informativa_letta_il
+                        ? `letta il ${new Date(cliente.consensi.informativa_letta_il).toLocaleDateString('it-IT')} (prenotazione online)`
+                        : <span className="text-zinc-400">non registrata</span>}
+                    </dd>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2">
+                    <dt className="text-zinc-500">Offerte e novità:</dt>
+                    <dd className="text-zinc-800">
+                      {!isEditing ? (
+                        cliente.consensi?.marketing
+                          ? `sì${cliente.consensi.marketing_il ? `, dal ${new Date(cliente.consensi.marketing_il).toLocaleDateString('it-IT')}` : ''}`
+                          : 'no'
+                      ) : (
+                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-fuchsia-600"
+                            checked={!!(formData as any).consensi?.marketing}
+                            onChange={e => {
+                              const si = e.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                consensi: { ...(cliente.consensi || {}), marketing: si, marketing_il: new Date().toISOString() }
+                              }));
+                            }}
+                          />
+                          ha dato il consenso
+                        </label>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
               </div>
 
               {/* Altri dati. In lettura si vedono solo quelli riempiti: una

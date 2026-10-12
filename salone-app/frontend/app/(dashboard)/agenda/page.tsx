@@ -11,6 +11,7 @@ import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { componi, NOME_MESSAGGIO } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import OrdinaOperatori from '@/components/OrdinaOperatori';
+import BottoneMenu from '../../../../../src/components/BottoneMenu';
 import { puoAprirePercorso } from '@/lib/sessione';
 import {
   durataTotale,
@@ -24,6 +25,10 @@ import {
   TurnoDelGiorno,
   NON_ASSEGNATO,
   operatoreDellaFase,
+  spostaServizio,
+  intervalliOperatore,
+  tempiServizio,
+  inizioFissato,
   Fase
 } from '@/lib/servizi';
 
@@ -821,6 +826,79 @@ export default function PaginaAgenda() {
    * lavorazione e finitura dello stesso servizio possono stare in mani
    * diverse. L'appuntamento resta uno solo.
    */
+  /**
+   * Sposta UN servizio dell'appuntamento più presto o più tardi, nella stessa
+   * colonna: gli altri servizi restano dove sono (colore, schiaritura,
+   * tonalizzante e piega non vanno per forza in fila). Se si sposta il primo,
+   * o se ne porta uno prima di tutti, cambia anche l'ora d'inizio: solo allora
+   * la cliente riceve l'SMS del cambio d'orario.
+   */
+  const spostaServizioOrario = async (appId: string, indiceRiga: number, scarto: number, forzato = false) => {
+    const app = appuntamenti.find(a => a.id === appId);
+    if (!app || !scarto) return;
+    const righe = app.righe_appuntamento || [];
+    const riga = righe[indiceRiga];
+    if (!riga) return;
+
+    const { righe: nuoveRighe, spostaInizio } = spostaServizio(righe, indiceRiga, scarto);
+    const nuovaData = new Date(new Date(app.data_ora).getTime() + spostaInizio * 60000);
+    const inizioCambiato = spostaInizio !== 0;
+
+    // I controlli si fanno solo sul servizio spostato, per chi lo fa, nel
+    // suo nuovo orario: quello che non si muove non c'entra.
+    const chi = operatoreDellaFase(riga, 'lavorazione', operatoreDi(app));
+    const dip = dipendenti.find(d => d.id === chi);
+    const soloLui = nuoveRighe.map((r, i) => (i === indiceRiga ? r : { ...r, id_dipendente: '__altro__', id_dipendente_finitura: '__altro__' }));
+    const suoi = intervalliOperatore(nuovaData.getTime(), soloLui, operatoreDi(app), chi);
+    const conflitto = chi !== NON_ASSEGNATO && appuntamenti.some(altro =>
+      altro.id !== app.id && altro.stato !== 'annullato' &&
+      intervalliOperatore(new Date(altro.data_ora).getTime(), altro.righe_appuntamento || [], operatoreDi(altro), chi)
+        .some(x => suoi.some(y => x.inizio < y.fine && y.inizio < x.fine)));
+    const inizioServizio = nuovaData.getHours() * 60 + nuovaData.getMinutes() + (inizioFissato(nuoveRighe[indiceRiga]) || 0);
+    const fineServizio = inizioServizio + tempiServizio(riga?.servizi_catalogo || riga).totale;
+    const turno = dip ? turnoDelGiorno(dip, nuovaData) : null;
+    const fuoriTurno = !!turno && (
+      !turno.lavora || !dentroTurno(turno, inizioServizio) || !dentroTurno(turno, Math.max(inizioServizio, fineServizio - 1))
+    );
+
+    if ((conflitto || fuoriTurno) && !forzato) {
+      const nome = dip ? nomeOperatore(dip) : 'L\'operatrice';
+      setConfermaSpostamento({
+        messaggio: conflitto
+          ? `${nome} ha già un appuntamento che si accavalla con questo servizio.`
+          : turno?.lavora
+            ? `${nome} quel giorno è in turno ${descriviTurno(turno)}: il servizio cade fuori.`
+            : `${nome} quel giorno non è in turno.`,
+        procedi: () => {
+          setConfermaSpostamento(null);
+          spostaServizioOrario(appId, indiceRiga, scarto, true);
+        }
+      });
+      return;
+    }
+
+    const precedenti = appuntamenti;
+    setAppuntamenti(prev => prev.map(a => a.id === appId
+      ? { ...a, data_ora: nuovaData.toISOString(), righe_appuntamento: nuoveRighe } as any
+      : a));
+
+    try {
+      await appuntamentiApi.update(appId, {
+        righe_appuntamento: nuoveRighe,
+        ...(inizioCambiato ? { data_ora: nuovaData.toISOString(), ...azzeraPromemoria() } : {})
+      });
+      // La cliente va avvisata solo se cambia l'ora in cui deve arrivare.
+      if (inizioCambiato && app.stato === 'confermato' && (app as any).id_cliente !== 'block-client' && !(app as any).sms_spenti) {
+        const nomeCliente = (app.clienti?.nome || '').trim().split(/\s+/)[0] || 'la cliente';
+        programmaSmsSpostamento(app.id, nomeCliente, formattaOrario(nuovaData.toISOString()));
+      }
+      caricaAgenda();
+    } catch (err) {
+      setAppuntamenti(precedenti);
+      setAvvisoSpostamento('Non sono riuscito a spostare il servizio. Riprova.');
+    }
+  };
+
   const spostaFase = async (appId: string, indiceRiga: number, fase: Fase, dipendente: any) => {
     const app = appuntamenti.find(a => a.id === appId);
     if (!app) return;
@@ -1050,10 +1128,12 @@ export default function PaginaAgenda() {
 
       const chiudi = (azione: () => void) => () => { setDomandaSpostamento(null); azione(); };
 
-      // Stessa colonna, ora diversa: è un semplice spostamento d'orario, e si
-      // porta dietro tutto l'appuntamento perché i servizi vanno in fila.
+      // Stessa colonna, ora diversa. Con più servizi si sposta SOLO quello
+      // preso: gli altri restano dove sono. Con un servizio solo, spostarlo è
+      // spostare l'appuntamento.
       if (!colonnaCambiata) {
-        spostaAppuntamento(id, dip, minutiAppSpostato);
+        if (righe.length > 1) spostaServizioOrario(id, indiceRiga, scarto);
+        else spostaAppuntamento(id, dip, minutiAppSpostato);
         return;
       }
 
@@ -1497,8 +1577,11 @@ export default function PaginaAgenda() {
       
       {/* Orizzontal layout for Agenda header and KPI / Banner */}
       <div className="flex flex-col mb-4 gap-2">
-        {/* Intestazione e Controlli Data */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-4 z-40 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
+        {/* Intestazione e Controlli Data. A menu chiuso, a sinistra c'è il
+            quadratino per riaprirlo, largo come la colonna degli orari. */}
+        <div className="flex items-center gap-2 sticky top-4 z-40">
+        <BottoneMenu className="w-14 h-14 self-center" />
+        <div className="flex-1 min-w-0 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
           <div>
             <h1 className="text-2xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
               <CalendarIcon className="text-[#D400FF]" size={24} />
@@ -1683,6 +1766,7 @@ export default function PaginaAgenda() {
             <span className="hidden sm:inline">Nuovo appuntamento</span>
             <span className="sm:hidden">Nuovo</span>
           </button>
+        </div>
         </div>
       </div>
 

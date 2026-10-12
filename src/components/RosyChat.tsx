@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronRight, CalendarCheck, Check, X, AlertCircle, Loader2 } from 'lucide-react';
+import { ChevronRight, CalendarCheck, Check, X, AlertCircle, Loader2, UserRound } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import RosyLogo from './RosyLogo';
 import { auth } from '../lib/firebase';
@@ -8,6 +9,9 @@ import { rosyApi, clientiApi, appuntamentiApi, messaggiApi } from '@/lib/api-cli
 // La chat con Rosy. Rosy legge e risponde; quando le si chiede di fissare un
 // appuntamento mostra una proposta, e l'appuntamento si salva solo premendo
 // "Conferma" qui sotto.
+//
+// Telefoni, email e note non passano dall'IA: quando Rosy trova una cliente,
+// sotto la risposta compare "Apri scheda", che porta alla scheda vera.
 
 type StatoProposta = 'da_confermare' | 'salvo' | 'fissato' | 'scartata' | 'errore';
 
@@ -25,6 +29,8 @@ interface Messaggio {
   ruolo: 'utente' | 'rosy';
   testo: string;
   proposte?: Proposta[];
+  /** Le clienti trovate: il pulsante per aprirne la scheda. */
+  schede?: { id: string; nome: string }[];
   errore?: boolean;
   saluto?: boolean;
 }
@@ -42,7 +48,8 @@ const pulisci = (t: string) => t
   .replace(/^#+\s*/gm, '')
   .trim();
 
-export default function RosyChat() {
+export default function RosyChat({ onChiudi }: { onChiudi?: () => void } = {}) {
+  const navigate = useNavigate();
   const nome = auth.currentUser?.displayName?.split(' ')[0] || '';
   const [messaggi, setMessaggi] = useState<Messaggio[]>([{
     id: 1,
@@ -77,7 +84,8 @@ export default function RosyChat() {
         id: Date.now() + 1,
         ruolo: 'rosy',
         testo: r.testo,
-        proposte: r.proposte.map((p: any) => ({ ...p, stato: 'da_confermare' as StatoProposta, avvisa: true }))
+        proposte: r.proposte.map((p: any) => ({ ...p, stato: 'da_confermare' as StatoProposta, avvisa: true })),
+        schede: r.schede || []
       }]);
     } catch (err: any) {
       setMessaggi(prev => [...prev, { id: Date.now() + 1, ruolo: 'rosy', errore: true, testo: err?.message || 'Rosy non ha risposto: riprova fra poco.' }]);
@@ -154,6 +162,22 @@ export default function RosyChat() {
                   {m.ruolo === 'rosy' ? pulisci(m.testo) : m.testo}
                 </p>
               </div>
+
+              {!!m.schede?.length && (
+                <div className="flex flex-col gap-1.5">
+                  {m.schede.map(sc => (
+                    <button
+                      key={sc.id}
+                      onClick={() => { onChiudi?.(); navigate(`/clienti/${sc.id}`); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-800 hover:border-fuchsia-300 hover:text-fuchsia-700 transition-colors text-left"
+                    >
+                      <UserRound size={15} className="text-fuchsia-600 shrink-0" />
+                      <span className="flex-1 min-w-0 truncate">Apri scheda di <span className="font-semibold">{sc.nome}</span></span>
+                      <ChevronRight size={15} className="text-zinc-400 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {m.proposte?.map((p, i) => (
                 <div key={i} className="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl p-3.5 flex flex-col gap-2.5">

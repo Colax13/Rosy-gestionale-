@@ -821,3 +821,32 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   dice se funzionano (`rosy_ia_riserve`).
   All'IA non arrivano più telefoni, email e note delle clienti: nella chat i
   numeri diventano "[telefono 1]" e il gestionale rimette quelli veri dopo.
+- Rosy, "Apri scheda": quando Rosy trova una cliente (anche se le si chiede
+  il numero o le note, che per riservatezza non vede), sotto la risposta
+  compare il pulsante "Apri scheda di …" (al massimo 3) che porta alla scheda
+  vera. Il pulsante lo mette il gestionale, non l'IA.
+
+## 12 ottobre
+- **Spostare un solo servizio** (richiesta di Daniele): in un appuntamento con
+  più servizi, trascinare un servizio più in alto o più in basso nella stessa
+  colonna sposta solo quello; gli altri restano dove sono. Ogni servizio
+  spostato ha il suo orario (`inizio_minuti` sulla riga). Se si sposta il
+  primo, o se ne porta uno prima di tutti, cambia l'ora d'inizio e parte
+  l'SMS del cambio d'orario; altrimenti nessun SMS. "Modifica" rimette i
+  servizi in fila.
+- **GDPR.** Prenotazione online: spunta obbligatoria "Ho letto l'informativa
+  privacy" (con link) e spunta facoltativa per offerte e novità. Il server
+  rifiuta le prenotazioni senza la prima e salva sull'appuntamento
+  `consensi` (data del server, versione dell'informativa, scelta sulle
+  offerte); confermando la richiesta i consensi passano nella scheda cliente
+  (una spunta vuota non toglie un consenso già dato). Informativa pubblica su
+  `/<salone>/privacy` (testo in `lib/privacy.ts`, BOZZA da far controllare),
+  riempita con i dati di Impostazioni → "Dati legali e privacy" (ragione
+  sociale, partita IVA, email privacy). Nella scheda cliente: sezione Privacy,
+  consenso alle offerte modificabile da "Modifica". Il segnaposto delle note
+  non chiede più le allergie.
+  **Da fare:** compilare i dati legali in Impostazioni.
+- **Pulsante del menu a schermo pieno:** non più "Menu" in basso a sinistra,
+  ma un quadratino con le tre linee in alto a sinistra. In agenda sta nella
+  riga di Giorno / Sett. / Mese (largo come la colonna degli orari); nelle
+  altre pagine è fisso in alto a sinistra e il contenuto gli lascia spazio.

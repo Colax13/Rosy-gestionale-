@@ -4,6 +4,7 @@ import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { chiaviCliente } from './importa';
 import { ordinaOperatori } from './operatori';
+import { unisciConsensi } from './privacy';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -214,6 +215,9 @@ export const clientiApi = {
     const esistenti = await clientiApi.getAll();
     const gia = esistenti.find(c => chiaviCliente(c).some(k => chiaviNuove.includes(k)));
 
+    // La privacy accettata prenotando passa nella scheda della cliente.
+    const consensi = unisciConsensi(gia?.consensi, appuntamento.consensi);
+
     let clienteId: string;
     if (gia) {
       clienteId = gia.id;
@@ -222,12 +226,14 @@ export const clientiApi = {
       const daCompletare: any = {};
       if (!gia.telefono && inArrivo.telefono) daCompletare.telefono = inArrivo.telefono;
       if (!gia.email && inArrivo.email) daCompletare.email = inArrivo.email;
+      if (consensi) daCompletare.consensi = consensi;
       if (Object.keys(daCompletare).length) await clientiApi.update(clienteId, daCompletare);
     } else {
       const creato = await clientiApi.create({
         ...inArrivo,
         note: '',
-        canale_acquisizione: 'Prenotazione online'
+        canale_acquisizione: 'Prenotazione online',
+        ...(consensi ? { consensi } : {})
       });
       clienteId = creato.id;
     }
@@ -279,7 +285,7 @@ export const rosyApi = {
       });
     } catch { /* la domanda vera ci riproverà */ }
   },
-  chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[] }> => {
+  chiedi: async (storia: { ruolo: 'utente' | 'rosy'; testo: string }[]): Promise<{ testo: string; proposte: any[]; schede: { id: string; nome: string }[] }> => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
     const risposta = await fetch('/api/rosy', {
@@ -296,7 +302,11 @@ export const rosyApi = {
         ? 'Rosy ci ha messo troppo a rispondere (504): riprova fra poco.'
         : `Rosy non ha risposto (errore ${risposta.status}): riprova fra poco.`);
     }
-    return { testo: dati.testo || '', proposte: Array.isArray(dati.proposte) ? dati.proposte : [] };
+    return {
+      testo: dati.testo || '',
+      proposte: Array.isArray(dati.proposte) ? dati.proposte : [],
+      schede: Array.isArray(dati.schede) ? dati.schede : []
+    };
   }
 };
 

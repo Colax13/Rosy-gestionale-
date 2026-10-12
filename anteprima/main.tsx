@@ -1,5 +1,6 @@
 // Punto d'ingresso dell'anteprima: monta le pagine vere dentro il Layout vero,
 // con i dati finti. Serve a guardare le schermate prima di dire che sono a posto.
+import InformativaPrivacy from '../salone-app/frontend/app/(public)/[salonId]/privacy/page';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -72,6 +73,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         {/* Come nel programma vero: l'indirizzo porta l'identificativo del salone. */}
         <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
+        <Route path="/:salonId/privacy" element={<InformativaPrivacy />} />
         <Route path="/accesso" element={<AnteprimaAccesso />} />
         {/* La chat di Rosy da sola: nell'anteprima nessuno è collegato, e il pulsante tondo non compare. */}
         <Route path="/rosy-chat" element={

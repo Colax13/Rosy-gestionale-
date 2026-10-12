@@ -57,16 +57,22 @@ const buona = {
   righe_appuntamento: [{ servizi_catalogo: { nome: 'Colore', durata_minuti: 75, prezzo_base: 45 } }],
   campoInventato: 'da buttare'
 };
-const p = pulisciPrenotazione(buona, adesso);
+const p = pulisciPrenotazione({ ...buona, privacy: true }, adesso);
 check('prenotazione buona accettata', true, p.ok);
 check('i nomi ripuliti', 'Maria', (p as any).app?.clienti?.nome);
 check('i campi inventati spariscono', false, 'campoInventato' in ((p as any).app || {}));
-check('orario già passato', false, pulisciPrenotazione({ ...buona, data_ora: '2026-09-29T09:00:00Z' }, adesso).ok);
-check('senza servizi',       false, pulisciPrenotazione({ ...buona, righe_appuntamento: [] }, adesso).ok);
-check('senza cognome',       false, pulisciPrenotazione({ ...buona, clienti: { ...buona.clienti, cognome: '' } }, adesso).ok);
-check('telefono inventato',  false, pulisciPrenotazione({ ...buona, clienti: { ...buona.clienti, telefono: '12' } }, adesso).ok);
+check('senza la spunta dell\'informativa', false, pulisciPrenotazione(buona, adesso).ok);
+check('informativa: data del server e versione', ['2026-09-30T12:00:00.000Z', true], [(p as any).app?.consensi?.informativa_letta_il, !!(p as any).app?.consensi?.versione_informativa]);
+check('promozioni: no se non spuntato', false, (p as any).app?.consensi?.marketing);
+check('promozioni: sì solo se true', [true, false],
+  [(pulisciPrenotazione({ ...buona, privacy: true, marketing: true }, adesso) as any).app.consensi.marketing,
+   (pulisciPrenotazione({ ...buona, privacy: true, marketing: 'sì' }, adesso) as any).app.consensi.marketing]);
+check('orario già passato', false, pulisciPrenotazione({ ...buona, privacy: true, data_ora: '2026-09-29T09:00:00Z' }, adesso).ok);
+check('senza servizi',       false, pulisciPrenotazione({ ...buona, privacy: true, righe_appuntamento: [] }, adesso).ok);
+check('senza cognome',       false, pulisciPrenotazione({ ...buona, privacy: true, clienti: { ...buona.clienti, cognome: '' } }, adesso).ok);
+check('telefono inventato',  false, pulisciPrenotazione({ ...buona, privacy: true, clienti: { ...buona.clienti, telefono: '12' } }, adesso).ok);
 check('durata assurda azzerata', 0, (pulisciPrenotazione({
-  ...buona, righe_appuntamento: [{ servizi_catalogo: { nome: 'X', durata_minuti: 99999, prezzo_base: 1 } }]
+  ...buona, privacy: true, righe_appuntamento: [{ servizi_catalogo: { nome: 'X', durata_minuti: 99999, prezzo_base: 1 } }]
 }, adesso) as any).app.righe_appuntamento[0].servizi_catalogo.durata_minuti);
 
 console.log(`\n${ok} passate, ${ko} fallite`);
