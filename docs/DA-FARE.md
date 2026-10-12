@@ -825,3 +825,12 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   il numero o le note, che per riservatezza non vede), sotto la risposta
   compare il pulsante "Apri scheda di …" (al massimo 3) che porta alla scheda
   vera. Il pulsante lo mette il gestionale, non l'IA.
+
+## 12 ottobre
+- **Spostare un solo servizio** (richiesta di Daniele): in un appuntamento con
+  più servizi, trascinare un servizio più in alto o più in basso nella stessa
+  colonna sposta solo quello; gli altri restano dove sono. Ogni servizio
+  spostato ha il suo orario (`inizio_minuti` sulla riga). Se si sposta il
+  primo, o se ne porta uno prima di tutti, cambia l'ora d'inizio e parte
+  l'SMS del cambio d'orario; altrimenti nessun SMS. "Modifica" rimette i
+  servizi in fila.

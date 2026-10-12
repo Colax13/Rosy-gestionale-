@@ -1,4 +1,4 @@
-import { spezzoniPerOperatore, segmentiAppuntamento, intervalliDaSegmenti, siAccavallano, NON_ASSEGNATO } from './servizi';
+import { spezzoniPerOperatore, segmentiAppuntamento, intervalliDaSegmenti, siAccavallano, NON_ASSEGNATO, spostaServizio, durataTotale, righeInFila } from './servizi';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -128,6 +128,34 @@ const soloLavorazioneAltrove = [{ servizi_catalogo: colore, id_dipendente: 'd3',
 check('lavorazione a una, finitura a un\'altra',
   ['d3', 'd1'],
   spezzoniPerOperatore(soloLavorazioneAltrove, 'd1').map(x => x.idDipendente));
+
+// --- spostare UN servizio in orario (Daniele: colore, schiaritura, tonalizzante, piega) ---
+const s30 = (nome: string) => ({ servizi_catalogo: { nome, tempo_lavorazione_minuti: 30, tempo_posa_minuti: 0, tempo_finitura_minuti: 0 } });
+const quattro = [s30('Colore'), s30('Schiaritura'), s30('Tonalizzante'), s30('Piega')];
+const inizi = (righe: any[]) => righe.map((_, i) => Math.min(...segmentiAppuntamento(righe).filter(x => x.indiceRiga === i).map(x => x.inizio)));
+check('in fila come sempre', [0, 30, 60, 90], inizi(quattro));
+
+const dopo = spostaServizio(quattro, 1, 90);           // la schiaritura un'ora e mezza più tardi
+check('si sposta solo la schiaritura', [0, 120, 60, 90], inizi(dopo.righe));
+check('l\'inizio dell\'appuntamento non cambia', 0, dopo.spostaInizio);
+check('durata fino alla fine dell\'ultimo', 150, durataTotale(dopo.righe));
+check('segmenti in ordine di orario', ['Colore', 'Tonalizzante', 'Piega', 'Schiaritura'], segmentiAppuntamento(dopo.righe).map(x => x.nome));
+
+const primo = spostaServizio(quattro, 0, 120);          // il primo spostato in fondo
+check('spostando il primo cambia l\'inizio', 30, primo.spostaInizio);
+check('gli altri restano dove erano', [90, 0, 30, 60], inizi(primo.righe));
+
+const prima = spostaServizio(quattro, 3, -120);         // la piega prima di tutto
+check('un servizio prima di tutti anticipa l\'inizio', -30, prima.spostaInizio);
+check('orari contati dal nuovo inizio', [30, 60, 90, 0], inizi(prima.righe));
+
+const ancora = spostaServizio(dopo.righe, 2, -30);      // un secondo spostamento sopra il primo
+check('si può spostare di nuovo', [0, 120, 30, 90], inizi(ancora.righe));
+check('"Modifica" li rimette in fila', [0, 30, 60, 90], inizi(righeInFila(dopo.righe)));
+check('senza orari fissati non cambia niente', JSON.stringify(quattro), JSON.stringify(righeInFila(quattro)));
+
+const spostati = spezzoniPerOperatore(dopo.righe, 'd1');
+check('in agenda: due blocchi separati', [[0, 30], [60, 150]], spostati.map(x => [x.inizio, x.fine]));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

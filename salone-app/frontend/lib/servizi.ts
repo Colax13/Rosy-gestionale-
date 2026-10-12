@@ -76,14 +76,30 @@ export function tempiServizio(servizio: any): TempiServizio {
 }
 
 /**
- * Scompone un appuntamento nei suoi segmenti in ordine: lavorazione, posa,
- * lavorazione... I minuti sono relativi all'inizio dell'appuntamento.
+ * Quando parte un servizio, se ha un orario suo: i minuti dall'inizio
+ * dell'appuntamento (`inizio_minuti`). Senza, il servizio sta in fila dopo
+ * il precedente, com'è sempre stato.
+ */
+export function inizioFissato(riga: any): number | null {
+  const v = riga?.inizio_minuti;
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Scompone un appuntamento nei suoi segmenti, in ordine di orario:
+ * lavorazione, posa, lavorazione... I minuti sono relativi all'inizio
+ * dell'appuntamento. Di solito i servizi vanno in fila; uno spostato a mano
+ * in agenda ha il suo orario (`inizio_minuti`) e parte da lì.
  */
 export function segmentiAppuntamento(righe: any[], operatoreAppuntamento?: string | null): Segmento[] {
   const segmenti: Segmento[] = [];
   let cursore = 0;
 
   (righe || []).forEach((riga: any, indiceRiga: number) => {
+    const fissato = inizioFissato(riga);
+    if (fissato !== null) cursore = fissato;
     const servizio = riga?.servizi_catalogo || riga || {};
     const nome = servizio.nome || 'Servizio';
     const { lavorazione, posa, finitura } = tempiServizio(servizio);
@@ -125,14 +141,50 @@ export function segmentiAppuntamento(righe: any[], operatoreAppuntamento?: strin
     });
   }
 
-  return segmenti;
+  // Con un servizio spostato a mano l'ordine dei servizi e quello degli
+  // orari possono non coincidere: chi legge i segmenti li vuole per orario.
+  return segmenti
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => a.s.inizio - b.s.inizio || a.i - b.i)
+    .map(x => x.s);
 }
 
 /** Durata complessiva, posa inclusa: quanto spazio occupa la card in agenda. */
 export function durataTotale(righe: any[]): number {
+  return Math.max(...segmentiAppuntamento(righe).map(s => s.inizio + s.durata));
+}
+
+/**
+ * Sposta UN servizio dell'appuntamento di `scarto` minuti, lasciando gli
+ * altri dove sono. Da qui in poi ogni servizio ha il suo orario fissato
+ * (`inizio_minuti`), così spostarne uno non trascina gli altri.
+ *
+ * Se il servizio spostato finisce prima di tutti, o se si sposta il primo,
+ * cambia anche l'inizio dell'appuntamento: `spostaInizio` dice di quanti
+ * minuti va spostato `data_ora`, e gli orari dei servizi sono già contati
+ * dal nuovo inizio.
+ */
+export function spostaServizio(righe: any[], indiceRiga: number, scarto: number): { righe: any[]; spostaInizio: number } {
   const segmenti = segmentiAppuntamento(righe);
-  const ultimo = segmenti[segmenti.length - 1];
-  return ultimo.inizio + ultimo.durata;
+  const inizi = (righe || []).map((_, i) => {
+    const suoi = segmenti.filter(s => s.indiceRiga === i);
+    return suoi.length ? Math.min(...suoi.map(s => s.inizio)) : 0;
+  });
+  if (indiceRiga >= 0 && indiceRiga < inizi.length) inizi[indiceRiga] += scarto;
+  const primo = inizi.length ? Math.min(...inizi) : 0;
+  return {
+    righe: (righe || []).map((r, i) => ({ ...r, inizio_minuti: inizi[i] - primo })),
+    spostaInizio: primo
+  };
+}
+
+/** I servizi di nuovo in fila, senza orari fissati: quello che fa "Modifica". */
+export function righeInFila(righe: any[]): any[] {
+  return (righe || []).map(r => {
+    if (!r || !('inizio_minuti' in r)) return r;
+    const { inizio_minuti: _tolto, ...resto } = r;
+    return resto;
+  });
 }
 
 /** Minuti in cui l'operatore è davvero impegnato (posa esclusa). */
