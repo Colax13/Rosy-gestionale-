@@ -11,6 +11,7 @@ import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { componi, NOME_MESSAGGIO } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import OrdinaOperatori from '@/components/OrdinaOperatori';
+import BottoneMenu from '../../../../../src/components/BottoneMenu';
 import { puoAprirePercorso } from '@/lib/sessione';
 import {
   durataTotale,
@@ -1576,8 +1577,11 @@ export default function PaginaAgenda() {
       
       {/* Orizzontal layout for Agenda header and KPI / Banner */}
       <div className="flex flex-col mb-4 gap-2">
-        {/* Intestazione e Controlli Data */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-4 z-40 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
+        {/* Intestazione e Controlli Data. A menu chiuso, a sinistra c'è il
+            quadratino per riaprirlo, largo come la colonna degli orari. */}
+        <div className="flex items-center gap-2 sticky top-4 z-40">
+        <BottoneMenu className="w-14 h-14 self-center" />
+        <div className="flex-1 min-w-0 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
           <div>
             <h1 className="text-2xl font-playfair font-bold text-zinc-900 flex items-center gap-3">
               <CalendarIcon className="text-[#D400FF]" size={24} />
@@ -1762,6 +1766,7 @@ export default function PaginaAgenda() {
             <span className="hidden sm:inline">Nuovo appuntamento</span>
             <span className="sm:hidden">Nuovo</span>
           </button>
+        </div>
         </div>
       </div>
 

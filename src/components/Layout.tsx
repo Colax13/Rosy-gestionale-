@@ -10,6 +10,7 @@ import { auth } from '../lib/firebase';
 import RosySidebar from './RosySidebar';
 import RosyChat from './RosyChat';
 import RosyLogo from './RosyLogo';
+import BottoneMenu, { MenuSchermoContext } from './BottoneMenu';
 import { puoAprirePercorso, sessioneCorrente, idSalone } from '@/lib/sessione';
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -25,6 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     try { localStorage.setItem('rosy:schermoPieno', isDesktopSidebarOpen ? '0' : '1'); } catch { /* niente */ }
   }, [isDesktopSidebarOpen]);
   const schermoPieno = !isDesktopSidebarOpen;
+  const menuSchermo = { schermoPieno, apriMenu: () => setIsDesktopSidebarOpen(true) };
   const [isChatOpen, setIsChatOpen] = useState(false);
   const desktopUserMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
@@ -33,6 +35,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const isMainDashboard = location.pathname === '/';
+  // Le pagine che mettono il pulsante del menu nella loro barra.
+  const suaBarra = location.pathname === '/agenda';
 
   // Il tema sta in un posto solo: la classe `dark` sulla pagina. Questo
   // effetto la tiene allineata a quello che l'utente ha scelto, così il tema
@@ -218,14 +222,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         // calcolare la sua altezza; a schermo pieno (solo su computer) vale 0.
         className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden relative [--altezza-barra:73px] ${schermoPieno && !isMainDashboard ? 'md:[--altezza-barra:0px]' : ''}`}
       >
-        {schermoPieno && !isMainDashboard && (
-          <button
-            onClick={() => setIsDesktopSidebarOpen(true)}
-            className="hidden md:flex fixed bottom-4 left-4 z-40 items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-white border border-zinc-200 shadow-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-            title="Mostra il menu e la barra in alto"
-          >
-            <Menu size={18} /> Menu
-          </button>
+        {/* Menu chiuso: il quadratino per riaprirlo sta in alto a sinistra.
+            L'agenda lo mette nella sua barra (Giorno / Sett. / Mese); nelle
+            altre pagine sta fisso lì, e il contenuto gli lascia spazio. */}
+        {schermoPieno && !isMainDashboard && !suaBarra && (
+          <MenuSchermoContext.Provider value={menuSchermo}>
+            <BottoneMenu className="fixed top-4 left-3 z-40 w-10 h-10" />
+          </MenuSchermoContext.Provider>
         )}
         <motion.header 
           initial={{ y: -100 }}
@@ -275,7 +278,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <span id="share-btn-text">Condividi prenotazione</span>
             </motion.button>
           </motion.header>
-        <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 md:p-0 w-full bg-white scrollbar-none flex flex-col">
+        <div className={`flex-1 overflow-y-scroll overflow-x-hidden p-4 md:p-0 w-full bg-white scrollbar-none flex flex-col ${schermoPieno && !isMainDashboard && !suaBarra ? 'md:pl-14' : ''}`}>
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, scale: 0.98 }}
@@ -283,7 +286,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             transition={{ duration: 0.3, ease: "easeOut" }}
             className="flex-1 w-full flex flex-col"
           >
-            {children}
+            <MenuSchermoContext.Provider value={menuSchermo}>
+              {children}
+            </MenuSchermoContext.Provider>
           </motion.div>
         </div>
       </main>

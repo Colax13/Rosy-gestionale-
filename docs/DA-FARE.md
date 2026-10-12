@@ -846,3 +846,7 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   consenso alle offerte modificabile da "Modifica". Il segnaposto delle note
   non chiede più le allergie.
   **Da fare:** compilare i dati legali in Impostazioni.
+- **Pulsante del menu a schermo pieno:** non più "Menu" in basso a sinistra,
+  ma un quadratino con le tre linee in alto a sinistra. In agenda sta nella
+  riga di Giorno / Sett. / Mese (largo come la colonna degli orari); nelle
+  altre pagine è fisso in alto a sinistra e il contenuto gli lascia spazio.
