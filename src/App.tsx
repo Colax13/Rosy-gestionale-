@@ -13,6 +13,7 @@ import BuoniSpa from '@/app/(dashboard)/buoni-spa/page';
 import DashboardHub from '@/app/(dashboard)/hub/page';
 import RosieHub from '@/app/(dashboard)/rosie/page';
 import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
+import InformativaPrivacy from '@/app/(public)/[salonId]/privacy/page';
 import Onboarding from './components/Onboarding';
 import SchermataAccesso from './components/SchermataAccesso';
 import { useEffect, useState } from 'react';
@@ -132,14 +133,17 @@ export default function App() {
     }
   };
 
-  // Check if it's a public booking route: "/anything/prenota"
-  const isPublicRoute = window.location.pathname.endsWith('/prenota') || window.location.search.includes('anteprima');
+  // Le pagine pubbliche: "/<salone>/prenota" e la sua "/<salone>/privacy".
+  const isPublicRoute = window.location.pathname.endsWith('/prenota')
+    || window.location.pathname.endsWith('/privacy')
+    || window.location.search.includes('anteprima');
 
   if (isPublicRoute) {
     return (
       <BrowserRouter>
         <Routes>
           <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
+          <Route path="/:salonId/privacy" element={<InformativaPrivacy />} />
           <Route path="/hub" element={<Layout><DashboardHub /></Layout>} />
           <Route path="/rosie" element={<Layout><RosieHub /></Layout>} />
         </Routes>

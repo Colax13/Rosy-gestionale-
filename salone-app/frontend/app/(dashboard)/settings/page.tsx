@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy } from 'lucide-react';
+import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle } from 'lucide-react';
+import { datiMancanti } from '@/lib/privacy';
 import { salonApi, impostazioniPrivateApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
@@ -19,7 +20,11 @@ export default function Settings() {
     telefono: '',
     email: '',
     descrizioneGenerale: '',
-    logoUrl: ''
+    logoUrl: '',
+    // Per l'informativa privacy della prenotazione online.
+    ragioneSociale: '',
+    partitaIva: '',
+    emailPrivacy: ''
   });
 
   const [orari, setOrari] = useState({
@@ -46,7 +51,7 @@ export default function Settings() {
         .catch(() => {});
       const data = await salonApi.getSettings();
       if (data) {
-        if (data.salonDetails) setDettagli(data.salonDetails);
+        if (data.salonDetails) setDettagli(prev => ({ ...prev, ...data.salonDetails }));
         if (data.salonHours) setOrari(data.salonHours);
         setOriginalData(data);
       }
@@ -237,6 +242,54 @@ export default function Settings() {
                   <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{dettagli.email || '-'}</div>
                 )}
               </div>
+            </div>
+            {/* Dati legali: servono all'informativa privacy che la cliente
+                legge prima di prenotare online. */}
+            <div className="pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2"><ShieldCheck size={18} className="text-fuchsia-600" /> Dati legali e privacy</h3>
+                <a
+                  href={`/${idSalone() || auth.currentUser?.uid}/privacy`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-fuchsia-700 hover:text-fuchsia-600"
+                >
+                  Vedi l'informativa <ExternalLink size={14} />
+                </a>
+              </div>
+              {datiMancanti(dettagli).length > 0 && (
+                <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-start gap-2">
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                  <span>Per completare l'informativa privacy mancano: {datiMancanti(dettagli).join(', ')}.</span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-500 mb-2">Ragione sociale</label>
+                  {isEditing ? (
+                    <input type="text" placeholder="Es. RD Salon di Mario Rossi" value={(dettagli as any).ragioneSociale || ''} onChange={e => setDettagli({...dettagli, ragioneSociale: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
+                  ) : (
+                    <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700 break-words">{(dettagli as any).ragioneSociale || '-'}</div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-500 mb-2">Partita IVA</label>
+                  {isEditing ? (
+                    <input type="text" placeholder="Es. 01234567890" value={(dettagli as any).partitaIva || ''} onChange={e => setDettagli({...dettagli, partitaIva: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
+                  ) : (
+                    <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700 break-words">{(dettagli as any).partitaIva || '-'}</div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-500 mb-2">Email per le richieste privacy</label>
+                  {isEditing ? (
+                    <input type="email" placeholder="Se vuota si usa l’email pubblica" value={(dettagli as any).emailPrivacy || ''} onChange={e => setDettagli({...dettagli, emailPrivacy: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
+                  ) : (
+                    <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700 break-words">{(dettagli as any).emailPrivacy || '-'}</div>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500 mt-2">L'informativa usa anche nome, indirizzo e telefono scritti qui sopra. È una bozza: falla controllare a chi segue la privacy del salone.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-500 mb-2">Descrizione del salone (visibile alle clienti)</label>

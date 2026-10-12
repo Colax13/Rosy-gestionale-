@@ -834,3 +834,15 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   primo, o se ne porta uno prima di tutti, cambia l'ora d'inizio e parte
   l'SMS del cambio d'orario; altrimenti nessun SMS. "Modifica" rimette i
   servizi in fila.
+- **GDPR.** Prenotazione online: spunta obbligatoria "Ho letto l'informativa
+  privacy" (con link) e spunta facoltativa per offerte e novità. Il server
+  rifiuta le prenotazioni senza la prima e salva sull'appuntamento
+  `consensi` (data del server, versione dell'informativa, scelta sulle
+  offerte); confermando la richiesta i consensi passano nella scheda cliente
+  (una spunta vuota non toglie un consenso già dato). Informativa pubblica su
+  `/<salone>/privacy` (testo in `lib/privacy.ts`, BOZZA da far controllare),
+  riempita con i dati di Impostazioni → "Dati legali e privacy" (ragione
+  sociale, partita IVA, email privacy). Nella scheda cliente: sezione Privacy,
+  consenso alle offerte modificabile da "Modifica". Il segnaposto delle note
+  non chiede più le allergie.
+  **Da fare:** compilare i dati legali in Impostazioni.

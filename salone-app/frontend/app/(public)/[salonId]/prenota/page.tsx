@@ -78,6 +78,9 @@ export default function PrenotazionePubblica() {
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
+  // GDPR: l'informativa letta è obbligatoria, le promozioni no.
+  const [privacyLetta, setPrivacyLetta] = useState(false);
+  const [promozioni, setPromozioni] = useState(false);
 
   const [codice, setCodice] = useState('');
   const [codiceMandatoA, setCodiceMandatoA] = useState('');
@@ -210,7 +213,9 @@ export default function PrenotazionePubblica() {
       dipendenti: { nome: op?.nome || '', cognome: '' },
       righe_appuntamento: scelti.map(s => ({
         servizi_catalogo: { nome: s.nome, durata_minuti: s.durata_minuti, prezzo_base: s.prezzo_base }
-      }))
+      })),
+      privacy: privacyLetta,
+      marketing: promozioni
     };
   };
 
@@ -293,7 +298,7 @@ export default function PrenotazionePubblica() {
   const bloccato =
     (passo === 'servizi' && scelti.length === 0) ||
     (passo === 'quando' && !oraScelta) ||
-    (passo === 'dati' && !datiCompleti) ||
+    (passo === 'dati' && (!datiCompleti || !privacyLetta)) ||
     (passo === 'verifica' && codice.length !== 6);
 
   return (
@@ -505,11 +510,29 @@ export default function PrenotazionePubblica() {
                 <label className="block text-sm font-medium text-zinc-600 mb-1">Note <span className="text-zinc-400 font-normal">· facoltative</span></label>
                 <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={500}
                   className="w-full px-3 py-2.5 bg-white border border-zinc-300 rounded-xl text-[15px] outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 resize-none"
-                  placeholder="Allergie, richieste particolari…" />
+                  placeholder="Preferenze, richieste particolari…" />
+              </div>
+              <div className="pt-1 space-y-2.5">
+                <label className="flex items-start gap-2.5 text-sm text-zinc-700 cursor-pointer select-none">
+                  <input type="checkbox" checked={privacyLetta} onChange={e => setPrivacyLetta(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-fuchsia-600 shrink-0" />
+                  <span>
+                    Ho letto l'<a href={`/${salonId}/privacy`} target="_blank" rel="noopener noreferrer" className="text-fuchsia-700 font-medium underline underline-offset-2">informativa privacy</a>
+                    <span className="text-zinc-400"> · obbligatorio</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2.5 text-sm text-zinc-700 cursor-pointer select-none">
+                  <input type="checkbox" checked={promozioni} onChange={e => setPromozioni(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-fuchsia-600 shrink-0" />
+                  <span>
+                    Voglio ricevere offerte e novità del salone
+                    <span className="text-zinc-400"> · facoltativo</span>
+                  </span>
+                </label>
               </div>
               <p className="text-xs text-zinc-400 flex items-start gap-1.5">
                 <ShieldCheck size={14} className="shrink-0 mt-0.5" />
-                Usiamo i tuoi dati solo per questo appuntamento e per ricordartelo.
+                Usiamo i tuoi dati per questo appuntamento e per ricordartelo; per le offerte solo se lo scegli tu.
               </p>
               <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
             </form>

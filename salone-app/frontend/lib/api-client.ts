@@ -4,6 +4,7 @@ import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { chiaviCliente } from './importa';
 import { ordinaOperatori } from './operatori';
+import { unisciConsensi } from './privacy';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -214,6 +215,9 @@ export const clientiApi = {
     const esistenti = await clientiApi.getAll();
     const gia = esistenti.find(c => chiaviCliente(c).some(k => chiaviNuove.includes(k)));
 
+    // La privacy accettata prenotando passa nella scheda della cliente.
+    const consensi = unisciConsensi(gia?.consensi, appuntamento.consensi);
+
     let clienteId: string;
     if (gia) {
       clienteId = gia.id;
@@ -222,12 +226,14 @@ export const clientiApi = {
       const daCompletare: any = {};
       if (!gia.telefono && inArrivo.telefono) daCompletare.telefono = inArrivo.telefono;
       if (!gia.email && inArrivo.email) daCompletare.email = inArrivo.email;
+      if (consensi) daCompletare.consensi = consensi;
       if (Object.keys(daCompletare).length) await clientiApi.update(clienteId, daCompletare);
     } else {
       const creato = await clientiApi.create({
         ...inArrivo,
         note: '',
-        canale_acquisizione: 'Prenotazione online'
+        canale_acquisizione: 'Prenotazione online',
+        ...(consensi ? { consensi } : {})
       });
       clienteId = creato.id;
     }
