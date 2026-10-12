@@ -850,3 +850,7 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   ma un quadratino con le tre linee in alto a sinistra. In agenda sta nella
   riga di Giorno / Sett. / Mese (largo come la colonna degli orari); nelle
   altre pagine è fisso in alto a sinistra e il contenuto gli lascia spazio.
+- **Prenotazione online: pagina di benvenuto.** Prima dei passi c'è una
+  schermata con logo, nome del salone, "Ti diamo il benvenuto! Grazie per
+  averci scelto…", via (apre Google Maps), telefono (chiama), descrizione
+  del salone e il pulsante "Prenota ora". Tutto da Impostazioni.

@@ -35,9 +35,10 @@ interface Servizio {
   attivo?: boolean;
 }
 
-interface Salone { nome: string; indirizzo: string; telefono: string; logo: string }
+interface Salone { nome: string; indirizzo: string; telefono: string; logo: string; descrizione: string }
 
-type Passo = 'servizi' | 'operatore' | 'quando' | 'dati' | 'verifica' | 'fatto';
+// Il benvenuto viene prima di tutto e non è un passo della barra.
+type Passo = 'benvenuto' | 'servizi' | 'operatore' | 'quando' | 'dati' | 'verifica' | 'fatto';
 const PASSI: { chiave: Passo; etichetta: string }[] = [
   { chiave: 'servizi', etichetta: 'Servizi' },
   { chiave: 'operatore', etichetta: 'Con chi' },
@@ -61,13 +62,13 @@ const linkTelefono = (t: string) => `tel:${(t || '').replace(/[^\d+]/g, '')}`;
 export default function PrenotazionePubblica() {
   const { salonId = '' } = useParams();
 
-  const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '' });
+  const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '', descrizione: '' });
   const [catalogo, setCatalogo] = useState<Servizio[]>([]);
   const [operatori, setOperatori] = useState<any[]>([]);
   const [fasceOccupate, setFasceOccupate] = useState<Fascia[]>([]);
   const [caricamento, setCaricamento] = useState(true);
 
-  const [passo, setPasso] = useState<Passo>('servizi');
+  const [passo, setPasso] = useState<Passo>('benvenuto');
   const [serviziScelti, setServiziScelti] = useState<string[]>([]);
   const [operatoreScelto, setOperatoreScelto] = useState<string>(QUALSIASI);
   const [giornoScelto, setGiornoScelto] = useState<string>('');
@@ -102,7 +103,7 @@ export default function PrenotazionePubblica() {
       disponibilitaApi.getPublic(salonId, oggi).then(el => setFasceOccupate(el.flatMap(d => d.fasce || []))).catch(() => {}),
       getDoc(doc(db, 'salons', salonId)).then(snap => {
         const d = (snap.data() as any)?.salonDetails || {};
-        setSalone({ nome: d.nomeSalone || '', indirizzo: d.indirizzo || '', telefono: d.telefono || '', logo: d.logoUrl || '' });
+        setSalone({ nome: d.nomeSalone || '', indirizzo: d.indirizzo || '', telefono: d.telefono || '', logo: d.logoUrl || '', descrizione: d.descrizioneGenerale || '' });
       }).catch(() => {})
     ]).finally(() => setCaricamento(false));
   }, [salonId]);
@@ -293,7 +294,7 @@ export default function PrenotazionePubblica() {
 
   const indicePasso = PASSI.findIndex(p => p.chiave === passo);
   const indietro: Record<Passo, Passo | null> = {
-    servizi: null, operatore: 'servizi', quando: 'operatore', dati: 'quando', verifica: 'dati', fatto: null
+    benvenuto: null, servizi: 'benvenuto', operatore: 'servizi', quando: 'operatore', dati: 'quando', verifica: 'dati', fatto: null
   };
   const bloccato =
     (passo === 'servizi' && scelti.length === 0) ||
@@ -304,7 +305,9 @@ export default function PrenotazionePubblica() {
   return (
     <div className="min-h-[100dvh] bg-zinc-50 text-zinc-900 font-sans" ref={cima}>
 
-      {/* Il salone: chi è, dove sta, come si chiama. */}
+      {/* Il salone: chi è, dove sta, come si chiama. Nel benvenuto lo dice
+          già la pagina, in grande: la testata serve dai passi in poi. */}
+      {passo !== 'benvenuto' && (
       <header className="bg-white border-b border-zinc-200">
         <div className="max-w-xl mx-auto px-4 pt-[max(env(safe-area-inset-top),1.25rem)] pb-4 flex items-center gap-3">
           {salone.logo ? (
@@ -340,6 +343,7 @@ export default function PrenotazionePubblica() {
           </nav>
         )}
       </header>
+      )}
 
       <main className="max-w-xl mx-auto px-4 py-5 pb-40">
         {indietro[passo] && (
@@ -359,6 +363,11 @@ export default function PrenotazionePubblica() {
         )}
 
         {/* ---------- 1. Servizi ---------- */}
+        {/* ---------- 0. Benvenuto ---------- */}
+        {!caricamento && passo === 'benvenuto' && (
+          <Benvenuto salone={salone} salonId={salonId} onPrenota={() => vaiA('servizi')} />
+        )}
+
         {!caricamento && passo === 'servizi' && (
           <section>
             <h2 className="font-playfair font-bold text-2xl mb-1">Che cosa ti facciamo?</h2>
@@ -594,7 +603,7 @@ export default function PrenotazionePubblica() {
       </main>
 
       {/* La barra in fondo: che cosa si è scelto e il bottone per andare avanti. */}
-      {passo !== 'fatto' && !caricamento && (
+      {passo !== 'fatto' && passo !== 'benvenuto' && !caricamento && (
         <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-zinc-200 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
           <div className="max-w-xl mx-auto px-4 pt-3 flex items-center gap-3">
             <div className="flex-1 min-w-0 text-sm">
@@ -621,6 +630,68 @@ export default function PrenotazionePubblica() {
 }
 
 // --- Pezzi -----------------------------------------------------------------
+
+/**
+ * La prima cosa che vede la cliente: il salone, un grazie, e un pulsante solo.
+ * Tutto viene dalle Impostazioni del salone (nome, logo, via, telefono,
+ * descrizione), così vale per ogni salone senza scrivere niente a mano.
+ */
+function Benvenuto({ salone, salonId, onPrenota }: { salone: Salone; salonId: string; onPrenota: () => void }) {
+  const mappa = salone.indirizzo
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${salone.nome} ${salone.indirizzo}`.trim())}`
+    : '';
+  return (
+    <section className="pt-[max(env(safe-area-inset-top),1.5rem)] flex flex-col items-center text-center">
+      {salone.logo ? (
+        <img src={salone.logo} alt="" className="w-28 h-28 rounded-3xl object-cover border border-zinc-200 shadow-sm bg-white" />
+      ) : (
+        <div className="w-28 h-28 rounded-3xl bg-fuchsia-600 text-white flex items-center justify-center font-playfair font-bold text-5xl shadow-[0_10px_30px_rgba(192,38,211,0.35)]">
+          {(salone.nome || 'S').trim().charAt(0).toUpperCase()}
+        </div>
+      )}
+
+      <h1 className="mt-6 font-playfair font-bold text-3xl leading-tight break-words">{salone.nome || 'Il tuo salone'}</h1>
+      <p className="mt-5 text-lg font-semibold text-zinc-900">Ti diamo il benvenuto!</p>
+      <p className="mt-1.5 text-[15px] text-zinc-600 max-w-sm leading-relaxed">
+        Grazie per averci scelto. Prenota il tuo servizio online in pochi passaggi.
+      </p>
+
+      <button
+        onClick={onPrenota}
+        className="mt-7 w-full max-w-sm py-4 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-500 active:scale-[0.99] text-white font-semibold text-lg shadow-[0_10px_25px_rgba(192,38,211,0.35)] transition flex items-center justify-center gap-2"
+      >
+        <CalendarDays size={20} /> Prenota ora
+      </button>
+
+      {(salone.indirizzo || salone.telefono) && (
+        <div className="mt-8 w-full max-w-sm bg-white border border-zinc-200 rounded-2xl divide-y divide-zinc-100 text-left">
+          {salone.indirizzo && (
+            <a href={mappa} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 rounded-t-2xl">
+              <MapPin size={18} className="text-fuchsia-600 shrink-0" />
+              <span className="flex-1 min-w-0 text-sm text-zinc-800 break-words">{salone.indirizzo}</span>
+              <span className="text-xs text-zinc-400 shrink-0">Mappa</span>
+            </a>
+          )}
+          {salone.telefono && (
+            <a href={linkTelefono(salone.telefono)} className="flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 last:rounded-b-2xl">
+              <Phone size={18} className="text-fuchsia-600 shrink-0" />
+              <span className="flex-1 min-w-0 text-sm text-zinc-800">{salone.telefono}</span>
+              <span className="text-xs text-zinc-400 shrink-0">Chiama</span>
+            </a>
+          )}
+        </div>
+      )}
+
+      {salone.descrizione.trim() && (
+        <p className="mt-6 w-full max-w-sm text-sm text-zinc-500 leading-relaxed whitespace-pre-line text-left">{salone.descrizione}</p>
+      )}
+
+      <a href={`/${salonId}/privacy`} target="_blank" rel="noopener noreferrer" className="mt-10 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
+        Informativa privacy
+      </a>
+    </section>
+  );
+}
 
 function impostaMeta(nome: string, contenuto: string) {
   let meta = document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`);
