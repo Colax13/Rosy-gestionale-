@@ -22,6 +22,7 @@ import { db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { catalogoApi, dipendentiApi, disponibilitaApi, prenotazioneApi } from '@/lib/api-client';
 import { faServizio } from '@/lib/operatori';
+import { linkWhatsApp, whatsappDelSalone } from '@/lib/contatti';
 import { Fascia } from '@/lib/vetrina';
 import { orariLiberi, operatoreLibero, chiaveGiorno, istante } from '@/lib/prenotazione';
 
@@ -35,7 +36,7 @@ interface Servizio {
   attivo?: boolean;
 }
 
-interface Salone { nome: string; indirizzo: string; telefono: string; logo: string; descrizione: string }
+interface Salone { nome: string; indirizzo: string; telefono: string; logo: string; descrizione: string; whatsapp: string }
 
 // Il benvenuto viene prima di tutto e non è un passo della barra.
 type Passo = 'benvenuto' | 'servizi' | 'operatore' | 'quando' | 'dati' | 'verifica' | 'fatto';
@@ -66,11 +67,13 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
   const salonId = salonIdFisso || parametri.salonId || '';
   const linkPrivacy = salonIdFisso ? '/privacy' : `/${salonId}/privacy`;
 
-  const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '', descrizione: '' });
+  const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '', descrizione: '', whatsapp: '' });
   const [catalogo, setCatalogo] = useState<Servizio[]>([]);
   const [operatori, setOperatori] = useState<any[]>([]);
   const [fasceOccupate, setFasceOccupate] = useState<Fascia[]>([]);
   const [caricamento, setCaricamento] = useState(true);
+  // Il benvenuto aspetta solo la scheda del salone, non listino e orari.
+  const [caricamentoSalone, setCaricamentoSalone] = useState(true);
 
   const [passo, setPasso] = useState<Passo>('benvenuto');
   const [serviziScelti, setServiziScelti] = useState<string[]>([]);
@@ -107,8 +110,11 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
       disponibilitaApi.getPublic(salonId, oggi).then(el => setFasceOccupate(el.flatMap(d => d.fasce || []))).catch(() => {}),
       getDoc(doc(db, 'salons', salonId)).then(snap => {
         const d = (snap.data() as any)?.salonDetails || {};
-        setSalone({ nome: d.nomeSalone || '', indirizzo: d.indirizzo || '', telefono: d.telefono || '', logo: d.logoUrl || '', descrizione: d.descrizioneGenerale || '' });
-      }).catch(() => {})
+        setSalone({
+          nome: d.nomeSalone || '', indirizzo: d.indirizzo || '', telefono: d.telefono || '',
+          logo: d.logoUrl || '', descrizione: d.descrizioneGenerale || '', whatsapp: d.whatsapp || ''
+        });
+      }).catch(() => {}).finally(() => setCaricamentoSalone(false))
     ]).finally(() => setCaricamento(false));
   }, [salonId]);
 
@@ -362,13 +368,13 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
           </div>
         )}
 
-        {caricamento && (
+        {(passo === 'benvenuto' ? caricamentoSalone : caricamento) && (
           <div className="py-16 flex justify-center text-zinc-400"><Loader2 className="animate-spin" /></div>
         )}
 
         {/* ---------- 1. Servizi ---------- */}
         {/* ---------- 0. Benvenuto ---------- */}
-        {!caricamento && passo === 'benvenuto' && (
+        {!caricamentoSalone && passo === 'benvenuto' && (
           <Benvenuto salone={salone} linkPrivacy={linkPrivacy} onPrenota={() => vaiA('servizi')} />
         )}
 
@@ -635,12 +641,23 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
 
 // --- Pezzi -----------------------------------------------------------------
 
+/** Il simbolo di WhatsApp, nel suo verde: si riconosce al volo. */
+function IconaWhatsApp() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" className="shrink-0" fill="#25D366">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm0 18.15h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.23 8.24-8.23 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.82c0 4.54-3.7 8.23-8.23 8.23Zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.25-.64.8-.78.97-.14.16-.29.18-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.13-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.24 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.1-.23-.16-.48-.29Z" />
+    </svg>
+  );
+}
+
 /**
  * La prima cosa che vede la cliente: il salone, un grazie, e un pulsante solo.
  * Tutto viene dalle Impostazioni del salone (nome, logo, via, telefono,
  * descrizione), così vale per ogni salone senza scrivere niente a mano.
  */
 function Benvenuto({ salone, linkPrivacy, onPrenota }: { salone: Salone; linkPrivacy: string; onPrenota: () => void }) {
+  const whatsapp = whatsappDelSalone(salone.whatsapp, salone.telefono);
+  const linkWa = whatsapp ? linkWhatsApp(whatsapp, `Ciao ${salone.nome || ''}! `.replace(' !', '!')) : '';
   const mappa = salone.indirizzo
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${salone.nome} ${salone.indirizzo}`.trim())}`
     : '';
@@ -667,7 +684,7 @@ function Benvenuto({ salone, linkPrivacy, onPrenota }: { salone: Salone; linkPri
         <CalendarDays size={20} /> Prenota ora
       </button>
 
-      {(salone.indirizzo || salone.telefono) && (
+      {(salone.indirizzo || salone.telefono || linkWa) && (
         <div className="mt-8 w-full max-w-sm bg-white border border-zinc-200 rounded-2xl divide-y divide-zinc-100 text-left">
           {salone.indirizzo && (
             <a href={mappa} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 rounded-t-2xl">
@@ -681,6 +698,13 @@ function Benvenuto({ salone, linkPrivacy, onPrenota }: { salone: Salone; linkPri
               <Phone size={18} className="text-fuchsia-600 shrink-0" />
               <span className="flex-1 min-w-0 text-sm text-zinc-800">{salone.telefono}</span>
               <span className="text-xs text-zinc-400 shrink-0">Chiama</span>
+            </a>
+          )}
+          {linkWa && (
+            <a href={linkWa} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 last:rounded-b-2xl">
+              <IconaWhatsApp />
+              <span className="flex-1 min-w-0 text-sm text-zinc-800">Scrivici su WhatsApp</span>
+              <span className="text-xs text-zinc-400 shrink-0">Apri</span>
             </a>
           )}
         </div>

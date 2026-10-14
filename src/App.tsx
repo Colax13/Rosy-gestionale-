@@ -1,23 +1,23 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import GestioneCatalogo from '@/app/(dashboard)/catalogo/page';
-import PaginaReport from '@/app/(dashboard)/report/page';
-import GestioneDipendenti from '@/app/(dashboard)/dipendenti/page';
-import GestioneClienti from '@/app/(dashboard)/clienti/page';
-import SchedaCliente from '@/app/(dashboard)/clienti/[id]/page';
-import PaginaAgenda from '@/app/(dashboard)/agenda/page';
-import SettingsPage from '@/app/(dashboard)/settings/page';
-import ProdottiPage from '@/app/(dashboard)/prodotti/page';
-import AutomazioniPage from '@/app/(dashboard)/automazioni/page';
-import BuoniSpa from '@/app/(dashboard)/buoni-spa/page';
-import DashboardHub from '@/app/(dashboard)/hub/page';
-import RosieHub from '@/app/(dashboard)/rosie/page';
-import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
-import InformativaPrivacy from '@/app/(public)/[salonId]/privacy/page';
-import { saloneDelDominio } from '@/lib/domini';
+// Ogni pagina si scarica quando la si apre, non tutte all'avvio: i grafici
+// dei report, l'import da Excel e il resto arrivano solo a chi li usa.
+const GestioneCatalogo = lazy(caricaPezzo(() => import('@/app/(dashboard)/catalogo/page')));
+const PaginaReport = lazy(caricaPezzo(() => import('@/app/(dashboard)/report/page')));
+const GestioneDipendenti = lazy(caricaPezzo(() => import('@/app/(dashboard)/dipendenti/page')));
+const GestioneClienti = lazy(caricaPezzo(() => import('@/app/(dashboard)/clienti/page')));
+const SchedaCliente = lazy(caricaPezzo(() => import('@/app/(dashboard)/clienti/[id]/page')));
+const PaginaAgenda = lazy(caricaPezzo(() => import('@/app/(dashboard)/agenda/page')));
+const SettingsPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/settings/page')));
+const ProdottiPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/prodotti/page')));
+const AutomazioniPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/automazioni/page')));
+const BuoniSpa = lazy(caricaPezzo(() => import('@/app/(dashboard)/buoni-spa/page')));
+const DashboardHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/hub/page')));
+const RosieHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/rosie/page')));
 import Onboarding from './components/Onboarding';
 import SchermataAccesso from './components/SchermataAccesso';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import { caricaPezzo } from '@/lib/caricaPezzo';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { apriSessione, chiudiSessione, Sessione, puoAprirePercorso, primaPaginaPermessa } from '@/lib/sessione';
@@ -134,35 +134,14 @@ export default function App() {
     }
   };
 
-  // Un indirizzo tutto del salone (es. prenota.rdsalon.com): si apre subito
-  // la sua prenotazione, e su "/privacy" la sua informativa. Il gestionale
-  // da lì non si raggiunge.
-  const saloneDominio = saloneDelDominio(window.location.hostname);
-  if (saloneDominio) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<PrenotazionePubblica salonIdFisso={saloneDominio} />} />
-          <Route path="/privacy" element={<InformativaPrivacy salonIdFisso={saloneDominio} />} />
-          <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
-          <Route path="/:salonId/privacy" element={<InformativaPrivacy />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    );
-  }
-
-  // Le pagine pubbliche: "/<salone>/prenota" e la sua "/<salone>/privacy".
-  const isPublicRoute = window.location.pathname.endsWith('/prenota')
-    || window.location.pathname.endsWith('/privacy')
-    || window.location.search.includes('anteprima');
+  // Prenotazione e informativa non passano di qui (le apre main.tsx con
+  // Pubblico). Resta l'anteprima di hub e Rosie senza accesso.
+  const isPublicRoute = window.location.search.includes('anteprima');
 
   if (isPublicRoute) {
     return (
       <BrowserRouter>
         <Routes>
-          <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
-          <Route path="/:salonId/privacy" element={<InformativaPrivacy />} />
           <Route path="/hub" element={<Layout><DashboardHub /></Layout>} />
           <Route path="/rosie" element={<Layout><RosieHub /></Layout>} />
         </Routes>
@@ -211,6 +190,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Layout>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center py-24"><div className="w-7 h-7 rounded-full border-2 border-fuchsia-200 border-t-fuchsia-600 animate-spin" /></div>}>
         <Routes>
           <Route path="/" element={<Protetta percorso="/"><DashboardHub /></Protetta>} />
           <Route path="/rosie" element={<Protetta percorso="/rosie"><RosieHub /></Protetta>} />
@@ -225,6 +205,7 @@ export default function App() {
           <Route path="/automazioni" element={<Protetta percorso="/automazioni"><AutomazioniPage /></Protetta>} />
           <Route path="/buoni-spa" element={<Protetta percorso="/buoni-spa"><BuoniSpa /></Protetta>} />
         </Routes>
+        </Suspense>
       </Layout>
     </BrowserRouter>
   );

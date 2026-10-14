@@ -1,4 +1,4 @@
-import { numeroInternazionale, linkWhatsApp, linkTelefonata } from './contatti';
+import { numeroInternazionale, linkWhatsApp, linkTelefonata, whatsappDelSalone } from './contatti';
 
 let ok = 0, ko = 0;
 const check = (nome: string, atteso: any, avuto: any) => {
@@ -22,6 +22,10 @@ check('collegamento WhatsApp',   'https://wa.me/393401112233', linkWhatsApp('340
 check('WhatsApp con messaggio',  'https://wa.me/393401112233?text=Ciao%20Anna%2C%20come%20va%3F', linkWhatsApp('3401112233', 'Ciao Anna, come va?'));
 check('WhatsApp senza numero',   '', linkWhatsApp(''));
 check('collegamento chiamata',   'tel:+393401112233', linkTelefonata('+39 340 111 22 33'));
+check('WhatsApp del salone: quello scritto apposta', '347 000 1111', whatsappDelSalone('347 000 1111', '0775 123456'));
+check('WhatsApp del salone: il telefono se è un cellulare', '340 111 2233', whatsappDelSalone('', '340 111 2233'));
+check('WhatsApp del salone: un fisso no', '', whatsappDelSalone('', '0775 123456'));
+check('WhatsApp del salone: niente', '', whatsappDelSalone(undefined, undefined));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

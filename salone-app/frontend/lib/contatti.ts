@@ -51,3 +51,15 @@ export function suTelefono(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
 }
+
+/**
+ * Il numero su cui le clienti scrivono al salone su WhatsApp: quello scritto
+ * apposta in Impostazioni; se manca, il telefono del salone, ma solo se è un
+ * cellulare (un fisso su WhatsApp di solito non c'è). Stringa vuota se non
+ * c'è un numero adatto.
+ */
+export function whatsappDelSalone(whatsapp?: string | null, telefono?: string | null): string {
+  if (numeroInternazionale(whatsapp)) return String(whatsapp).trim();
+  const numero = numeroInternazionale(telefono);
+  return numero.startsWith('393') ? String(telefono).trim() : '';
+}

@@ -22,6 +22,8 @@ export default function Settings() {
     email: '',
     descrizioneGenerale: '',
     logoUrl: '',
+    // Il numero su cui le clienti scrivono su WhatsApp (pagina di benvenuto).
+    whatsapp: '',
     // Per l'informativa privacy della prenotazione online.
     ragioneSociale: '',
     partitaIva: '',
@@ -234,6 +236,15 @@ export default function Settings() {
                   <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{telefonoAvvisi || '-'}</div>
                 )}
                 <p className="text-xs text-zinc-500 mt-1.5">Riceve un SMS per ogni nuova richiesta di appuntamento online. Non è visibile alle clienti.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-500 mb-2">WhatsApp del salone</label>
+                {isEditing ? (
+                  <input type="tel" inputMode="tel" placeholder="Es. 347 123 4567" value={(dettagli as any).whatsapp || ''} onChange={e => setDettagli({...dettagli, whatsapp: e.target.value})} className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:border-fuchsia-500" />
+                ) : (
+                  <div className="bg-white px-4 py-2.5 rounded-lg border border-zinc-200 text-zinc-700">{(dettagli as any).whatsapp || '-'}</div>
+                )}
+                <p className="text-xs text-zinc-500 mt-1.5">Compare come "Scrivici su WhatsApp" nella pagina di prenotazione. Se è vuoto si usa il telefono, solo se è un cellulare.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-500 mb-2">Email pubblica</label>

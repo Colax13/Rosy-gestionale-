@@ -865,3 +865,16 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
      virgola), poi Redeploy.
   "Condividi prenotazione" e il link in Impostazioni copiano allora
   `https://prenota.rdsalon.com`. Logica in `lib/domini.ts`.
+- **Caricamento più veloce.** Il programma non è più un file unico da 1,7 MB:
+  `src/main.tsx` sceglie fra la parte pubblica (`src/Pubblico.tsx`:
+  prenotazione e informativa) e il gestionale (`src/App.tsx`), e ogni
+  pagina del gestionale si scarica quando la si apre (React.lazy).
+  React e Firebase stanno in file a sé (vite.config.ts). La prenotazione
+  scarica ~212 KB compressi invece di ~474. I file in /assets restano in
+  memoria nel browser per un anno (hanno un nome nuovo a ogni versione);
+  se dopo una pubblicazione un pezzo vecchio non c'è più, la pagina si
+  ricarica da sola una volta (`lib/caricaPezzo.ts`). Il benvenuto compare
+  appena arriva la scheda del salone, listino e orari arrivano dopo.
+- **WhatsApp nel benvenuto:** "Scrivici su WhatsApp" con il numero di
+  Impostazioni → "WhatsApp del salone" (se vuoto, il telefono del salone
+  solo se è un cellulare).
