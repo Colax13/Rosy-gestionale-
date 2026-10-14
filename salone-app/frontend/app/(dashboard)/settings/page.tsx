@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle } from 'lucide-react';
 import { datiMancanti } from '@/lib/privacy';
+import { linkPrenotazione } from '@/lib/domini';
 import { salonApi, impostazioniPrivateApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
@@ -183,14 +184,14 @@ export default function Settings() {
                     </div>
                     <div className="flex flex-col overflow-hidden w-full">
                       <p className="text-sm font-medium text-zinc-900 truncate w-full">
-                        {window.location.origin}/{(idSalone() || auth.currentUser?.uid) || 'ID_SALONE'}/prenota
+                        {linkPrenotazione((idSalone() || auth.currentUser?.uid) || 'ID_SALONE', window.location.origin)}
                       </p>
                       <p className="text-xs text-zinc-500 pt-0.5 mt-1 truncate">Condividi sui social.</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => {
-                      const link = `${window.location.origin}/${(idSalone() || auth.currentUser?.uid)}/prenota`;
+                      const link = linkPrenotazione((idSalone() || auth.currentUser?.uid) || '', window.location.origin);
                       navigator.clipboard.writeText(link);
                       alert('Link copiato!');
                     }}

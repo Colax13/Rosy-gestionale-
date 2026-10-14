@@ -854,3 +854,14 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   schermata con logo, nome del salone, "Ti diamo il benvenuto! Grazie per
   averci scelto…", via (apre Google Maps), telefono (chiama), descrizione
   del salone e il pulsante "Prenota ora". Tutto da Impostazioni.
+
+## 14 ottobre
+- **prenota.rdsalon.com.** Un indirizzo tutto del salone apre subito la sua
+  prenotazione (e `/privacy` la sua informativa). Si configura su Vercel:
+  1. Settings → Domains → aggiungi `prenota.rdsalon.com` e crea il record
+     DNS che Vercel indica (CNAME `prenota`);
+  2. Settings → Environment Variables → `VITE_DOMINI_PRENOTAZIONE` =
+     `prenota.rdsalon.com=<codice salone>` (più indirizzi separati da
+     virgola), poi Redeploy.
+  "Condividi prenotazione" e il link in Impostazioni copiano allora
+  `https://prenota.rdsalon.com`. Logica in `lib/domini.ts`.

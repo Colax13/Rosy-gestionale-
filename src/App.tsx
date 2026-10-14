@@ -14,6 +14,7 @@ import DashboardHub from '@/app/(dashboard)/hub/page';
 import RosieHub from '@/app/(dashboard)/rosie/page';
 import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
 import InformativaPrivacy from '@/app/(public)/[salonId]/privacy/page';
+import { saloneDelDominio } from '@/lib/domini';
 import Onboarding from './components/Onboarding';
 import SchermataAccesso from './components/SchermataAccesso';
 import { useEffect, useState } from 'react';
@@ -132,6 +133,24 @@ export default function App() {
       setAccessoInCorso(false);
     }
   };
+
+  // Un indirizzo tutto del salone (es. prenota.rdsalon.com): si apre subito
+  // la sua prenotazione, e su "/privacy" la sua informativa. Il gestionale
+  // da lì non si raggiunge.
+  const saloneDominio = saloneDelDominio(window.location.hostname);
+  if (saloneDominio) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<PrenotazionePubblica salonIdFisso={saloneDominio} />} />
+          <Route path="/privacy" element={<InformativaPrivacy salonIdFisso={saloneDominio} />} />
+          <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
+          <Route path="/:salonId/privacy" element={<InformativaPrivacy />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
 
   // Le pagine pubbliche: "/<salone>/prenota" e la sua "/<salone>/privacy".
   const isPublicRoute = window.location.pathname.endsWith('/prenota')

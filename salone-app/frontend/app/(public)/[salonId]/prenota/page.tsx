@@ -59,8 +59,12 @@ const durataScritta = (min: number) => {
 /** Il telefono da chiamare, ripulito per il link `tel:`. */
 const linkTelefono = (t: string) => `tel:${(t || '').replace(/[^\d+]/g, '')}`;
 
-export default function PrenotazionePubblica() {
-  const { salonId = '' } = useParams();
+export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: string } = {}) {
+  const parametri = useParams();
+  // Su un indirizzo tutto del salone (prenota.rdsalon.com) il salone non sta
+  // nel percorso: lo dice l'indirizzo.
+  const salonId = salonIdFisso || parametri.salonId || '';
+  const linkPrivacy = salonIdFisso ? '/privacy' : `/${salonId}/privacy`;
 
   const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '', descrizione: '' });
   const [catalogo, setCatalogo] = useState<Servizio[]>([]);
@@ -365,7 +369,7 @@ export default function PrenotazionePubblica() {
         {/* ---------- 1. Servizi ---------- */}
         {/* ---------- 0. Benvenuto ---------- */}
         {!caricamento && passo === 'benvenuto' && (
-          <Benvenuto salone={salone} salonId={salonId} onPrenota={() => vaiA('servizi')} />
+          <Benvenuto salone={salone} linkPrivacy={linkPrivacy} onPrenota={() => vaiA('servizi')} />
         )}
 
         {!caricamento && passo === 'servizi' && (
@@ -526,7 +530,7 @@ export default function PrenotazionePubblica() {
                   <input type="checkbox" checked={privacyLetta} onChange={e => setPrivacyLetta(e.target.checked)}
                     className="mt-0.5 w-4 h-4 accent-fuchsia-600 shrink-0" />
                   <span>
-                    Ho letto l'<a href={`/${salonId}/privacy`} target="_blank" rel="noopener noreferrer" className="text-fuchsia-700 font-medium underline underline-offset-2">informativa privacy</a>
+                    Ho letto l'<a href={linkPrivacy} target="_blank" rel="noopener noreferrer" className="text-fuchsia-700 font-medium underline underline-offset-2">informativa privacy</a>
                     <span className="text-zinc-400"> · obbligatorio</span>
                   </span>
                 </label>
@@ -636,7 +640,7 @@ export default function PrenotazionePubblica() {
  * Tutto viene dalle Impostazioni del salone (nome, logo, via, telefono,
  * descrizione), così vale per ogni salone senza scrivere niente a mano.
  */
-function Benvenuto({ salone, salonId, onPrenota }: { salone: Salone; salonId: string; onPrenota: () => void }) {
+function Benvenuto({ salone, linkPrivacy, onPrenota }: { salone: Salone; linkPrivacy: string; onPrenota: () => void }) {
   const mappa = salone.indirizzo
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${salone.nome} ${salone.indirizzo}`.trim())}`
     : '';
@@ -686,7 +690,7 @@ function Benvenuto({ salone, salonId, onPrenota }: { salone: Salone; salonId: st
         <p className="mt-6 w-full max-w-sm text-sm text-zinc-500 leading-relaxed whitespace-pre-line text-left">{salone.descrizione}</p>
       )}
 
-      <a href={`/${salonId}/privacy`} target="_blank" rel="noopener noreferrer" className="mt-10 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
+      <a href={linkPrivacy} target="_blank" rel="noopener noreferrer" className="mt-10 text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
         Informativa privacy
       </a>
     </section>

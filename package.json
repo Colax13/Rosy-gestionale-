@@ -26,7 +26,8 @@
     "prova:otp": "tsx salone-app/frontend/lib/otp.prova.ts",
     "prova:prenotazione": "tsx salone-app/frontend/lib/prenotazione.prova.ts",
     "prova:rosy": "tsx salone-app/frontend/lib/rosy.prova.ts",
-    "prova:privacy": "tsx salone-app/frontend/lib/privacy.prova.ts"
+    "prova:privacy": "tsx salone-app/frontend/lib/privacy.prova.ts",
+    "prova:domini": "tsx salone-app/frontend/lib/domini.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

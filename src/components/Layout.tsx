@@ -11,6 +11,7 @@ import RosySidebar from './RosySidebar';
 import RosyChat from './RosyChat';
 import RosyLogo from './RosyLogo';
 import BottoneMenu, { MenuSchermoContext } from './BottoneMenu';
+import { linkPrenotazione } from '@/lib/domini';
 import { puoAprirePercorso, sessioneCorrente, idSalone } from '@/lib/sessione';
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -262,7 +263,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 // un'operatrice che lo condivide deve mandare lo stesso indirizzo.
                 const idPerLink = idSalone() || auth.currentUser?.uid;
                 if (idPerLink) {
-                   const link = `${window.location.origin}/${idPerLink}/prenota`;
+                   const link = linkPrenotazione(idPerLink, window.location.origin);
                    navigator.clipboard.writeText(link);
                    const btn = document.getElementById('share-btn-text');
                    if (btn) {

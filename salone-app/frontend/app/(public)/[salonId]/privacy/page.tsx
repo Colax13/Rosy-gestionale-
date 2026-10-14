@@ -11,8 +11,9 @@ import { db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { testoInformativa, DatiTitolare, VERSIONE_INFORMATIVA } from '@/lib/privacy';
 
-export default function InformativaPrivacy() {
-  const { salonId = '' } = useParams();
+export default function InformativaPrivacy({ salonIdFisso }: { salonIdFisso?: string } = {}) {
+  const parametri = useParams();
+  const salonId = salonIdFisso || parametri.salonId || '';
   const [dati, setDati] = useState<DatiTitolare | null>(null);
 
   useEffect(() => {

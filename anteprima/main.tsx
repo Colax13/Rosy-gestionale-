@@ -1,9 +1,10 @@
+import { saloneDelDominio } from '../salone-app/frontend/lib/domini';
 // Punto d'ingresso dell'anteprima: monta le pagine vere dentro il Layout vero,
 // con i dati finti. Serve a guardare le schermate prima di dire che sono a posto.
 import InformativaPrivacy from '../salone-app/frontend/app/(public)/[salonId]/privacy/page';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import '../src/index.css';
 import Layout from '../src/components/Layout';
 import RosyChat from '../src/components/RosyChat';
@@ -67,9 +68,20 @@ function AnteprimaAccesso() {
   );
 }
 
+// Come nel programma vero: su un indirizzo tutto del salone (qui si prova con
+// VITE_DOMINI_PRENOTAZIONE="127.0.0.1=salone-prova") si apre la prenotazione.
+const saloneDominio = saloneDelDominio(window.location.hostname);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      {saloneDominio ? (
+        <Routes>
+          <Route path="/" element={<PrenotazionePubblica salonIdFisso={saloneDominio} />} />
+          <Route path="/privacy" element={<InformativaPrivacy salonIdFisso={saloneDominio} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      ) : (
       <Routes>
         {/* Come nel programma vero: l'indirizzo porta l'identificativo del salone. */}
         <Route path="/:salonId/prenota" element={<PrenotazionePubblica />} />
@@ -100,6 +112,7 @@ createRoot(document.getElementById('root')!).render(
           </Layout>
         } />
       </Routes>
+      )}
     </BrowserRouter>
   </StrictMode>
 );
