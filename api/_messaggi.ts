@@ -99,6 +99,63 @@ export function postinoSms(): 'skebby' | 'traccar' | 'telefono' | null {
  * Si usa il testo corto (`messaggio.sms`), non quello dell'email: un SMS si
  * paga a pezzi da 160 caratteri e l'email ne fa quattro.
  */
+// ---------------------------------------------------------------------------
+// Riprovare quando il servizio è giù un attimo, senza mai mandare due volte
+// ---------------------------------------------------------------------------
+
+/**
+ * Si riprova SOLO quando è certo che il messaggio non è stato preso in carico:
+ * - risposte 502/503/504: il servizio (o il suo ingresso) è occupato o giù,
+ *   la richiesta non è arrivata a chi manda gli SMS;
+ * - connessione che non parte (server non trovato, connessione rifiutata,
+ *   rete irraggiungibile): non è uscito niente.
+ * Non si riprova con un 500 generico né con una connessione caduta a metà:
+ * lì il messaggio potrebbe essere partito, e un secondo invio sarebbe un
+ * doppione. Meglio un errore nel registro che due SMS uguali.
+ */
+const STATI_RIPROVABILI = [502, 503, 504];
+const CODICI_RIPROVABILI = ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH'];
+
+export function siPuoRiprovare(esito: { stato?: number; errore?: any }): boolean {
+  if (typeof esito.stato === 'number') return STATI_RIPROVABILI.includes(esito.stato);
+  const codice = esito.errore?.cause?.code || esito.errore?.code;
+  return CODICI_RIPROVABILI.includes(codice);
+}
+
+/** Le attese prima del secondo e del terzo tentativo. */
+export const ATTESE_RIPROVA_MS = [2000, 5000];
+
+const aspetta = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Fa la richiesta, e se il servizio è giù per un attimo la rifà (al massimo
+ * due volte in più). Restituisce l'ultima risposta, o rilancia l'ultimo
+ * errore, insieme a quanti tentativi ci sono voluti.
+ */
+export async function conRiprova(
+  richiesta: () => Promise<Response>,
+  attese: number[] = ATTESE_RIPROVA_MS
+): Promise<{ risposta: Response; tentativi: number }> {
+  for (let i = 0; ; i++) {
+    try {
+      const risposta = await richiesta();
+      if (risposta.ok || i >= attese.length || !siPuoRiprovare({ stato: risposta.status })) {
+        return { risposta, tentativi: i + 1 };
+      }
+      console.warn(`SMS: il servizio ha risposto ${risposta.status}, riprovo fra ${attese[i]} ms.`);
+    } catch (err: any) {
+      if (i >= attese.length || !siPuoRiprovare({ errore: err })) {
+        (err as any).tentativi = i + 1;
+        throw err;
+      }
+      console.warn(`SMS: connessione non partita (${err?.cause?.code || err?.code}), riprovo fra ${attese[i]} ms.`);
+    }
+    await aspetta(attese[i]);
+  }
+}
+
+const dopoTentativi = (n: number) => (n > 1 ? ` (dopo ${n} tentativi)` : '');
+
 export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<EsitoInvio> {
   const postino = postinoSms();
   if (!postino) {
@@ -128,14 +185,14 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
     // mostra l'app dice a quale tablet consegnare. Va nell'intestazione così
     // com'è, senza "Bearer" davanti.
     try {
-      const risposta = await fetch(process.env.TRACCAR_SMS_URL || 'https://www.traccar.org/sms/', {
+      const { risposta, tentativi } = await conRiprova(() => fetch(process.env.TRACCAR_SMS_URL || 'https://www.traccar.org/sms/', {
         method: 'POST',
         headers: {
           'Authorization': process.env.TRACCAR_SMS_TOKEN as string,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ to: `+${numero}`, message: testo })
-      });
+      }));
       if (!risposta.ok) {
         const dettaglio = await risposta.text().catch(() => '');
         // Le risposte di Traccar, dette in modo che si sappia cosa fare.
@@ -144,11 +201,11 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
           : risposta.status >= 500
             ? 'il servizio di Traccar non risponde: riprova fra qualche minuto'
             : 'il tablet del salone non ha accettato il messaggio';
-        return { mandato: false, canale: 'sms', motivo: `${perche} (${risposta.status}). ${dettaglio}`.trim() };
+        return { mandato: false, canale: 'sms', motivo: `${perche} (${risposta.status})${dopoTentativi(tentativi)}. ${dettaglio}`.trim() };
       }
       return { mandato: true, canale: 'sms', a: `+${numero}` };
     } catch (err: any) {
-      return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il tablet del salone: ${err?.message || 'motivo sconosciuto'}` };
+      return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il tablet del salone${dopoTentativi(err?.tentativi || 1)}: ${err?.message || 'motivo sconosciuto'}` };
     }
   }
 
@@ -156,7 +213,7 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
   const credenziali = Buffer.from(`${process.env.SMS_GATEWAY_USER}:${process.env.SMS_GATEWAY_PASSWORD}`).toString('base64');
 
   try {
-    const risposta = await fetch(indirizzo, {
+    const { risposta, tentativi } = await conRiprova(() => fetch(indirizzo, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credenziali}`,
@@ -166,14 +223,14 @@ export async function mandaSms(telefono: string, messaggio: Messaggio): Promise<
         textMessage: { text: testo },
         phoneNumbers: [`+${numero}`]
       })
-    });
+    }));
 
     if (!risposta.ok) {
       const dettaglio = await risposta.text().catch(() => '');
-      return { mandato: false, canale: 'sms', motivo: `il telefono del salone ha rifiutato (${risposta.status}). ${dettaglio}`.trim() };
+      return { mandato: false, canale: 'sms', motivo: `il telefono del salone ha rifiutato (${risposta.status})${dopoTentativi(tentativi)}. ${dettaglio}`.trim() };
     }
     return { mandato: true, canale: 'sms', a: `+${numero}` };
   } catch (err: any) {
-    return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il telefono del salone: ${err?.message || 'motivo sconosciuto'}` };
+    return { mandato: false, canale: 'sms', motivo: `non riesco a raggiungere il telefono del salone${dopoTentativi(err?.tentativi || 1)}: ${err?.message || 'motivo sconosciuto'}` };
   }
 }

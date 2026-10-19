@@ -878,3 +878,12 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
 - **WhatsApp nel benvenuto:** "Scrivici su WhatsApp" con il numero di
   Impostazioni → "WhatsApp del salone" (se vuoto, il telefono del salone
   solo se è un cellulare).
+
+## 19 ottobre
+- **SMS: nuovo tentativo automatico, senza doppioni.** Se Traccar (o il
+  telefono-ponte) risponde 502/503/504, o la connessione non parte proprio
+  (server non trovato, connessione rifiutata), l'SMS si riprova dopo 2 e
+  dopo 5 secondi. Con un 500 generico o una connessione caduta a metà NON
+  si riprova: il messaggio potrebbe essere partito. Nel registro, l'errore
+  dice "dopo 3 tentativi". Caso tipico: il 13/10 alle 14:59 Traccar non
+  rispondeva e due SMS non sono partiti.
