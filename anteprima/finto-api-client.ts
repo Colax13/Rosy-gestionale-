@@ -208,8 +208,8 @@ export const messaggiApi = {
 export const prenotazioneApi = {
   chiediCodice: async (_salonId: string, telefono: string) =>
     eco({ serveCodice: true, a: telefono || '+39 333 000 0000' }),
-  prenota: async (salonId: string, appuntamento: any, codice?: string) => {
-    if (codice && codice !== '123456') throw new Error('Codice sbagliato. Hai ancora 4 tentativi.');
+  prenota: async (salonId: string, appuntamento: any, codice?: string, senzaCodice = false) => {
+    if (!senzaCodice && codice && codice !== '123456') throw new Error('Codice sbagliato. Hai ancora 4 tentativi.');
     (globalThis as any).ultimaPrenotazione = { salonId, ...appuntamento, codice };
     return eco({ id: 'finto', verificato: !!codice });
   }

@@ -1,7 +1,7 @@
 // La verifica del numero: le regole, senza database e senza SMS.
 import {
   nuovoCodice, impronta, puoMandareCodice, controllaCodice, testoCodice, idVerifica,
-  pulisciPrenotazione, ATTESA_FRA_CODICI_MS, MAX_TENTATIVI, DURATA_CODICE_MS
+  pulisciPrenotazione, puoSaltareCodice, ATTESA_FRA_CODICI_MS, MAX_TENTATIVI, DURATA_CODICE_MS
 } from '../../../api/_otp';
 import { segmentiSms } from './messaggi';
 
@@ -74,6 +74,19 @@ check('telefono inventato',  false, pulisciPrenotazione({ ...buona, privacy: tru
 check('durata assurda azzerata', 0, (pulisciPrenotazione({
   ...buona, privacy: true, righe_appuntamento: [{ servizi_catalogo: { nome: 'X', durata_minuti: 99999, prezzo_base: 1 } }]
 }, adesso) as any).app.righe_appuntamento[0].servizi_catalogo.durata_minuti);
+
+// --- solo cellulari giusti nella prenotazione
+check('prenotazione con un fisso: no', false, pulisciPrenotazione({ ...buona, privacy: true, clienti: { ...buona.clienti, telefono: '0775 123456' } }, adesso).ok);
+check('prenotazione con 9 cifre: no', false, pulisciPrenotazione({ ...buona, privacy: true, clienti: { ...buona.clienti, telefono: '333 123 456' } }, adesso).ok);
+check('prenotazione con spazi e +39: sì', true, pulisciPrenotazione({ ...buona, privacy: true, clienti: { ...buona.clienti, telefono: '+39 333 123 4567' } }, adesso).ok);
+
+// --- il codice non arriva: dopo 90 secondi si manda lo stesso
+const mandato = { sale: 's', hash: 'h', scade: adesso + DURATA_CODICE_MS, tentativi: 0, invii: [adesso] };
+check('saltare subito: no', false, puoSaltareCodice(mandato, adesso + 30_000).ok);
+check('saltare dopo 90 secondi: sì', true, puoSaltareCodice(mandato, adesso + 91_000).ok);
+check('saltare senza aver chiesto il codice: no', false, puoSaltareCodice(undefined, adesso + 91_000).ok);
+check('saltare dopo un nuovo invio: si riparte da quello', false, puoSaltareCodice({ ...mandato, invii: [adesso, adesso + 80_000] }, adesso + 100_000).ok);
+check('il motivo dice quanto aspettare', true, /Aspetta ancora 60 secondi/.test((puoSaltareCodice(mandato, adesso + 30_000) as any).motivo));
 
 console.log(`\n${ok} passate, ${ko} fallite`);
 process.exit(ko ? 1 : 0);

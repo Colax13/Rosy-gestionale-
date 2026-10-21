@@ -63,3 +63,36 @@ export function whatsappDelSalone(whatsapp?: string | null, telefono?: string | 
   const numero = numeroInternazionale(telefono);
   return numero.startsWith('393') ? String(telefono).trim() : '';
 }
+
+export type ControlloCellulare = { ok: true; numero: string } | { ok: false; motivo: string };
+
+/**
+ * Il numero a cui mandare un codice per SMS è un cellulare vero?
+ * - italiano (scritto con o senza +39): esattamente 10 cifre che iniziano
+ *   con 3. Un fisso o un numero con una cifra in più o in meno non passa:
+ *   il codice non arriverebbe mai, e la cliente resterebbe ad aspettare;
+ * - straniero: solo se scritto col prefisso (+41…, 0044…), da 8 a 15 cifre.
+ * Spazi, trattini, punti, parentesi non contano.
+ */
+export function cellulareValido(telefono: string | null | undefined): ControlloCellulare {
+  const grezzo = String(telefono ?? '').replace(/[‎‏‪-‮]/g, '').trim();
+  const cifre = grezzo.replace(/\D/g, '');
+  if (!cifre) return { ok: false, motivo: 'Scrivi il tuo numero di cellulare.' };
+
+  const conPrefisso = grezzo.startsWith('+') || cifre.startsWith('00');
+  const internazionale = numeroInternazionale(grezzo);
+  if (conPrefisso && !internazionale.startsWith('39')) {
+    return internazionale.length >= 8 && internazionale.length <= 15
+      ? { ok: true, numero: internazionale }
+      : { ok: false, motivo: 'Il numero straniero non sembra giusto: controlla il prefisso e le cifre.' };
+  }
+
+  // Italiano: si toglie il 39 davanti (se c'è) e restano le 10 cifre.
+  const locale = internazionale.startsWith('39') ? internazionale.slice(2) : cifre;
+  if (/^0/.test(locale)) return { ok: false, motivo: 'Questo è un numero fisso: il codice arriva per SMS, serve un cellulare.' };
+  if (!/^3/.test(locale)) return { ok: false, motivo: 'Il cellulare deve iniziare con 3 (es. 333 123 4567).' };
+  if (locale.length !== 10) {
+    return { ok: false, motivo: `Il cellulare deve avere 10 cifre: ne hai scritte ${locale.length}.` };
+  }
+  return { ok: true, numero: `39${locale}` };
+}

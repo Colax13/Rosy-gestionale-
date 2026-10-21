@@ -24,7 +24,7 @@ export type TipoMessaggio = 'ricevuta' | 'conferma' | 'rifiuto' | 'spostamento' 
 export const TIPI_MESSAGGIO: TipoMessaggio[] = ['ricevuta', 'conferma', 'rifiuto', 'spostamento', 'promemoria', 'promemoria_ora'];
 
 /** Come si chiama ogni messaggio nel registro e negli avvisi. */
-export const NOME_MESSAGGIO: Record<TipoMessaggio | 'avviso_salone' | 'prova', string> = {
+export const NOME_MESSAGGIO: Record<TipoMessaggio | 'avviso_salone' | 'prova' | 'codice', string> = {
   ricevuta: 'Richiesta ricevuta',
   conferma: 'Appuntamento confermato',
   rifiuto: 'Orario non disponibile',
@@ -32,7 +32,8 @@ export const NOME_MESSAGGIO: Record<TipoMessaggio | 'avviso_salone' | 'prova', s
   promemoria: 'Promemoria 24 ore prima',
   promemoria_ora: 'Promemoria 1 ora prima',
   avviso_salone: 'Avviso nuova richiesta al salone',
-  prova: 'SMS di prova'
+  prova: 'SMS di prova',
+  codice: 'Codice di verifica'
 };
 
 export interface DatiMessaggio {

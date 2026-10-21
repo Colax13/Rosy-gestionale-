@@ -360,8 +360,9 @@ async function chiamaPrenota(corpo: any) {
 export const prenotazioneApi = {
   chiediCodice: (salonId: string, telefono: string): Promise<{ serveCodice: boolean; a?: string; avviso?: string }> =>
     chiamaPrenota({ azione: 'codice', salonId, telefono }),
-  prenota: (salonId: string, appuntamento: any, codice?: string): Promise<{ id: string; verificato: boolean }> =>
-    chiamaPrenota({ azione: 'prenota', salonId, appuntamento, codice: codice || '' })
+  /** `senzaCodice`: il codice non è arrivato e, passati 90", si invia lo stesso (numero non verificato). */
+  prenota: (salonId: string, appuntamento: any, codice?: string, senzaCodice = false): Promise<{ id: string; verificato: boolean }> =>
+    chiamaPrenota({ azione: 'prenota', salonId, appuntamento, codice: codice || '', ...(senzaCodice ? { senzaCodice: true } : {}) })
 };
 
 export const precontoApi = {

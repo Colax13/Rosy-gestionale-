@@ -887,3 +887,18 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   si riprova: il messaggio potrebbe essere partito. Nel registro, l'errore
   dice "dopo 3 tentativi". Caso tipico: il 13/10 alle 14:59 Traccar non
   rispondeva e due SMS non sono partiti.
+
+## 21 ottobre — OTP della prenotazione online
+- **Solo cellulari giusti:** per l'Italia esattamente 10 cifre che iniziano
+  con 3 (spazi, +39, 0039, trattini vanno bene); un fisso o una cifra in
+  più/meno viene rifiutato subito con il motivo sotto il campo, e anche il
+  server lo rifiuta. Stranieri solo col prefisso (+41…). `cellulareValido`
+  in `lib/contatti.ts`.
+- **Codici nel Registro SMS** come "Codice di verifica", partiti o no, col
+  motivo; il codice non si scrive mai.
+- **Codice che non arriva:** dopo 90 secondi dall'ultimo invio compare
+  "Invia lo stesso la richiesta" (più "oppure chiamaci"); la regola dei 90"
+  la controlla il server (`puoSaltareCodice`), la richiesta arriva come
+  "numero non verificato".
+- **Sul tablet:** togliere Traccar da risparmio/ottimizzazione batteria e,
+  se Android avvisa che "sta inviando molti SMS", scegliere Consenti sempre.

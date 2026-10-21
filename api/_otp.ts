@@ -5,6 +5,7 @@
 // po' di sale. Chi leggesse il database non troverebbe codici da usare.
 
 import { VERSIONE_INFORMATIVA } from '../salone-app/frontend/lib/privacy';
+import { cellulareValido } from '../salone-app/frontend/lib/contatti';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 export const DURATA_CODICE_MS = 10 * 60 * 1000;   // il codice vale 10 minuti
@@ -13,6 +14,7 @@ export const MAX_CODICI_ORA = 5;                   // per numero di telefono
 export const MAX_CODICI_ORA_SALONE = 40;           // per salone, per non far bloccare la SIM
 export const MAX_TENTATIVI = 5;                    // poi il codice si brucia
 export const SENZA_CODICE_MS = 15 * 60 * 1000;     // se l'SMS non parte, si prenota lo stesso
+export const ATTESA_PRIMA_DI_SALTARE_MS = 90 * 1000; // codice partito ma non arrivato: dopo 90" si invia lo stesso
 
 export interface StatoCodice {
   sale?: string;
@@ -81,6 +83,25 @@ export function controllaCodice(stato: StatoCodice | undefined, codice: string, 
   return { ok: true };
 }
 
+/**
+ * Il codice è partito ma alla cliente non arriva (tablet scarico, senza
+ * rete, Android che frena gli SMS): dopo 90 secondi dall'ultimo invio può
+ * mandare lo stesso la richiesta, che arriva al salone come "numero non
+ * verificato". La regola sta qui, sul server: dalla pagina non si salta.
+ */
+export function puoSaltareCodice(stato: StatoCodice | undefined, adesso: number): Esito {
+  const invii = inviiRecenti(stato?.invii, adesso);
+  if (!stato?.hash || !invii.length) {
+    return { ok: false, motivo: 'Prima chiedi il codice: non ne risulta uno per questo numero.' };
+  }
+  const ultimo = Math.max(...invii);
+  if (adesso - ultimo < ATTESA_PRIMA_DI_SALTARE_MS) {
+    const secondi = Math.ceil((ATTESA_PRIMA_DI_SALTARE_MS - (adesso - ultimo)) / 1000);
+    return { ok: false, motivo: `Aspetta ancora ${secondi} secondi: il codice a volte ci mette un po'.` };
+  }
+  return { ok: true };
+}
+
 /** L'SMS del codice: corto, niente caratteri che costano doppio. */
 export function testoCodice(nomeSalone: string, codice: string): string {
   return `${nomeSalone || 'Il salone'}: il tuo codice per prenotare è ${codice}. Vale 10 minuti. Se non l'hai chiesto tu, ignora questo messaggio.`;
@@ -121,7 +142,8 @@ export function pulisciPrenotazione(dati: any, adesso: number): { ok: true; app:
   const cognome = testo(dati?.clienti?.cognome, 100);
   const telefono = testo(dati?.clienti?.telefono, 40);
   if (!nome || !cognome) return { ok: false, motivo: 'Servono nome e cognome.' };
-  if (telefono.replace(/\D/g, '').length < 6) return { ok: false, motivo: 'Serve un numero di telefono valido.' };
+  const cellulare = cellulareValido(telefono);
+  if (cellulare.ok === false) return { ok: false, motivo: cellulare.motivo };
 
   const righe = Array.isArray(dati?.righe_appuntamento) ? dati.righe_appuntamento.slice(0, 10) : [];
   const servizi = righe

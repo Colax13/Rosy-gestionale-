@@ -22,7 +22,7 @@ import { db } from '../../../../../../src/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { catalogoApi, dipendentiApi, disponibilitaApi, prenotazioneApi } from '@/lib/api-client';
 import { faServizio } from '@/lib/operatori';
-import { linkWhatsApp, whatsappDelSalone } from '@/lib/contatti';
+import { linkWhatsApp, whatsappDelSalone, cellulareValido } from '@/lib/contatti';
 import { Fascia } from '@/lib/vetrina';
 import { orariLiberi, operatoreLibero, chiaveGiorno, istante } from '@/lib/prenotazione';
 
@@ -93,6 +93,10 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
   const [codice, setCodice] = useState('');
   const [codiceMandatoA, setCodiceMandatoA] = useState('');
   const [attesaRinvio, setAttesaRinvio] = useState(0);
+  // Secondi da quando è partito l'ultimo codice: dopo 90 si può inviare
+  // lo stesso la richiesta, se il codice non arriva.
+  const [secondiDalCodice, setSecondiDalCodice] = useState(0);
+  const [telefonoToccato, setTelefonoToccato] = useState(false);
   const [inCorso, setInCorso] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [smsAttivi, setSmsAttivi] = useState(false);
@@ -132,6 +136,12 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
     if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
     link.href = `/api/manifest?salone=${encodeURIComponent(salonId)}`;
   }, [salonId, salone.nome]);
+
+  useEffect(() => {
+    if (passo !== 'verifica') return;
+    const t = setInterval(() => setSecondiDalCodice(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [passo]);
 
   // Il conto alla rovescia per rimandare il codice.
   useEffect(() => {
@@ -230,16 +240,35 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
     };
   };
 
-  const datiCompleti = !!(nome.trim() && cognome.trim() && telefono.replace(/\D/g, '').length >= 6);
+  // Il cellulare deve essere giusto (10 cifre, inizia con 3): a un fisso o a
+  // un numero sbagliato il codice non arriverebbe mai.
+  const controlloCellulare = cellulareValido(telefono);
+  const datiCompleti = !!(nome.trim() && cognome.trim() && controlloCellulare.ok);
 
-  const prenotaDavvero = async (conCodice: string) => {
-    await prenotazioneApi.prenota(salonId, appuntamento(), conCodice);
+  const prenotaDavvero = async (conCodice: string, senzaCodice = false) => {
+    await prenotazioneApi.prenota(salonId, appuntamento(), conCodice, senzaCodice);
     vaiA('fatto');
+  };
+
+  /** Il codice non arriva: si manda lo stesso la richiesta, il salone la vede "non verificata". */
+  const inviaSenzaCodice = async () => {
+    setInCorso(true);
+    setErrore(null);
+    try {
+      await prenotaDavvero('', true);
+    } catch (err: any) {
+      setErrore(err?.message || 'Non sono riuscito a inviare la richiesta. Chiama il salone.');
+    } finally {
+      setInCorso(false);
+    }
   };
 
   /** Primo tocco su "Conferma": si chiede il codice, se il salone lo usa. */
   const conferma = async () => {
-    if (!datiCompleti) { setErrore('Servono nome, cognome e un numero di cellulare.'); return; }
+    if (!datiCompleti) {
+      setErrore(controlloCellulare.ok === false && telefono.trim() ? controlloCellulare.motivo : 'Servono nome, cognome e un numero di cellulare.');
+      return;
+    }
     setInCorso(true);
     setErrore(null);
     try {
@@ -249,6 +278,7 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
         setCodiceMandatoA(risposta.a || telefono);
         setCodice('');
         setAttesaRinvio(60);
+        setSecondiDalCodice(0);
         vaiA('verifica');
       } else {
         await prenotaDavvero('');
@@ -279,6 +309,7 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
       const risposta = await prenotazioneApi.chiediCodice(salonId, telefono);
       if (!risposta.serveCodice) { await prenotaDavvero(''); return; }
       setAttesaRinvio(60);
+      setSecondiDalCodice(0);
     } catch (err: any) {
       setErrore(err?.message || 'Non sono riuscito a rimandare il codice.');
     } finally {
@@ -523,7 +554,9 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
                 <Campo etichetta="Nome" valore={nome} cambia={setNome} autocomplete="given-name" />
                 <Campo etichetta="Cognome" valore={cognome} cambia={setCognome} autocomplete="family-name" />
               </div>
-              <Campo etichetta="Cellulare" valore={telefono} cambia={setTelefono} tipo="tel" autocomplete="tel" segnaposto="333 123 4567" />
+              <Campo etichetta="Cellulare" valore={telefono} cambia={setTelefono} tipo="tel" autocomplete="tel" segnaposto="333 123 4567"
+                alUscire={() => setTelefonoToccato(true)}
+                errore={(telefonoToccato || telefono.replace(/\D/g, '').length >= 10) && controlloCellulare.ok === false ? controlloCellulare.motivo : undefined} />
               <Campo etichetta="Email" facoltativo valore={email} cambia={setEmail} tipo="email" autocomplete="email" />
               <div>
                 <label className="block text-sm font-medium text-zinc-600 mb-1">Note <span className="text-zinc-400 font-normal">· facoltative</span></label>
@@ -584,6 +617,33 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
                 {attesaRinvio > 0 ? `Rimanda fra ${attesaRinvio}s` : 'Rimanda il codice'}
               </button>
             </div>
+
+            {/* Il codice a volte non arriva (tablet del salone senza rete o
+                in risparmio energetico): dopo 90 secondi non si resta bloccati. */}
+            {secondiDalCodice >= 90 ? (
+              <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                <p className="text-sm font-semibold text-zinc-900">Non ti arriva il codice?</p>
+                <p className="text-sm text-zinc-600 mt-1">
+                  Invia lo stesso la richiesta: il salone la riceve e ti conferma l'appuntamento.
+                </p>
+                <button
+                  onClick={inviaSenzaCodice}
+                  disabled={inCorso}
+                  className="mt-3 w-full py-3 rounded-xl bg-white border border-amber-300 text-sm font-semibold text-zinc-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  Invia lo stesso la richiesta
+                </button>
+                {salone.telefono && (
+                  <a href={linkTelefono(salone.telefono)} className="mt-2 block text-center text-sm text-zinc-600">
+                    oppure chiamaci al <span className="font-semibold text-zinc-900">{salone.telefono}</span>
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p className="mt-6 text-xs text-zinc-400 text-center">
+                Se il codice non arriva, fra {90 - secondiDalCodice} secondi potrai inviare lo stesso la richiesta.
+              </p>
+            )}
           </section>
         )}
 
@@ -752,8 +812,11 @@ function Riepilogo({ scelti, durata, prezzo, quando, operatore }: { scelti: Serv
   );
 }
 
-function Campo({ etichetta, valore, cambia, tipo = 'text', autocomplete, segnaposto, facoltativo }: {
+function Campo({ etichetta, valore, cambia, tipo = 'text', autocomplete, segnaposto, facoltativo, errore, alUscire }: {
   etichetta: string; valore: string; cambia: (v: string) => void; tipo?: string; autocomplete?: string; segnaposto?: string; facoltativo?: boolean;
+  /** Un problema con quello che è scritto: si dice sotto il campo, in rosso. */
+  errore?: string;
+  alUscire?: () => void;
 }) {
   return (
     <div>
@@ -767,8 +830,11 @@ function Campo({ etichetta, valore, cambia, tipo = 'text', autocomplete, segnapo
         autoComplete={autocomplete}
         inputMode={tipo === 'tel' ? 'tel' : undefined}
         placeholder={segnaposto}
-        className="w-full px-3 py-2.5 bg-white border border-zinc-300 rounded-xl text-[15px] outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
+        className={`w-full px-3 py-2.5 bg-white border rounded-xl text-[15px] outline-none focus:ring-1 ${errore ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-zinc-300 focus:border-fuchsia-500 focus:ring-fuchsia-500'}`}
+        aria-invalid={!!errore}
+        onBlur={alUscire}
       />
+      {errore && <p className="mt-1 text-xs text-red-600">{errore}</p>}
     </div>
   );
 }

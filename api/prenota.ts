@@ -19,13 +19,13 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { database } from './_firebase';
 import { mandaSms, postinoSms } from './_messaggi';
-import { schedaSalone, mandaPerAppuntamento, mandaAvvisoSalone } from './_invio';
+import { schedaSalone, mandaPerAppuntamento, mandaAvvisoSalone, registra } from './_invio';
 import {
   idVerifica, nuovoCodice, puoMandareCodice, controllaCodice, inviiRecenti, testoCodice,
-  pulisciPrenotazione, StatoCodice, DURATA_CODICE_MS, SENZA_CODICE_MS, MAX_CODICI_ORA_SALONE
+  pulisciPrenotazione, puoSaltareCodice, StatoCodice, DURATA_CODICE_MS, SENZA_CODICE_MS, MAX_CODICI_ORA_SALONE
 } from './_otp';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
-import { numeroInternazionale } from '../salone-app/frontend/lib/contatti';
+import { numeroInternazionale, cellulareValido } from '../salone-app/frontend/lib/contatti';
 import { disponibilitaPerAppuntamento } from '../salone-app/frontend/lib/vetrina';
 import { giornoDelSalone } from '../salone-app/frontend/lib/messaggi';
 
@@ -52,8 +52,11 @@ async function serveVerifica(db: FirebaseFirestore.Firestore, salonId: string) {
 
 async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
   const db = database();
-  const numero = numeroInternazionale(telefono);
-  if (!numero) { res.status(400).json({ errore: 'Scrivi un numero di cellulare valido.' }); return; }
+  // Solo un cellulare vero: a un fisso o a un numero sbagliato il codice
+  // non arriverebbe mai, e la cliente resterebbe ad aspettarlo.
+  const cellulare = cellulareValido(telefono);
+  if (cellulare.ok === false) { res.status(400).json({ errore: cellulare.motivo }); return; }
+  const numero = cellulare.numero;
 
   const { scheda, serve } = await serveVerifica(db, salonId);
   if (!serve) { res.status(200).json({ serveCodice: false }); return; }
@@ -93,6 +96,17 @@ async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
   const testo = testoCodice(scheda.dettagli?.nomeSalone || '', preparato.codice);
   const esito = await mandaSms(numero, { oggetto: '', testo, html: '', sms: testo });
 
+  // Anche i codici finiscono nel Registro SMS, partiti o no: così il salone
+  // vede a chi non è arrivato. Il codice non si scrive mai.
+  await registra(db, {
+    userId: salonId,
+    tipo: 'codice',
+    a: `+${numero}`,
+    testo: 'Codice di verifica per la prenotazione online (il codice non si salva).',
+    esito: esito.mandato ? 'consegnato' : 'errore',
+    ...(esito.mandato ? {} : { motivo: (esito as { motivo: string }).motivo })
+  });
+
   if (!esito.mandato) {
     // Il tablet non ha preso il messaggio: si lascia prenotare lo stesso per
     // un quarto d'ora, e l'appuntamento risulterà "numero non verificato".
@@ -105,14 +119,16 @@ async function mandaCodice(salonId: string, telefono: string, res: Risposta) {
   res.status(200).json({ serveCodice: true, a: `+${numero}` });
 }
 
-async function prenota(salonId: string, dati: any, codice: string, res: Risposta) {
+async function prenota(salonId: string, dati: any, codice: string, senzaCodice: boolean, res: Risposta) {
   const db = database();
   const adesso = Date.now();
 
   const pulita = pulisciPrenotazione(dati, adesso);
   if (pulita.ok === false) { res.status(400).json({ errore: pulita.motivo }); return; }
   const app = pulita.app;
-  const numero = numeroInternazionale(app.clienti.telefono);
+  const numero = cellulareValido(app.clienti.telefono).ok
+    ? (cellulareValido(app.clienti.telefono) as { numero: string }).numero
+    : numeroInternazionale(app.clienti.telefono);
 
   const { serve } = await serveVerifica(db, salonId);
   let verificato = false;
@@ -123,6 +139,14 @@ async function prenota(salonId: string, dati: any, codice: string, res: Risposta
     const esito = await db.runTransaction(async (tx): Promise<EsitoVerifica> => {
       const stato = (await tx.get(rif)).data() as StatoCodice | undefined;
       if (stato?.senzaCodiceFinoA && adesso < stato.senzaCodiceFinoA) return { ok: true, verificato: false };
+      // Il codice non arriva: dopo 90 secondi si manda lo stesso, come
+      // "numero non verificato". Il codice vecchio non vale più.
+      if (senzaCodice) {
+        const salto = puoSaltareCodice(stato, adesso);
+        if (salto.ok === false) return { ok: false, motivo: salto.motivo };
+        tx.update(rif, { hash: FieldValue.delete() });
+        return { ok: true, verificato: false };
+      }
       const controllo = controllaCodice(stato, codice, adesso);
       if (controllo.ok === false) {
         if (stato?.hash) tx.update(rif, { tentativi: (stato.tentativi || 0) + 1 });
@@ -175,11 +199,11 @@ export default async function handler(req: Richiesta, res: Risposta) {
   }
 
   try {
-    const { azione, salonId, telefono, appuntamento, codice } = corpo(req);
+    const { azione, salonId, telefono, appuntamento, codice, senzaCodice } = corpo(req);
     if (!idValido(salonId)) { res.status(400).json({ errore: 'Salone non riconosciuto.' }); return; }
 
     if (azione === 'codice') { await mandaCodice(salonId, String(telefono || ''), res); return; }
-    if (azione === 'prenota') { await prenota(salonId, appuntamento, String(codice || ''), res); return; }
+    if (azione === 'prenota') { await prenota(salonId, appuntamento, String(codice || ''), senzaCodice === true, res); return; }
 
     res.status(400).json({ errore: 'Azione sconosciuta.' });
   } catch (err: any) {
