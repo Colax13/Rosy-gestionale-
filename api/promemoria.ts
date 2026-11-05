@@ -10,7 +10,7 @@
 // partire un giro di SMS a tutte le clienti.
 
 import { database } from './_firebase';
-import { mandaPerAppuntamento } from './_invio';
+import { mandaPerAppuntamento, COLLEZIONE_REGISTRO } from './_invio';
 import { sceltaPromemoria, Candidato } from './_promemoria';
 
 interface Richiesta { headers?: Record<string, string | string[] | undefined> }
@@ -67,6 +67,8 @@ export default async function handler(req: Richiesta, res: Risposta) {
       esiti.push(...risultati);
     }
 
+    const puliti = await pulisciRegistro(db, adesso);
+
     const mandati = esiti.filter(e => e.mandato).length;
     if (scelta.daMandare.length) console.log(`Promemoria: ${mandati} mandati su ${scelta.daMandare.length}.`);
 
@@ -74,7 +76,8 @@ export default async function handler(req: Richiesta, res: Risposta) {
       daMandare: scelta.daMandare.length,
       mandati,
       nonPartiti: esiti.filter(e => !e.mandato),
-      saltati: scelta.saltati
+      saltati: scelta.saltati,
+      registroPulito: puliti
     });
   } catch (err: any) {
     if (err?.message === 'chiave-mancante') {
@@ -83,5 +86,34 @@ export default async function handler(req: Richiesta, res: Risposta) {
     }
     console.error('Errore nel giro dei promemoria:', err);
     res.status(500).json({ errore: 'Il giro dei promemoria si è fermato.', dettaglio: err?.message || '' });
+  }
+}
+
+/**
+ * Il registro SMS si tiene GIORNI_REGISTRO giorni, poi si cancella: serve a
+ * vedere che cosa è partito di recente, non a fare archivio, e senza pulizia
+ * cresce per sempre. Chi vuole tenerlo scarica il backup dalle Impostazioni.
+ * Al massimo PULIZIA_MAX voci per giro, così le cancellazioni gratuite del
+ * giorno (20.000) non si toccano nemmeno. Una pulizia che non riesce non
+ * ferma i promemoria.
+ */
+const GIORNI_REGISTRO = 90;
+const PULIZIA_MAX = 400;
+
+async function pulisciRegistro(db: any, adesso: Date): Promise<number> {
+  try {
+    const limite = new Date(adesso.getTime() - GIORNI_REGISTRO * 24 * 60 * 60 * 1000).toISOString();
+    const vecchie = await db.collection(COLLEZIONE_REGISTRO)
+      .where('quando', '<', limite)
+      .limit(PULIZIA_MAX)
+      .get();
+    if (vecchie.empty) return 0;
+    const lotto = db.batch();
+    vecchie.docs.forEach((d: any) => lotto.delete(d.ref));
+    await lotto.commit();
+    return vecchie.size;
+  } catch (err) {
+    console.error('Pulizia del registro SMS non riuscita:', err);
+    return 0;
   }
 }

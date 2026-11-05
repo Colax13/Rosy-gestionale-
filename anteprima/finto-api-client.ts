@@ -53,6 +53,9 @@ const clienti = [
   { id: 'c4', nome: 'Federica', cognome: 'Lombardi Santangelo', telefono: '3404445566', createdAt: giorniFa(150) },
   { id: 'c5', nome: 'Rita',   cognome: 'Marchetti', telefono: '3405556677', createdAt: giorniFa(500) },
   { id: 'c6', nome: 'Sonia',  cognome: 'Pellegrini', telefono: '3406667788', createdAt: giorniFa(2) },
+  { id: 'c7', nome: 'Sara', cognome: 'Ciotoli', telefono: '347 999 8877', createdAt: giorniFa(30) },
+  { id: 'c8', nome: 'Sara', cognome: 'Rossi', telefono: '3471234567', createdAt: giorniFa(90) },
+  { id: 'c9', nome: 'Sarah', cognome: 'Conti', createdAt: giorniFa(10) },
 ];
 
 const appuntamenti = [
@@ -140,17 +143,27 @@ export const reportApi = {
   },
 };
 
+const ascoltatoriClienti = new Set<(c: any[]) => void>();
+const avvisaClienti = () => setTimeout(() => ascoltatoriClienti.forEach(f => f([...clienti])), 0);
+
 export const clientiApi = {
   getAll: async () => eco(clienti),
+  ascolta: (cb: (c: any[]) => void) => {
+    ascoltatoriClienti.add(cb);
+    setTimeout(() => cb([...clienti]), 0);
+    return () => { ascoltatoriClienti.delete(cb); };
+  },
   getById: async (id: string) => eco(clienti.find(c => c.id === id) || clienti[0]),
   create: async (dati: any) => {
     const nuova = { id: `c${clienti.length + 1}-${Math.random().toString(36).slice(2, 6)}`, ...dati };
     (clienti as any[]).push(nuova);
+    avvisaClienti();
     return eco(nuova);
   },
   update: async (id: string, dati: any) => {
     const i = clienti.findIndex(c => c.id === id);
     if (i >= 0) clienti[i] = { ...clienti[i], ...dati };
+    avvisaClienti();
     return eco(clienti[i]);
   },
   delete: nulla, importAi: nulla,
@@ -252,8 +265,23 @@ export const dipendentiApi = {
   delete: nulla,
 };
 
+// L'agenda in diretta finta: chi ascolta riceve il periodo subito e a ogni
+// modifica fatta qui.
+const ascoltatoriAgenda = new Set<() => void>();
+const avvisaAgenda = () => setTimeout(() => ascoltatoriAgenda.forEach(f => f()), 0);
+
 export const appuntamentiApi = {
-  ascolta: () => () => {},
+  ascolta: (da: string, a: string, quandoCambia: (x: any[]) => void, quandoRichiesta: (x: any[]) => void) => {
+    const manda = async () => {
+      const items = await appuntamentiApi.getAgenda(undefined, da, a);
+      items.sort((x: any, y: any) => new Date(x.data_ora).getTime() - new Date(y.data_ora).getTime());
+      quandoCambia(items);
+      quandoRichiesta(appuntamenti.filter(x => x.stato === 'in_attesa'));
+    };
+    ascoltatoriAgenda.add(manda);
+    manda();
+    return () => { ascoltatoriAgenda.delete(manda); };
+  },
   getAgendaPublic: async () => eco(appuntamenti),
   getByCliente: async () => eco(appuntamenti.slice(0, 2)),
   getAgenda: async (data?: string, da?: string, a?: string) => {
@@ -274,16 +302,19 @@ export const appuntamentiApi = {
   create: async (dati: any) => {
     const nuovo = { id: `a${appuntamenti.length + 1}`, ...dati };
     appuntamenti.push(nuovo);
+    avvisaAgenda();
     return eco(nuovo);
   },
   update: async (id: string, dati: any) => {
     const i = appuntamenti.findIndex(a => a.id === id);
     if (i >= 0) appuntamenti[i] = { ...appuntamenti[i], ...dati };
+    avvisaAgenda();
     return eco(appuntamenti[i]);
   },
   delete: async (id: string) => {
     const i = appuntamenti.findIndex(a => a.id === id);
     if (i >= 0) appuntamenti.splice(i, 1);
+    avvisaAgenda();
     return eco({ success: true });
   },
 };
@@ -370,4 +401,15 @@ let telefonoAvvisi = '347 000 0000';
 export const impostazioniPrivateApi = {
   get: async () => eco({ telefono_avvisi: telefonoAvvisi }),
   salva: async (d: { telefono_avvisi: string }) => { telefonoAvvisi = d.telefono_avvisi; }
+};
+
+export const backupApi = {
+  esporta: async () => {
+    const dati = { clienti, appuntamenti: [...appuntamenti, ...appuntamentiVecchi], buoni };
+    return {
+      file: new Blob([JSON.stringify({ dati }, null, 1)], { type: 'application/json' }),
+      nome: 'backup-salone-anteprima.json',
+      conteggi: { clienti: clienti.length, appuntamenti: dati.appuntamenti.length, buoni: buoni.length }
+    };
+  }
 };

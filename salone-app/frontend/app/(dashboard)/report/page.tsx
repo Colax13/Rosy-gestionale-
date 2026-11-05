@@ -217,7 +217,7 @@ export default function PaginaReport() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
         >
-          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Totali per operatore</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Totali per operatore <span className="text-sm font-sans text-zinc-500">· ultimi 6 mesi</span></h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans">
               <thead>

@@ -31,9 +31,16 @@ export default function RosieHub() {
   useEffect(() => {
     const oggi = new Date().toISOString().split('T')[0];
     appuntamentiApi.getAgenda(oggi).then(setAppuntamenti).catch(console.error);
-    appuntamentiApi.getAgenda().then(setTuttiAppuntamenti).catch(console.error);
-    clientiApi.getAll().then(setClienti).catch(console.error);
+    // Per sapere chi non torna da un po' bastano gli ultimi 18 mesi e quelli
+    // in calendario: prima si scaricava tutto lo storico a ogni apertura.
+    // Chi manca da più di 18 mesi resta tra le "da recuperare" lo stesso
+    // (conta la data della scheda), solo senza la data dell'ultima visita.
+    const da = new Date(); da.setMonth(da.getMonth() - 18);
+    const a = new Date(); a.setFullYear(a.getFullYear() + 1);
+    const giorno = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    appuntamentiApi.getAgenda(undefined, giorno(da), giorno(a)).then(setTuttiAppuntamenti).catch(console.error);
     dipendentiApi.getAll().then(setDipendenti).catch(console.error);
+    return clientiApi.ascolta(setClienti);
   }, []);
 
   // --- Clienti da recuperare -------------------------------------------------

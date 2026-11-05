@@ -369,36 +369,54 @@ export default function PaginaAgenda() {
     setIsSidebarOpen(true);
   };
 
-  useEffect(() => {
-    caricaAgenda();
-  }, [selectedDate, viewMode]);
-
-  useEffect(() => { caricaRichieste(); }, []);
-
   // In diretta: una prenotazione dal sito, o un appuntamento cambiato da
-  // un'altra postazione, compare da solo, senza ricaricare la pagina. I
-  // cambi ravvicinati si raccolgono in un solo ricaricamento. Se l'ascolto
-  // non è possibile, si ricarica ogni minuto.
+  // un'altra postazione, compare da solo, senza ricaricare la pagina.
+  // L'ascolto porta già i dati: il primo giro carica il periodo, i successivi
+  // costano una lettura per appuntamento cambiato. Prima ogni cambio faceva
+  // rileggere tutto il periodo a ogni postazione aperta.
+  // Se l'ascolto non è possibile si carica alla vecchia maniera e si ricarica
+  // ogni 5 minuti; con la quota del giorno finita no, perché sarebbe inutile.
+  const inDiretta = useRef(false);
   useEffect(() => {
-    let attesa: ReturnType<typeof setTimeout> | undefined;
     let riserva: ReturnType<typeof setInterval> | undefined;
-    const ricarica = () => {
-      clearTimeout(attesa);
-      attesa = setTimeout(() => { caricaAgenda(true); caricaRichieste(); }, 400);
-    };
+    let caduto = false;
+    inDiretta.current = false;
     let da = '', a = '';
     if (viewMode === 'giorno') { da = a = getLocalDateString(selectedDate); }
     else if (viewMode === 'settimana') { da = getLocalDateString(getStartOfWeek(selectedDate)); a = getLocalDateString(getEndOfWeek(selectedDate)); }
     else { da = getLocalDateString(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)); a = getLocalDateString(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)); }
+
+    setLoading(true);
+    setError(null);
+    dipendentiApi.getAll().then(setDipendenti).catch(err => console.error('Errore nel caricamento delle operatrici:', err));
+
+    const ripiega = (err?: any) => {
+      if (caduto) return;
+      caduto = true;
+      inDiretta.current = false;
+      smetti?.();
+      if (err?.code === 'resource-exhausted') {
+        setLoading(false);
+        setError('Il limite giornaliero del database è stato raggiunto: l\'agenda torna disponibile dalle 9:00.');
+        return;
+      }
+      caricaAgenda();
+      caricaRichieste();
+      riserva = setInterval(() => { caricaAgenda(true); caricaRichieste(); }, 5 * 60_000);
+    };
+
     let smetti: (() => void) | undefined;
     try {
-      smetti = appuntamentiApi.ascolta(da, a, ricarica, () => caricaRichieste(), () => {
-        if (!riserva) riserva = setInterval(ricarica, 60_000);
-      });
-    } catch {
-      riserva = setInterval(ricarica, 60_000);
+      smetti = appuntamentiApi.ascolta(da, a, items => {
+        inDiretta.current = true;
+        setAppuntamenti(items);
+        setError(null);
+        setLoading(false);
+      }, setRichieste, ripiega);
+    } catch (err) {
+      ripiega(err);
     }
-    return () => { smetti?.(); clearTimeout(attesa); clearInterval(riserva); };
+    return () => { inDiretta.current = false; smetti?.(); clearInterval(riserva); };
   }, [selectedDate, viewMode]);
 
   // Il titolo della scheda del browser dice quante richieste aspettano:
@@ -506,7 +524,11 @@ export default function PaginaAgenda() {
 
   // `silenzioso`: ricarica senza la schermata di caricamento, per gli
   // aggiornamenti in diretta (non deve lampeggiare a ogni cambio).
-  const caricaAgenda = async (silenzioso: boolean = false) => {
+  // Con l'agenda in diretta non serve rileggere dopo un salvataggio: il
+  // cambio arriva da solo, e rileggere costerebbe tutto il periodo ogni volta.
+  // `forza` rilegge lo stesso (pulsante "Riprova").
+  const caricaAgenda = async (silenzioso: boolean = false, forza: boolean = false) => {
+    if (inDiretta.current && forza !== true) return;
     if (silenzioso !== true) setLoading(true);
     setError(null);
     try {
@@ -1907,7 +1929,7 @@ export default function PaginaAgenda() {
       {error ? (
         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg mb-6 flex flex-col items-start gap-2">
           <p>{error}</p>
-          <button onClick={() => caricaAgenda()} className="mt-2 text-sm font-semibold underline hover:text-red-300">Riprova connessione</button>
+          <button onClick={() => caricaAgenda(false, true)} className="mt-2 text-sm font-semibold underline hover:text-red-300">Riprova connessione</button>
         </div>
       ) : loading ? (
         <div className="flex justify-center items-center h-[50vh]">

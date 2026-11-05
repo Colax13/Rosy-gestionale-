@@ -8,6 +8,7 @@ import { faServizio, haElencoServizi, nomeOperatore } from '@/lib/operatori';
 import { ultimoAppuntamento, serviziDi, serviziDaRipetere } from '@/lib/storico';
 import { quandoScritto, elencoScritto } from '@/lib/messaggi';
 import { noteDaMostrare } from '@/lib/cliente';
+import { cercaClienti } from '@/lib/cerca-clienti';
 
 interface Client {
   id: string;
@@ -159,12 +160,10 @@ export default function AggiungiCalendarioSidebar({
   useEffect(() => {
     async function loadResources() {
       try {
-        const [cData, sData, dData] = await Promise.all([
-          clientiApi.getAll(),
+        const [sData, dData] = await Promise.all([
           catalogoApi.getAll(),
           dipendentiApi.getAll()
         ]);
-        setClienti(cData);
         setCatalogoSer(sData.filter((i: any) => i.attivo !== false));
         
         const activeEmp = dData.filter((i: any) => i.attivo !== false);
@@ -178,6 +177,10 @@ export default function AggiungiCalendarioSidebar({
     }
     loadResources();
   }, []);
+
+  // La rubrica in diretta: una cliente aggiunta dalla pagina Clienti, da
+  // un import o da un'altra postazione si trova subito, senza ricaricare.
+  useEffect(() => clientiApi.ascolta(setClienti), []);
 
   // Riempie il pannello ogni volta che si APRE, non solo quando cambia
   // l'appuntamento: prima, chiudendo e riaprendo "Modifica" sullo stesso
@@ -292,7 +295,7 @@ export default function AggiungiCalendarioSidebar({
         consenso_marketing: newClientConsensoMarketing,
         canale_acquisizione: newClientCanale
       });
-      setClienti([created, ...clienti]);
+      setClienti(prima => prima.some(c => c.id === created.id) ? prima : [created, ...prima]);
       setSelectedClient(created);
       setIsCreatingClient(false);
       setNewClientNome('');
@@ -550,7 +553,9 @@ export default function AggiungiCalendarioSidebar({
     }
   };
 
-  const filteredClients = studentiFiltra(clienti, searchClientQuery);
+  const tuttiITrovati = cercaClienti(clienti, searchClientQuery);
+  const filteredClients = tuttiITrovati.slice(0, MAX_RISULTATI_CLIENTI);
+  const altriTrovati = tuttiITrovati.length - filteredClients.length;
 
   // Non tutte fanno tutto: l'elenco parte da quello che sa fare la persona
   // scelta. Chi non ha l'elenco compilato fa tutto, e il filtro non si vede.
@@ -892,7 +897,13 @@ export default function AggiungiCalendarioSidebar({
                                   </div>
                                 </button>
                               ))
-                            ) : searchClientQuery.trim() !== '' ? (
+                            ) : null}
+                            {altriTrovati > 0 && (
+                              <div className="px-4 py-2.5 text-xs text-zinc-500 select-none">
+                                Altri {altriTrovati} risultati: scrivi anche il cognome per restringere.
+                              </div>
+                            )}
+                            {filteredClients.length === 0 && searchClientQuery.trim() !== '' ? (
                               <div className="px-4 py-3 text-xs text-zinc-500 italic select-none">
                                 Nessun cliente trovato per "{searchClientQuery}"
                               </div>
@@ -1485,15 +1496,9 @@ export default function AggiungiCalendarioSidebar({
 }
 
 // Simple search filter helper
-function studentiFiltra(clients: Client[], query: string) {
-  if (!query || query.trim() === '') return []; // I nomi escono solo se vado a cercare il nome, non prima
-  const q = query.trim().toLowerCase();
-  return clients.filter(c =>
-    c.nome.toLowerCase().includes(q) ||
-    c.cognome.toLowerCase().includes(q) ||
-    (c.telefono && c.telefono.includes(q))
-  ).slice(0, 10);
-}
+// I nomi escono solo quando si cerca. Le più simili sono in cima; oltre
+// queste si avvisa quante ce ne sono, invece di nasconderle in silenzio.
+const MAX_RISULTATI_CLIENTI = 30;
 
 // Calcola la data finale in cui l'appuntamento o il blocco si ripete
 function calcolaDataFineRipetizione(dataStartStr: string, ogniW: number, volte: number): string {
