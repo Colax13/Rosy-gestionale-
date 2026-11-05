@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle, Download } from 'lucide-react';
 import { datiMancanti } from '@/lib/privacy';
 import { linkPrenotazione } from '@/lib/domini';
-import { salonApi, impostazioniPrivateApi } from '@/lib/api-client';
+import { salonApi, impostazioniPrivateApi, backupApi } from '@/lib/api-client';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
 
@@ -403,6 +403,8 @@ export default function Settings() {
         </div>
       </div>
 
+      <BackupDati />
+
       {showToast && (
         <div className="fixed bottom-6 right-6 bg-green-900/90 text-green-300 px-6 py-4 rounded-xl flex items-center gap-3 shadow-2xl border border-green-800 animate-in fade-in duration-300 z-50">
            <CheckCircle size={20} />
@@ -410,6 +412,54 @@ export default function Settings() {
         </div>
       )}
     </div>
+    </div>
+  );
+}
+
+/** Scarica una copia di tutti i dati del salone. */
+function BackupDati() {
+  const [inCorso, setInCorso] = useState(false);
+  const [esito, setEsito] = useState<string | null>(null);
+
+  const scarica = async () => {
+    setInCorso(true);
+    setEsito(null);
+    try {
+      const { file, nome, conteggi } = await backupApi.esporta();
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setEsito(`Backup scaricato: ${conteggi.clienti} clienti, ${conteggi.appuntamenti} appuntamenti, ${conteggi.buoni} buoni.`);
+    } catch (err: any) {
+      setEsito(`Backup non riuscito: ${err?.message || 'errore sconosciuto'}.`);
+    } finally {
+      setInCorso(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
+      <h3 className="text-xl font-bold text-zinc-900 mb-2">Backup dei dati</h3>
+      <p className="text-zinc-500 mb-4 text-sm">
+        Scarica in un file una copia di clienti, appuntamenti, buoni, listino, operatrici e registro SMS.
+        Conservalo sul computer o su Google Drive. Basta farlo una volta al mese: legge tutti i dati, quindi non serve ogni giorno.
+      </p>
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 bg-white border border-zinc-200 rounded-lg">
+        <p className="text-sm text-zinc-600">{esito || 'Il file si apre con qualunque editor di testo.'}</p>
+        <button
+          onClick={scarica}
+          disabled={inCorso}
+          className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg flex items-center gap-2 shrink-0"
+        >
+          {inCorso ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+          {inCorso ? 'Preparo il file…' : 'Scarica backup'}
+        </button>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,16 @@ const getUserId = () => {
 
 const chiaveMese = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
+/** Solo gli appuntamenti fra due giorni (compresi), in ora locale. */
+function soloFraIGiorni(items: any[], daGiorno: string, aGiorno: string): any[] {
+  const inizio = new Date(`${daGiorno}T00:00:00`).getTime();
+  const fine = new Date(`${aGiorno}T23:59:59.999`).getTime();
+  return items.filter((app: any) => {
+    const t = new Date(app.data_ora).getTime();
+    return t >= inizio && t <= fine;
+  });
+}
+
 export const reportApi = {
   /**
    * Numeri veri, calcolati sugli appuntamenti completati.
@@ -34,15 +44,19 @@ export const reportApi = {
   getOverview: async () => {
     const uid = getUserId();
 
-    const [appSnap, cliSnap, dipSnap] = await Promise.all([
-      getDocs(query(collection(db, 'appuntamenti'), where('userId', '==', uid))),
-      getDocs(query(collection(db, 'clienti'), where('userId', '==', uid))),
+    // Solo gli ultimi 6 mesi (quelli del grafico): prima si scaricava ogni
+    // appuntamento dalla nascita del salone a ogni apertura del report.
+    // Le clienti arrivano dalla rubrica già in memoria.
+    const giorno = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const oggiQui = new Date();
+    const inizioPeriodo = new Date(oggiQui.getFullYear(), oggiQui.getMonth() - 5, 1);
+    const [appuntamenti, clienti, dipSnap] = await Promise.all([
+      appuntamentiApi.getAgenda(undefined, giorno(inizioPeriodo), giorno(oggiQui)),
+      clientiApi.getAll(),
       getDocs(query(collection(db, 'dipendenti'), where('userId', '==', uid)))
-    ]);
+    ]) as [any[], any[], any];
 
-    const appuntamenti = appSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-    const clienti = cliSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-    const dipendenti = dipSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    const dipendenti = dipSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as any[];
 
     const completati = appuntamenti.filter(a => a.stato === 'completato');
     const incassoDi = (a: any) => Number(a.prezzo_finale) || 0;
@@ -152,11 +166,79 @@ export const reportApi = {
   },
 };
 
+/**
+ * La rubrica tenuta in memoria per tutta la sessione.
+ *
+ * Prima ogni apertura dell'agenda, della rubrica, di Rosy e ogni conferma di
+ * una prenotazione online riscaricava TUTTE le clienti: con 1.500 schede sono
+ * 1.500 letture ogni volta, e il limite gratuito (50.000 al giorno) finiva
+ * prima di sera. Adesso la rubrica si scarica una volta sola e poi il database
+ * manda solo le schede che cambiano (una lettura ciascuna), anche quando le
+ * cambia un'altra postazione. Le schede create o modificate da qui arrivano
+ * subito, senza ricaricare la pagina.
+ */
+type Rubrica = {
+  uid: string;
+  dati: any[];
+  pronta: Promise<void>;
+  rotta: boolean;
+  smetti: () => void;
+  ascoltatori: Set<(clienti: any[]) => void>;
+};
+let rubrica: Rubrica | null = null;
+
+function avviaRubrica(): Rubrica {
+  const uid = getUserId();
+  if (rubrica && rubrica.uid === uid && !rubrica.rotta) return rubrica;
+  const ascoltatori = rubrica?.uid === uid ? rubrica.ascoltatori : new Set<(clienti: any[]) => void>();
+  rubrica?.smetti();
+
+  let pronta!: () => void, fallita!: (e: any) => void, partita = false;
+  const r: Rubrica = {
+    uid, dati: [], rotta: false, ascoltatori, smetti: () => {},
+    pronta: new Promise<void>((ok, ko) => { pronta = ok; fallita = ko; })
+  };
+  rubrica = r;
+  r.smetti = onSnapshot(
+    query(collection(db, 'clienti'), where('userId', '==', uid)),
+    snap => {
+      r.dati = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!partita) { partita = true; pronta(); }
+      r.ascoltatori.forEach(f => f(r.dati));
+    },
+    err => {
+      // Quota finita, rete giù: alla prossima richiesta si riprova.
+      console.warn('Rubrica in diretta non disponibile:', err);
+      r.rotta = true;
+      if (!partita) { partita = true; fallita(err); }
+    }
+  );
+  return r;
+}
+
 export const clientiApi = {
   getAll: async (): Promise<any[]> => {
-    const q = query(collection(db, 'clienti'), where('userId', '==', getUserId()));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    try {
+      const r = avviaRubrica();
+      await r.pronta;
+      return [...r.dati];
+    } catch (err) {
+      const q = query(collection(db, 'clienti'), where('userId', '==', getUserId()));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+  },
+  /**
+   * La rubrica in diretta: `quandoCambia` riceve l'elenco intero ogni volta
+   * che una scheda cambia. Restituisce la funzione per smettere di ascoltare.
+   * Il collegamento al database resta aperto per gli altri: costa poco.
+   */
+  ascolta: (quandoCambia: (clienti: any[]) => void): (() => void) => {
+    let r: Rubrica;
+    try { r = avviaRubrica(); } catch { return () => {}; }
+    r.ascoltatori.add(quandoCambia);
+    r.pronta.then(() => quandoCambia([...r.dati])).catch(() => {});
+    return () => { r.ascoltatori.delete(quandoCambia); };
   },
   getById: async (id: string): Promise<any> => {
     const d = await getDoc(doc(db, 'clienti', id));
@@ -577,56 +659,57 @@ export const appuntamentiApi = {
         : query(collection(db, 'appuntamenti'), where('userId', '==', getUserId()));
       const snap = await getDocs(q);
       items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch (err) {
+    } catch (err: any) {
       // Indice composito non ancora pubblicato: si riparte da tutto l'elenco.
+      // Solo in quel caso: con la quota finita o la rete giù rileggere tutto
+      // non servirebbe, e a quota appena tornata la brucerebbe di nuovo.
+      if (!daIso || err?.code !== 'failed-precondition') throw err;
       console.warn('Query per intervallo non disponibile, ricarico tutto:', err);
       const snap = await getDocs(query(collection(db, 'appuntamenti'), where('userId', '==', getUserId())));
       items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
-    // Taglio fine in ora locale, così i confini del giorno sono quelli veri.
-    if (daGiorno && aGiorno) {
-      const inizio = new Date(`${daGiorno}T00:00:00`).getTime();
-      const fine = new Date(`${aGiorno}T23:59:59.999`).getTime();
-      items = items.filter((app: any) => {
-        const t = new Date(app.data_ora).getTime();
-        return t >= inizio && t <= fine;
-      });
-    }
-
-    return items;
+    return daGiorno && aGiorno ? soloFraIGiorni(items, daGiorno, aGiorno) : items;
   },
   /**
-   * L'agenda in diretta: chiama `quandoCambia` ogni volta che un appuntamento
-   * del periodo mostrato cambia (anche da un altro computer), e
-   * `quandoArrivaRichiesta` quando cambia l'elenco delle richieste dal sito.
-   * Non scarica niente in più: avvisa e basta, e chi ascolta ricarica.
-   * Se il database non può ascoltare (indice mancante, rete giù) chiama
-   * `quandoNonPuo`, e chi ascolta ripiega sul ricaricare ogni tanto.
+   * L'agenda in diretta: `quandoCambia` riceve gli appuntamenti del periodo
+   * mostrato, già tagliati sui giorni e in ordine, subito e poi ogni volta che
+   * uno cambia (anche da un altro computer); `quandoArrivaRichiesta` riceve
+   * le richieste dal sito ogni volta che cambiano.
+   *
+   * Prima a ogni cambio si rileggeva tutta la settimana su ogni postazione
+   * aperta (centinaia di letture per uno spostamento); adesso il database
+   * manda solo l'appuntamento cambiato, una lettura.
+   * Se il database non può ascoltare (indice mancante, quota finita, rete giù)
+   * chiama `quandoNonPuo` con l'errore, e chi ascolta ripiega sul ricaricare.
    */
   ascolta: (
     daGiorno: string,
     aGiorno: string,
-    quandoCambia: () => void,
-    quandoArrivaRichiesta: () => void,
-    quandoNonPuo: () => void
+    quandoCambia: (appuntamenti: any[]) => void,
+    quandoArrivaRichiesta: (richieste: any[]) => void,
+    quandoNonPuo: (err: any) => void
   ): (() => void) => {
     const da = new Date(`${daGiorno}T00:00:00`); da.setDate(da.getDate() - 1);
     const a = new Date(`${aGiorno}T23:59:59`); a.setDate(a.getDate() + 1);
     const uid = getUserId();
-    // Il primo giro di ogni ascolto riporta quello che c'è già: non è un
-    // cambio, e si salta.
-    let primoAgenda = true, primoRichieste = true;
     const smettiAgenda = onSnapshot(
       query(collection(db, 'appuntamenti'), where('userId', '==', uid),
         where('data_ora', '>=', da.toISOString()), where('data_ora', '<=', a.toISOString())),
-      () => { if (primoAgenda) { primoAgenda = false; return; } quandoCambia(); },
-      () => quandoNonPuo()
+      snap => {
+        const items = soloFraIGiorni(snap.docs.map(d => ({ id: d.id, ...d.data() })), daGiorno, aGiorno);
+        items.sort((x: any, y: any) => new Date(x.data_ora).getTime() - new Date(y.data_ora).getTime());
+        quandoCambia(items);
+      },
+      err => quandoNonPuo(err)
     );
     const smettiRichieste = onSnapshot(
       query(collection(db, 'appuntamenti'), where('userId', '==', uid), where('stato', '==', 'in_attesa')),
-      () => { if (primoRichieste) { primoRichieste = false; return; } quandoArrivaRichiesta(); },
-      () => quandoNonPuo()
+      snap => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+        quandoArrivaRichiesta(items.sort((x, y) => (x.data_ora || '').localeCompare(y.data_ora || '')));
+      },
+      err => quandoNonPuo(err)
     );
     return () => { smettiAgenda(); smettiRichieste(); };
   },
@@ -897,5 +980,40 @@ export const registroSmsApi = {
     const dati = await risposta.json().catch(() => ({}));
     if (!risposta.ok && risposta.status !== 202) throw new Error(dati?.errore || 'Il server non ha risposto.');
     return dati;
+  }
+};
+
+/**
+ * Una copia di tutti i dati del salone in un file, da tenere sul computer o
+ * su Google Drive. Legge tutto una volta (con qualche migliaio di
+ * appuntamenti sono qualche migliaio di letture): va bene farlo una volta al
+ * mese o prima di una pulizia, non tutti i giorni.
+ */
+export const COLLEZIONI_BACKUP = ['clienti', 'appuntamenti', 'buoni', 'catalogo', 'categorie_catalogo', 'dipendenti', 'registro_sms'] as const;
+
+export const backupApi = {
+  esporta: async (): Promise<{ file: Blob; nome: string; conteggi: Record<string, number> }> => {
+    const uid = getUserId();
+    const dati: Record<string, any[]> = {};
+    for (const nome of COLLEZIONI_BACKUP) {
+      try {
+        const snap = nome === 'clienti'
+          ? null
+          : await getDocs(query(collection(db, nome), where('userId', '==', uid)));
+        dati[nome] = snap ? snap.docs.map(d => ({ id: d.id, ...d.data() })) : await clientiApi.getAll();
+      } catch (err) {
+        console.warn(`Backup: ${nome} non letta`, err);
+        dati[nome] = [];
+      }
+    }
+    // Le date di Firestore diventano testo leggibile.
+    const testo = JSON.stringify(
+      { salone: uid, creato: new Date().toISOString(), dati },
+      (_k, v) => (v && typeof v === 'object' && typeof v.toDate === 'function') ? v.toDate().toISOString() : v,
+      1
+    );
+    const oggi = new Date().toISOString().slice(0, 10);
+    const conteggi = Object.fromEntries(Object.entries(dati).map(([k, v]) => [k, v.length]));
+    return { file: new Blob([testo], { type: 'application/json' }), nome: `backup-salone-${oggi}.json`, conteggi };
   }
 };
