@@ -8,6 +8,7 @@ import { clientiApi } from '@/lib/api-client';
 import { Users, Search, Plus, Phone, Mail, FileText, ChevronRight } from 'lucide-react';
 import FormNuovoCliente from '@/components/FormNuovoCliente';
 import { noteDaMostrare } from '@/lib/cliente';
+import { cercaClienti } from '@/lib/cerca-clienti';
 
 interface Cliente {
   id: string;
@@ -32,19 +33,17 @@ export default function GestioneClienti() {
     caricaClienti();
   }, []);
 
+  // In diretta: le schede nuove o cambiate (anche da un'altra postazione o
+  // da un import) compaiono da sole. Non costa letture in più: la rubrica è
+  // già tenuta in memoria per tutta la sessione.
+  useEffect(() => clientiApi.ascolta(c => setClienti(c)), []);
+
   useEffect(() => {
     if (!search.trim()) {
       setFilteredClienti(clienti);
       return;
     }
-    const q = search.toLowerCase();
-    const filtered = clienti.filter(c => 
-      c.nome.toLowerCase().includes(q) || 
-      c.cognome.toLowerCase().includes(q) ||
-      (c.telefono && c.telefono.includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q))
-    );
-    setFilteredClienti(filtered);
+    setFilteredClienti(cercaClienti(clienti, search));
   }, [search, clienti]);
 
   const caricaClienti = async () => {

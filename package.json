@@ -28,7 +28,8 @@
     "prova:rosy": "tsx salone-app/frontend/lib/rosy.prova.ts",
     "prova:privacy": "tsx salone-app/frontend/lib/privacy.prova.ts",
     "prova:domini": "tsx salone-app/frontend/lib/domini.prova.ts",
-    "prova:riprova-sms": "tsx salone-app/frontend/lib/riprova-sms.prova.ts"
+    "prova:riprova-sms": "tsx salone-app/frontend/lib/riprova-sms.prova.ts",
+    "prova:cerca-clienti": "tsx salone-app/frontend/lib/cerca-clienti.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
