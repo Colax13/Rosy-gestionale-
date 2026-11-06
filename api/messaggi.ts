@@ -8,6 +8,7 @@ import { database, chiEntra, saloneDi } from './_firebase';
 import { TipoMessaggio, mandaSms, Messaggio } from './_messaggi';
 import { mandaPerAppuntamento, registra, schedaSalone } from './_invio';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
+import { haConsensoMarketing, testoPer, erroreTesto, TESTO_RECUPERO } from '../salone-app/frontend/lib/recupero';
 
 interface Richiesta {
   method?: string;
@@ -43,14 +44,14 @@ export default async function handler(req: Richiesta, res: Risposta) {
   }
 
   try {
-    const { appuntamentoId, tipo, azione, telefono } = corpo(req);
+    const { appuntamentoId, tipo, azione, telefono, clienteId, testo: testoScelto } = corpo(req);
     // Dal gestionale si mandano a mano solo questi: la ricevuta parte dal
     // server quando la cliente prenota, i promemoria li manda il giro
     // automatico.
     const AMMESSI: TipoMessaggio[] = ['conferma', 'rifiuto', 'spostamento', 'promemoria'];
     const quale: TipoMessaggio = AMMESSI.includes(tipo) ? tipo : 'conferma';
 
-    if (azione !== 'prova' && (!appuntamentoId || typeof appuntamentoId !== 'string')) {
+    if (azione !== 'prova' && azione !== 'recupero' && (!appuntamentoId || typeof appuntamentoId !== 'string')) {
       res.status(400).json({ errore: "Manca il numero dell'appuntamento." });
       return;
     }
@@ -70,6 +71,47 @@ export default async function handler(req: Richiesta, res: Risposta) {
 
     const db = database();
     const salone = await saloneDi(chi.uid);
+
+    // Recupero di una cliente che non passa da un po' (pagina Rosy). È un
+    // messaggio promozionale: parte solo se la cliente è di questo salone e
+    // ha dato il consenso al marketing. Il controllo sta qui, non nel browser.
+    if (azione === 'recupero') {
+      const scheda = await schedaSalone(db, salone);
+      if (!funzioneAccesa('messaggi_automatici', scheda.ownerEmail)) {
+        res.status(403).json({ errore: 'Gli SMS automatici non sono attivi per questo salone.' });
+        return;
+      }
+      if (!clienteId || typeof clienteId !== 'string') {
+        res.status(400).json({ errore: 'Manca la cliente.' });
+        return;
+      }
+      const doc = await db.collection('clienti').doc(clienteId).get();
+      const cliente: any = doc.exists ? doc.data() : null;
+      if (!cliente || cliente.userId !== salone) {
+        res.status(404).json({ errore: 'Cliente non trovata.' });
+        return;
+      }
+      if (!haConsensoMarketing(cliente)) {
+        res.status(403).json({ errore: 'La cliente non ha dato il consenso ai messaggi promozionali.' });
+        return;
+      }
+      const nomeSalone = (scheda.dettagli?.nomeSalone || 'il salone').trim();
+      const testo = testoPer(String(testoScelto || TESTO_RECUPERO), cliente, nomeSalone);
+      const problema = erroreTesto(testo);
+      if (problema) {
+        res.status(400).json({ errore: problema });
+        return;
+      }
+      const esito = await mandaSms(String(cliente.telefono || ''), { oggetto: '', testo, html: '', sms: testo } as Messaggio);
+      await registra(db, {
+        userId: salone, tipo: 'recupero', cliente: `${cliente.nome || ''} ${cliente.cognome || ''}`.trim(),
+        a: esito.mandato ? esito.a : String(cliente.telefono || ''),
+        testo, esito: esito.mandato ? 'consegnato' : 'errore',
+        ...(esito.mandato ? {} : { motivo: (esito as { motivo: string }).motivo })
+      });
+      res.status(esito.mandato ? 200 : 202).json(esito);
+      return;
+    }
 
     // SMS di prova dal Registro SMS: un messaggio al numero scritto, per
     // vedere subito se il tablet risponde. Finisce anche lui nel registro.

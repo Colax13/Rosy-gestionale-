@@ -47,11 +47,11 @@ const giorniFa = (n: number) => {
 };
 
 const clienti = [
-  { id: 'c1', nome: 'Maria Antonietta', cognome: 'Della Valle Guerrieri', telefono: '3401112233', email: 'maria@example.it', note: 'Preferisce il pomeriggio', createdAt: giorniFa(400), canale_acquisizione: 'Passaparola' },
+  { id: 'c1', nome: 'Maria Antonietta', cognome: 'Della Valle Guerrieri', telefono: '3401112233', email: 'maria@example.it', consenso_marketing: true, note: 'Preferisce il pomeriggio', createdAt: giorniFa(400), canale_acquisizione: 'Passaparola' },
   { id: 'c2', nome: 'Anna',   cognome: 'Bianchi',  telefono: '3402223344', email: 'anna@example.it', createdAt: giorniFa(3), canale_acquisizione: 'Instagram' },
   { id: 'c3', nome: 'Chiara', cognome: 'Esposito', telefono: '3403334455', createdAt: giorniFa(220), canale_acquisizione: 'Passaparola' },
   { id: 'c4', nome: 'Federica', cognome: 'Lombardi Santangelo', telefono: '3404445566', createdAt: giorniFa(150) },
-  { id: 'c5', nome: 'Rita',   cognome: 'Marchetti', telefono: '3405556677', createdAt: giorniFa(500) },
+  { id: 'c5', nome: 'Rita',   cognome: 'Marchetti', telefono: '3405556677', consensi: { marketing: true }, createdAt: giorniFa(500) },
   { id: 'c6', nome: 'Sonia',  cognome: 'Pellegrini', telefono: '3406667788', createdAt: giorniFa(2) },
   { id: 'c7', nome: 'Sara', cognome: 'Ciotoli', telefono: '347 999 8877', createdAt: giorniFa(30) },
   { id: 'c8', nome: 'Sara', cognome: 'Rossi', telefono: '3471234567', createdAt: giorniFa(90) },
@@ -177,6 +177,11 @@ export const azzeraPromemoria = () => ({});
 // Rosy finta: risponde sempre con una proposta, per vedere il pulsante Conferma.
 export const rosyApi = {
   riscalda: async () => {},
+  consumi: async () => eco([
+    { mese: '2026-11', domande: 87, chiamate: 190, token_entrata: 1_450_000, token_uscita: 52_000, costo_euro: 0.52 },
+    { mese: '2026-10', domande: 134, chiamate: 301, token_entrata: 2_300_000, token_uscita: 81_000, costo_euro: 0.82 },
+    { mese: '2026-09', domande: 0, chiamate: 0, token_entrata: 0, token_uscita: 0, costo_euro: 0 },
+  ]),
   chiedi: async (storia: any[]) => {
     await new Promise(r => setTimeout(r, 600));
     const domanda = (storia[storia.length - 1]?.testo || '').toLowerCase();
@@ -213,6 +218,11 @@ export const messaggiApi = {
   manda: async (id: string, tipo?: string) => {
     console.log(`[anteprima] SMS ${tipo || 'conferma'} per ${id}`);
     return eco({ mandato: true, canali: ['sms'], a: ['+39 333 000 0000'] });
+  },
+  recupero: async (id: string, testo: string) => {
+    console.log(`[anteprima] SMS di recupero a ${id}: ${testo}`);
+    await new Promise(r => setTimeout(r, 300));
+    return { mandato: true, a: ['+39 333 000 0000'] };
   },
 };
 
@@ -412,4 +422,19 @@ export const backupApi = {
       conteggi: { clienti: clienti.length, appuntamenti: dati.appuntamenti.length, buoni: buoni.length }
     };
   }
+};
+
+const prodotti: any[] = [
+  { id: 'p1', nome: 'Shampoo ristrutturante 250 ml', marca: 'Kérastase', categoria: 'Shampoo', prezzo: 24.9, costo: 12, giacenza: 6, scorta_minima: 2 },
+  { id: 'p2', nome: 'Maschera nutriente', marca: 'Davines', categoria: 'Maschere', prezzo: 32, giacenza: 1, scorta_minima: 2 },
+  { id: 'p3', nome: 'Olio per punte', marca: 'Moroccanoil', categoria: 'Olio', prezzo: 38, giacenza: 0 },
+];
+const ascoltatoriProdotti = new Set<(p: any[]) => void>();
+const avvisaProdotti = () => setTimeout(() => ascoltatoriProdotti.forEach(f => f([...prodotti])), 0);
+export const prodottiApi = {
+  ascolta: (cb: (p: any[]) => void) => { ascoltatoriProdotti.add(cb); setTimeout(() => cb([...prodotti]), 0); return () => { ascoltatoriProdotti.delete(cb); }; },
+  create: async (dati: any) => { const p = { id: `p${prodotti.length + 1}-${Math.random().toString(36).slice(2, 5)}`, ...dati }; prodotti.push(p); avvisaProdotti(); return { id: p.id }; },
+  update: async (id: string, dati: any) => { const i = prodotti.findIndex(p => p.id === id); if (i >= 0) prodotti[i] = { id, ...dati }; avvisaProdotti(); return { id }; },
+  muovi: async (id: string, n: number) => { const p = prodotti.find(x => x.id === id); if (p) p.giacenza += n; avvisaProdotti(); },
+  delete: async (id: string) => { const i = prodotti.findIndex(p => p.id === id); if (i >= 0) prodotti.splice(i, 1); avvisaProdotti(); },
 };

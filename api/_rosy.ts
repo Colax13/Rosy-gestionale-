@@ -534,6 +534,10 @@ const CHIAVE_DI: Record<string, string> = { gemini: 'GEMINI_API_KEY', groq: 'GRO
 export function spiegaErroreGemini(err: ErroreGemini): string {
   const chiave = CHIAVE_DI[err.fornitore] || 'la chiave';
   const chi = err.fornitore === 'gemini' ? 'Gemini' : err.fornitore === 'groq' ? 'Groq' : err.fornitore === 'openrouter' ? 'OpenRouter' : err.fornitore;
+  if (err.stato === 402 || (err.stato === 403 && /billing|credit|payment|prepay/i.test(err.dettaglio))) {
+    return `Il credito di ${chi} è finito: chi gestisce il programma deve ricaricarlo (per Gemini: Google AI Studio → Billing) `
+      + `oppure mettere su Vercel una chiave gratuita di riserva (GROQ_API_KEY da groq.com).`;
+  }
   if (err.stato === 429) return 'Ho ricevuto troppe domande in poco tempo (limite dei piani gratuiti): riprova fra un minuto.';
   if (err.stato === 400 && /api key/i.test(err.dettaglio)) return `La chiave di ${chi} non è valida: controlla ${chiave} su Vercel.`;
   if (err.stato === 401 || err.stato === 403) return `La chiave di ${chi} non è valida o non ha i permessi: controlla ${chiave} su Vercel.`;

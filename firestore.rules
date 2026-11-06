@@ -256,6 +256,34 @@ service cloud.firestore {
       allow delete: if isValidId(dipendenteId) && nelSaloneCon(resource.data.userId, 'dipendenti');
     }
 
+    // Il magazzino dei prodotti (shampoo, maschere, ...). Si legge e si
+    // scrive solo dal salone, con il permesso sulla pagina Prodotti.
+    function isValidProdotto(data) {
+      return data.keys().hasAll(['userId', 'nome', 'prezzo', 'giacenza'])
+        && data.userId is string
+        && data.nome is string && data.nome.size() > 0 && data.nome.size() <= 120
+        && data.prezzo is number && data.prezzo >= 0
+        && data.giacenza is int
+        && ( !('costo' in data) || (data.costo is number && data.costo >= 0) )
+        && ( !('scorta_minima' in data) || (data.scorta_minima is int && data.scorta_minima >= 0) )
+        && ( !('marca' in data) || (data.marca is string && data.marca.size() <= 120) )
+        && ( !('categoria' in data) || (data.categoria is string && data.categoria.size() <= 100) )
+        && ( !('codice' in data) || (data.codice is string && data.codice.size() <= 60) )
+        && ( !('note' in data) || (data.note is string && data.note.size() <= 1000) )
+        && ( !('attivo' in data) || (data.attivo is bool) );
+    }
+
+    match /prodotti/{prodottoId} {
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
+      allow create: if isValidId(prodottoId) && isValidProdotto(incoming())
+                    && nelSaloneCon(incoming().userId, 'prodotti');
+      allow update: if isValidId(prodottoId) && isValidProdotto(incoming())
+                    && nelSaloneCon(resource.data.userId, 'prodotti')
+                    && incoming().userId == resource.data.userId;
+      allow delete: if isValidId(prodottoId) && nelSaloneCon(resource.data.userId, 'prodotti');
+    }
+
     // I buoni sono una funzione riservata: oltre al permesso sulla pagina
     // serve che il salone ce l'abbia (vedi `haIBuoni` più sopra). Senza questa
     // riga, un altro salone potrebbe scriversi i buoni a mano dalla console

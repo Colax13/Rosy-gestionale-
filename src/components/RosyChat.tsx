@@ -48,7 +48,7 @@ const pulisci = (t: string) => t
   .replace(/^#+\s*/gm, '')
   .trim();
 
-export default function RosyChat({ onChiudi }: { onChiudi?: () => void } = {}) {
+export default function RosyChat({ onChiudi, domandaIniziale }: { onChiudi?: () => void; domandaIniziale?: string } = {}) {
   const navigate = useNavigate();
   const nome = auth.currentUser?.displayName?.split(' ')[0] || '';
   const [messaggi, setMessaggi] = useState<Messaggio[]>([{
@@ -62,7 +62,13 @@ export default function RosyChat({ onChiudi }: { onChiudi?: () => void } = {}) {
   const fondo = useRef<HTMLDivElement>(null);
 
   // Appena si apre la chat il server si prepara: la prima domanda è più veloce.
-  useEffect(() => { rosyApi.riscalda(); }, []);
+  // Se la chat è stata aperta con una domanda già scritta (dalla pagina Rosy),
+  // parte subito quella.
+  const iniziale = useRef(domandaIniziale);
+  useEffect(() => {
+    if (iniziale.current) { manda(iniziale.current); iniziale.current = undefined; }
+    else rosyApi.riscalda();
+  }, []);
 
   useEffect(() => {
     fondo.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });

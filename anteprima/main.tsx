@@ -12,7 +12,7 @@ import SchermataAccesso from '../src/components/SchermataAccesso';
 import { impostaSessione } from '@/lib/sessione';
 
 import DashboardHub from '@/app/(dashboard)/hub/page';
-import RosieHub from '@/app/(dashboard)/rosie/page';
+import RosyHub from '@/app/(dashboard)/rosie/page';
 import PaginaAgenda from '@/app/(dashboard)/agenda/page';
 import GestioneCatalogo from '@/app/(dashboard)/catalogo/page';
 import PaginaReport from '@/app/(dashboard)/report/page';
@@ -97,7 +97,8 @@ createRoot(document.getElementById('root')!).render(
           <Layout>
             <Routes>
               <Route path="/" element={<DashboardHub />} />
-              <Route path="/rosie" element={<RosieHub />} />
+              <Route path="/rosy" element={<RosyHub />} />
+              <Route path="/rosie" element={<Navigate to="/rosy" replace />} />
               <Route path="/agenda" element={<PaginaAgenda />} />
               <Route path="/catalogo" element={<GestioneCatalogo />} />
               <Route path="/report" element={<PaginaReport />} />
