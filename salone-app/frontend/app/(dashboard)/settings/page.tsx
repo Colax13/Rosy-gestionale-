@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle, Download } from 'lucide-react';
+import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as SettingsIcon, Loader2, Link as LinkIcon, Copy, ShieldCheck, ExternalLink, AlertTriangle, Download, Smartphone } from 'lucide-react';
 import { datiMancanti } from '@/lib/privacy';
 import { linkPrenotazione } from '@/lib/domini';
-import { salonApi, impostazioniPrivateApi, backupApi } from '@/lib/api-client';
+import { salonApi, impostazioniPrivateApi, backupApi, rosyApi } from '@/lib/api-client';
+import { contoDelMese, euro, ConsumoMese, DOMANDE_GRATUITE, PREZZO_DOMANDA_EURO } from '@/lib/consumi-ia';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
 
@@ -403,6 +404,10 @@ export default function Settings() {
         </div>
       </div>
 
+      <InstallaApp />
+
+      <ConsumiIA />
+
       <BackupDati />
 
       {showToast && (
@@ -459,6 +464,138 @@ function BackupDati() {
           {inCorso ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
           {inCorso ? 'Preparo il file…' : 'Scarica backup'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+const nomeMese = (m: string) => {
+  const [a, mm] = m.split('-').map(Number);
+  const t = new Date(a, (mm || 1) - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+/**
+ * Quanto si è usata Rosy (l'IA) e quanto costa: domande gratuite del mese,
+ * domande in più e importo che verrà addebitato a fine mese. Sola lettura.
+ */
+function ConsumiIA() {
+  const [mesi, setMesi] = useState<ConsumoMese[] | null>(null);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  useEffect(() => {
+    rosyApi.consumi().then(setMesi).catch((e: any) => setErrore(e?.message || 'Consumi non disponibili.'));
+  }, []);
+
+  const corrente = mesi?.[0];
+  const conto = contoDelMese(corrente);
+  const percentuale = Math.min(100, Math.round((conto.domande / Math.max(1, conto.gratuite)) * 100));
+  const coloreBarra = conto.stato === 'oltre' ? 'bg-amber-500' : conto.stato === 'quasi' ? 'bg-amber-400' : 'bg-fuchsia-500';
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
+      <h3 className="text-xl font-bold text-zinc-900 mb-2">Consumi di Rosy (IA)</h3>
+      <p className="text-zinc-500 mb-4 text-sm">
+        Ogni mese {DOMANDE_GRATUITE} domande a Rosy sono incluse. Oltre, ogni domanda costa {euro(PREZZO_DOMANDA_EURO)} e l'importo viene addebitato a fine mese.
+        Rosy non si blocca mai.
+      </p>
+
+      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {!errore && !mesi && <p className="text-sm text-zinc-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carico i consumi…</p>}
+
+      {corrente && (
+        <>
+          <div className="p-4 border border-zinc-200 rounded-lg">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+              <p className="text-sm font-medium text-zinc-800">{nomeMese(corrente.mese)}</p>
+              <p className="text-sm text-zinc-600">
+                <strong className="text-zinc-900">{conto.domande}</strong> domande su {conto.gratuite} incluse
+              </p>
+            </div>
+            <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+              <div className={`h-full ${coloreBarra}`} style={{ width: `${percentuale}%` }} />
+            </div>
+            <p className="text-sm mt-3 text-zinc-600">
+              {conto.stato === 'oltre'
+                ? <>Quota superata di <strong>{conto.extra}</strong> domande: a fine mese verranno addebitati <strong className="text-zinc-900">{euro(conto.da_addebitare)}</strong>.</>
+                : conto.stato === 'quasi'
+                  ? <>Restano <strong>{conto.restanti}</strong> domande incluse questo mese.</>
+                  : <>Restano {conto.restanti} domande incluse questo mese. Niente da pagare.</>}
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {mesi!.slice(1).filter(m => m.domande > 0).map(m => {
+              const c = contoDelMese(m);
+              return (
+                <div key={m.mese} className="p-3 border border-zinc-200 rounded-lg">
+                  <p className="text-sm font-medium text-zinc-800">{nomeMese(m.mese)}</p>
+                  <p className="text-xs text-zinc-500 mt-1">{c.domande} domande · {c.extra > 0 ? `addebito ${euro(c.da_addebitare)}` : 'nella quota'}</p>
+                </div>
+              );
+            })}
+          </div>
+
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Il gestionale come app sul telefono, sul tablet o sul computer: niente
+ * store, si installa dal browser e si apre dall'icona, a schermo intero.
+ * Su Android e sul computer (Chrome, Edge) c'è il pulsante; su iPhone e iPad
+ * si fa da Safari, e qui si spiega come.
+ */
+function InstallaApp() {
+  const [richiesta, setRichiesta] = useState<any>(null);
+  const [installata, setInstallata] = useState(() => {
+    try { return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true; }
+    catch { return false; }
+  });
+  const iPhone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    const pronta = (e: Event) => { e.preventDefault(); setRichiesta(e); };
+    const fatta = () => { setInstallata(true); setRichiesta(null); };
+    window.addEventListener('beforeinstallprompt', pronta);
+    window.addEventListener('appinstalled', fatta);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', pronta);
+      window.removeEventListener('appinstalled', fatta);
+    };
+  }, []);
+
+  const installa = async () => {
+    if (!richiesta) return;
+    richiesta.prompt();
+    try { const scelta = await richiesta.userChoice; if (scelta?.outcome === 'accepted') setInstallata(true); } catch { /* niente */ }
+    setRichiesta(null);
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
+      <h3 className="text-xl font-bold text-zinc-900 mb-2 flex items-center gap-2"><Smartphone size={20} className="text-fuchsia-600" /> App sul telefono</h3>
+      <p className="text-zinc-500 mb-4 text-sm">
+        Il gestionale si installa come un'app su telefono, tablet e computer: si apre dall'icona, a schermo intero, senza passare dagli store.
+        Va installato su ogni dispositivo, ed entra con lo stesso account.
+      </p>
+      <div className="p-4 border border-zinc-200 rounded-lg text-sm text-zinc-700">
+        {installata ? (
+          <p className="flex items-center gap-2"><CheckCircle size={16} className="text-emerald-600" /> Stai già usando l'app installata.</p>
+        ) : richiesta ? (
+          <div className="flex flex-col md:flex-row gap-3 md:items-center justify-between">
+            <p>Questo dispositivo può installarla con un tocco.</p>
+            <button onClick={installa} className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 shrink-0">
+              <Download size={16} /> Installa l'app
+            </button>
+          </div>
+        ) : iPhone ? (
+          <p>Su iPhone e iPad: apri il gestionale con <strong>Safari</strong>, tocca <strong>Condividi</strong> (il quadrato con la freccia) e poi <strong>Aggiungi alla schermata Home</strong>.</p>
+        ) : (
+          <p>Su Android: apri il gestionale con <strong>Chrome</strong>, tocca il menu <strong>⋮</strong> e poi <strong>Installa app</strong> (o "Aggiungi a schermata Home"). Sul computer: icona di installazione a destra nella barra degli indirizzi di Chrome o Edge.</p>
+        )}
       </div>
     </div>
   );

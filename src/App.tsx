@@ -13,7 +13,7 @@ const ProdottiPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/prodotti/p
 const AutomazioniPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/automazioni/page')));
 const BuoniSpa = lazy(caricaPezzo(() => import('@/app/(dashboard)/buoni-spa/page')));
 const DashboardHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/hub/page')));
-const RosieHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/rosie/page')));
+const RosyHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/rosie/page')));
 import Onboarding from './components/Onboarding';
 import SchermataAccesso from './components/SchermataAccesso';
 import { useEffect, useState, lazy, Suspense } from 'react';
@@ -135,7 +135,7 @@ export default function App() {
   };
 
   // Prenotazione e informativa non passano di qui (le apre main.tsx con
-  // Pubblico). Resta l'anteprima di hub e Rosie senza accesso.
+  // Pubblico). Resta l'anteprima di hub e Rosy senza accesso.
   const isPublicRoute = window.location.search.includes('anteprima');
 
   if (isPublicRoute) {
@@ -143,7 +143,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/hub" element={<Layout><DashboardHub /></Layout>} />
-          <Route path="/rosie" element={<Layout><RosieHub /></Layout>} />
+          <Route path="/rosy" element={<Layout><RosyHub /></Layout>} />
+          <Route path="/rosie" element={<Navigate to="/rosy" replace />} />
         </Routes>
       </BrowserRouter>
     );
@@ -193,7 +194,9 @@ export default function App() {
         <Suspense fallback={<div className="flex-1 flex items-center justify-center py-24"><div className="w-7 h-7 rounded-full border-2 border-fuchsia-200 border-t-fuchsia-600 animate-spin" /></div>}>
         <Routes>
           <Route path="/" element={<Protetta percorso="/"><DashboardHub /></Protetta>} />
-          <Route path="/rosie" element={<Protetta percorso="/rosie"><RosieHub /></Protetta>} />
+          <Route path="/rosy" element={<Protetta percorso="/rosy"><RosyHub /></Protetta>} />
+          {/* Il vecchio indirizzo, per chi l'ha salvato. */}
+          <Route path="/rosie" element={<Navigate to="/rosy" replace />} />
           <Route path="/agenda" element={<Protetta percorso="/agenda"><PaginaAgenda /></Protetta>} />
           <Route path="/catalogo" element={<Protetta percorso="/catalogo"><GestioneCatalogo /></Protetta>} />
           <Route path="/report" element={<Protetta percorso="/report"><PaginaReport /></Protetta>} />

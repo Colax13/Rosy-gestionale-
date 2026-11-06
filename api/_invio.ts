@@ -20,7 +20,7 @@ export const COLLEZIONE_REGISTRO = 'registro_sms';
 
 export interface VoceRegistro {
   userId: string;
-  tipo: TipoMessaggio | 'avviso_salone' | 'prova' | 'codice';
+  tipo: TipoMessaggio | 'avviso_salone' | 'prova' | 'codice' | 'recupero';
   appuntamentoId?: string;
   cliente?: string;
   a: string;

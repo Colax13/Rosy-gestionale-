@@ -7,7 +7,7 @@ import RicercaGlobale from '../../salone-app/frontend/components/RicercaGlobale'
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 
-import RosySidebar from './RosySidebar';
+import { EVENTO_APRI_CHAT } from './RosySidebar';
 import RosyChat from './RosyChat';
 import RosyLogo from './RosyLogo';
 import BottoneMenu, { MenuSchermoContext } from './BottoneMenu';
@@ -29,6 +29,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const schermoPieno = !isDesktopSidebarOpen;
   const menuSchermo = { schermoPieno, apriMenu: () => setIsDesktopSidebarOpen(true) };
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [domandaIniziale, setDomandaIniziale] = useState<string | undefined>();
+
+  // Le altre pagine (la pagina Rosy) aprono la chat con una domanda già
+  // scritta: `apriChatRosy('chi ho domani?')`.
+  useEffect(() => {
+    const apri = (e: Event) => {
+      setDomandaIniziale((e as CustomEvent<string | undefined>).detail || undefined);
+      setIsChatOpen(true);
+    };
+    window.addEventListener(EVENTO_APRI_CHAT, apri);
+    return () => window.removeEventListener(EVENTO_APRI_CHAT, apri);
+  }, []);
   const desktopUserMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
   const hubUserMenuRef = useRef<HTMLDivElement>(null);
@@ -50,7 +62,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   const routes = [
-    { path: '/rosie', label: 'Rosie Hub', icon: Sparkles },
+    { path: '/rosy', label: 'Rosy', icon: Sparkles },
     { path: '/agenda', label: 'Agenda', icon: CalendarDays },
     { path: '/clienti', label: 'Clienti', icon: Users },
     { path: '/catalogo', label: 'Servizi', icon: Scissors },
@@ -331,10 +343,10 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Floating Rosy Button */}
-      {auth.currentUser && !isMainDashboard && location.pathname !== '/rosie' && (
+      {auth.currentUser && !isMainDashboard && location.pathname !== '/rosy' && location.pathname !== '/rosie' && (
         <div className="fixed bottom-6 right-6 z-[90]">
           <button
-            onClick={() => setIsChatOpen(true)}
+            onClick={() => { setDomandaIniziale(undefined); setIsChatOpen(true); }}
             className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#00D8FF] to-[#D400FF] shadow-[0_0_20px_rgba(212,0,255,0.4)] hover:shadow-[0_0_30px_rgba(212,0,255,0.6)] flex items-center justify-center transition-all hover:-translate-y-1 group relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -359,7 +371,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               <X size={18} />
             </button>
-            <RosyChat onChiudi={() => setIsChatOpen(false)} />
+            <RosyChat key={domandaIniziale || 'chat'} domandaIniziale={domandaIniziale} onChiudi={() => setIsChatOpen(false)} />
             <div className="absolute -bottom-3 right-8 w-6 h-6 bg-white border-b border-r border-zinc-200 transform rotate-45 z-[60]"></div>
           </motion.div>
         )}

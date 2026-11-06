@@ -18,8 +18,8 @@ export default function DashboardHub() {
 
   const cards = [
     {
-      title: "Rosie Board",
-      route: "/rosie",
+      title: "Rosy",
+      route: "/rosy",
       icon: Sparkles,
       color: "text-[#00D8FF]",
       bg: "bg-[#00D8FF]/10",

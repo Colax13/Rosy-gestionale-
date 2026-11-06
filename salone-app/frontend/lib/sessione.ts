@@ -25,7 +25,7 @@ export const PAGINE = [
   { chiave: 'report',      etichetta: 'Report',       percorsi: ['/report'] },
   { chiave: 'dipendenti',  etichetta: 'Operatori',    percorsi: ['/dipendenti'] },
   { chiave: 'automazioni', etichetta: 'Automazioni',  percorsi: ['/automazioni'] },
-  { chiave: 'rosie',       etichetta: 'Rosie Hub',    percorsi: ['/rosie', '/'] },
+  { chiave: 'rosie',       etichetta: 'Rosy',         percorsi: ['/rosy', '/rosie', '/'] },
   // Le impostazioni restano al titolare: le regole del database non lasciano
   // scrivere il salone a nessun altro, e un permesso che non funziona è
   // peggio di un permesso che non c'è.

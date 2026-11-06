@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, deleteField } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, deleteField, increment } from 'firebase/firestore';
 import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
@@ -355,6 +355,19 @@ export const azzeraPromemoria = () => ({
  * il gestionale quando si preme "Conferma".
  */
 export const rosyApi = {
+  /** Il consumo dell'IA degli ultimi mesi, dal più recente: lo conta il server. */
+  consumi: async (): Promise<import('./consumi-ia').ConsumoMese[]> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+    const risposta = await fetch('/api/rosy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ consumi: true })
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok) throw new Error(dati?.errore || `Il server non ha risposto (errore ${risposta.status}).`);
+    return Array.isArray(dati.mesi) ? dati.mesi : [];
+  },
   /** All'apertura della chat: sveglia il server e fa leggere in anticipo i dati. Se non va, pazienza. */
   riscalda: async (): Promise<void> => {
     try {
@@ -393,6 +406,22 @@ export const rosyApi = {
 };
 
 export const messaggiApi = {
+  /**
+   * SMS di recupero a una cliente che non passa da un po'. Il server lo manda
+   * solo se ha il consenso al marketing e gli SMS sono attivi per il salone.
+   */
+  recupero: async (clienteId: string, testo: string): Promise<{ mandato: boolean; a?: string[]; motivo?: string }> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegata: esci e rientra.');
+    const risposta = await fetch('/api/messaggi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ azione: 'recupero', clienteId, testo })
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok && risposta.status !== 202) throw new Error(dati?.errore || 'Il server non ha risposto.');
+    return dati;
+  },
   manda: async (appuntamentoId: string, tipo: 'conferma' | 'rifiuto' | 'spostamento' | 'promemoria' = 'conferma') => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('Non risulti collegata: esci e rientra.');
@@ -1015,5 +1044,41 @@ export const backupApi = {
     const oggi = new Date().toISOString().slice(0, 10);
     const conteggi = Object.fromEntries(Object.entries(dati).map(([k, v]) => [k, v.length]));
     return { file: new Blob([testo], { type: 'application/json' }), nome: `backup-salone-${oggi}.json`, conteggi };
+  }
+};
+
+/**
+ * Il magazzino dei prodotti. In diretta: la pagina si aggiorna da sola, e
+ * dopo il primo caricamento arrivano solo i prodotti cambiati.
+ */
+export const prodottiApi = {
+  ascolta: (quandoCambiano: (prodotti: any[]) => void, quandoSbaglia?: (e: Error) => void): (() => void) => {
+    const q = query(collection(db, 'prodotti'), where('userId', '==', getUserId()));
+    return onSnapshot(
+      q,
+      snap => quandoCambiano(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => quandoSbaglia?.(err)
+    );
+  },
+  create: async (dati: any) => {
+    const ref = doc(collection(db, 'prodotti'));
+    await setDoc(ref, { ...dati, userId: getUserId(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    return { id: ref.id };
+  },
+  /** Sostituisce la scheda: i campi svuotati nel pannello spariscono davvero. */
+  update: async (id: string, dati: any) => {
+    const ref = doc(db, 'prodotti', id);
+    const prima = await getDoc(ref);
+    const vecchi = (prima.data() || {}) as any;
+    await setDoc(ref, { ...dati, userId: getUserId(), createdAt: vecchi.createdAt || serverTimestamp(), updatedAt: serverTimestamp() });
+    return { id };
+  },
+  /** Carico (+) o scarico (−) di pezzi, senza toccare il resto. */
+  muovi: async (id: string, quanti: number) => {
+    const ref = doc(db, 'prodotti', id);
+    await updateDoc(ref, { giacenza: increment(Math.trunc(quanti)), updatedAt: serverTimestamp() });
+  },
+  delete: async (id: string) => {
+    await deleteDoc(doc(db, 'prodotti', id));
   }
 };

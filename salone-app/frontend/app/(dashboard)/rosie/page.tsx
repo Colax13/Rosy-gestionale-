@@ -15,18 +15,20 @@ import { appuntamentiApi, clientiApi, dipendentiApi } from "@/lib/api-client";
 import { aData, daQuanto, giorniDa } from "@/lib/tempo";
 import { intervalliOccupati, turnoDelGiorno, dentroTurno } from "@/lib/servizi";
 import BottoneRicontatta from "@/components/BottoneRicontatta";
+import InviaRecupero from "@/components/InviaRecupero";
 import RosySidebar from "../../../../../src/components/RosySidebar";
 import RosyLogo from "../../../../../src/components/RosyLogo";
 
 // Da quanto tempo una cliente deve mancare per considerarla da recuperare.
 const GIORNI_ASSENZA = 60;
 
-export default function RosieHub() {
+export default function RosyHub() {
   const [appuntamenti, setAppuntamenti] = useState<any[]>([]);
   const [tuttiAppuntamenti, setTuttiAppuntamenti] = useState<any[]>([]);
   const [clienti, setClienti] = useState<any[]>([]);
   const [dipendenti, setDipendenti] = useState<any[]>([]);
   const [mostraDormienti, setMostraDormienti] = useState(false);
+  const [inviaAperto, setInviaAperto] = useState(false);
 
   useEffect(() => {
     const oggi = new Date().toISOString().split('T')[0];
@@ -139,7 +141,7 @@ export default function RosieHub() {
 
             <div className="flex-1 z-10 w-full relative">
                <h3 className="text-2xl font-bold font-playfair text-zinc-900 flex items-center gap-2 tracking-tight">
-                Promemoria Rosie <span className="text-[#00D8FF] animate-pulse">✨</span>
+                Promemoria di Rosy <span className="text-[#00D8FF] animate-pulse">✨</span>
                </h3>
                <p className="text-base text-zinc-500 mt-2 max-w-2xl leading-relaxed">
                  {dormienti.length === 0 ? (
@@ -155,11 +157,11 @@ export default function RosieHub() {
 
             <div className="flex items-center justify-end gap-3 w-full md:w-auto relative z-10 mt-4 md:mt-0">
                <button
-                 disabled
-                 title="L'invio automatico dei messaggi non è ancora attivo"
-                 className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-zinc-100 text-zinc-400 font-semibold text-sm cursor-not-allowed"
+                 onClick={() => setInviaAperto(true)}
+                 disabled={dormienti.length === 0}
+                 className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 disabled:bg-zinc-100 disabled:text-zinc-400 text-white font-semibold text-sm transition-colors"
                >
-                 Invia messaggi · in arrivo
+                 Invia messaggi
                </button>
                <button
                  onClick={() => setMostraDormienti(v => !v)}
@@ -175,6 +177,7 @@ export default function RosieHub() {
           {/* L'elenco vero delle clienti da recuperare, aperto dal pulsante. */}
           {mostraDormienti && dormienti.length > 0 && (
             <motion.div
+              id="elenco-da-recuperare"
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm"
@@ -279,17 +282,32 @@ export default function RosieHub() {
 
         {/* Action Board container right below the KPIs */}
         <div className="mt-6 flex flex-col xl:flex-row gap-6 w-full">
-           <div className="flex-1 w-full flex flex-col bg-zinc-50/20 border border-zinc-200/50 rounded-3xl overflow-hidden shadow-2xl relative min-h-[600px]">
+           <div className="flex-1 w-full flex flex-col bg-zinc-50/20 border border-zinc-200/50 rounded-3xl overflow-hidden shadow-2xl relative">
              {/* Decorative glow */}
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#FF3EF7]/20 to-transparent"></div>
              
-             {/* Mount the RosySidebar directly here, it will act as an inline board */}
-             <RosySidebar />
+             <RosySidebar
+               daRecuperare={dormienti.length}
+               spaziLiberi={slotLiberi}
+               appuntamentiOggi={appuntamenti.filter(a => a.stato !== 'annullato').length}
+               richieste={tuttiAppuntamenti.filter(a => a.stato === 'in_attesa').length}
+               onRecupera={() => setInviaAperto(true)}
+               onVediDaRecuperare={() => {
+                 setMostraDormienti(true);
+                 setTimeout(() => document.getElementById('elenco-da-recuperare')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+               }}
+             />
            </div>
         </div>
         
         <div className="h-10"></div>
       </div>
+      {inviaAperto && (
+        <InviaRecupero
+          righe={dormienti.map(d => ({ cliente: d.cliente, ultimaVisita: d.ultimaVisita }))}
+          onClose={() => setInviaAperto(false)}
+        />
+      )}
     </div>
   );
 }
