@@ -3,7 +3,7 @@ import { Store, Clock, Image as ImageIcon, Save, CheckCircle, Settings as Settin
 import { datiMancanti } from '@/lib/privacy';
 import { linkPrenotazione } from '@/lib/domini';
 import { salonApi, impostazioniPrivateApi, backupApi, rosyApi } from '@/lib/api-client';
-import { contoDelMese, euro, ConsumoMese, DOMANDE_GRATUITE, PREZZO_DOMANDA_EURO } from '@/lib/consumi-ia';
+import { contoDelMese, euro, ConsumoMese, DOMANDE_GRATUITE, PREZZO_DOMANDA_EURO, ADDEBITO_ATTIVO } from '@/lib/consumi-ia';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
 
@@ -496,14 +496,27 @@ function ConsumiIA() {
     <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xl w-full">
       <h3 className="text-xl font-bold text-zinc-900 mb-2">Consumi di Rosy (IA)</h3>
       <p className="text-zinc-500 mb-4 text-sm">
-        Ogni mese {DOMANDE_GRATUITE} domande a Rosy sono incluse. Oltre, ogni domanda costa {euro(PREZZO_DOMANDA_EURO)} e l'importo viene addebitato a fine mese.
-        Rosy non si blocca mai.
+        {ADDEBITO_ATTIVO
+          ? <>Ogni mese {DOMANDE_GRATUITE} domande a Rosy sono incluse. Oltre, ogni domanda costa {euro(PREZZO_DOMANDA_EURO)} e l'importo viene addebitato a fine mese. Rosy non si blocca mai.</>
+          : <>Quante domande sono state fatte a Rosy, mese per mese.</>}
       </p>
 
       {errore && <p className="text-sm text-red-600">{errore}</p>}
       {!errore && !mesi && <p className="text-sm text-zinc-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carico i consumi…</p>}
 
-      {corrente && (
+      {corrente && !ADDEBITO_ATTIVO && (
+        <div className="p-4 border border-zinc-200 rounded-lg flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-medium text-zinc-800">{nomeMese(corrente.mese)}</p>
+          <p className="text-sm text-zinc-600"><strong className="text-zinc-900">{corrente.domande}</strong> {corrente.domande === 1 ? 'domanda' : 'domande'} a Rosy</p>
+          {mesi!.slice(1).some(m => m.domande > 0) && (
+            <p className="w-full text-xs text-zinc-500">
+              Mesi precedenti: {mesi!.slice(1).filter(m => m.domande > 0).map(m => `${nomeMese(m.mese)} ${m.domande}`).join(' · ')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {corrente && ADDEBITO_ATTIVO && (
         <>
           <div className="p-4 border border-zinc-200 rounded-lg">
             <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">

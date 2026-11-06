@@ -279,9 +279,33 @@ service cloud.firestore {
       allow create: if isValidId(prodottoId) && isValidProdotto(incoming())
                     && nelSaloneCon(incoming().userId, 'prodotti');
       allow update: if isValidId(prodottoId) && isValidProdotto(incoming())
-                    && nelSaloneCon(resource.data.userId, 'prodotti')
-                    && incoming().userId == resource.data.userId;
+                    && incoming().userId == resource.data.userId
+                    && (
+                      nelSaloneCon(resource.data.userId, 'prodotti')
+                      // Chi chiude un appuntamento in agenda vende i prodotti
+                      // del conto: può cambiare i pezzi, e nient'altro.
+                      || (nelSaloneCon(resource.data.userId, 'agenda')
+                          && incoming().diff(resource.data).affectedKeys().hasOnly(['giacenza', 'updatedAt']))
+                    );
       allow delete: if isValidId(prodottoId) && nelSaloneCon(resource.data.userId, 'prodotti');
+    }
+
+    // Il registro del magazzino: ogni carico, scarico e vendita. Si scrive e
+    // si legge, ma non si cambia né si cancella.
+    match /movimenti_prodotti/{movimentoId} {
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if nelSalone(resource.data.userId);
+      allow create: if isValidId(movimentoId)
+                    && incoming().keys().hasAll(['userId', 'prodottoId', 'nome', 'tipo', 'quantita', 'quando', 'mese'])
+                    && incoming().prodottoId is string && incoming().prodottoId.size() <= 128
+                    && incoming().nome is string && incoming().nome.size() <= 120
+                    && incoming().tipo in ['carico', 'scarico', 'vendita', 'vendita_banco', 'reso']
+                    && incoming().quantita is int && incoming().quantita > 0 && incoming().quantita <= 10000
+                    && ( !('importo' in incoming()) || (incoming().importo is number && incoming().importo >= 0) )
+                    && ( !('appuntamentoId' in incoming()) || (incoming().appuntamentoId is string && incoming().appuntamentoId.size() <= 128) )
+                    && incoming().quando is string && incoming().mese is string && incoming().mese.size() == 7
+                    && (nelSaloneCon(incoming().userId, 'prodotti') || nelSaloneCon(incoming().userId, 'agenda'));
+      allow update, delete: if false;
     }
 
     // I buoni sono una funzione riservata: oltre al permesso sulla pagina

@@ -52,7 +52,7 @@ export default function PaginaReport() {
   const [incassi, setIncassi] = useState<IncassoMese[]>([]);
   const [dipendenti, setDipendenti] = useState<TotaleDipendente[]>([]);
   const [clientiReport, setClientiReport] = useState<ClientiReport | null>(null);
-  const [riepilogo, setRiepilogo] = useState<{ incasso_mensile: number; appuntamenti_oggi: number; ticket_medio: number; clienti_totali: number } | null>(null);
+  const [riepilogo, setRiepilogo] = useState<{ incasso_mensile: number; appuntamenti_oggi: number; ticket_medio: number; clienti_totali: number; prodotti_mese?: number; al_banco_mese?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,9 +154,12 @@ export default function PaginaReport() {
 
         {/* Riepilogo del mese */}
         {riepilogo && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
             {[
-              { etichetta: 'Incassato questo mese', valore: `${riepilogo.incasso_mensile.toFixed(2).replace('.', ',')} €`, accento: true },
+              { etichetta: 'Incassato questo mese', valore: `${riepilogo.incasso_mensile.toFixed(2).replace('.', ',')} €`, accento: true,
+                nota: riepilogo.al_banco_mese ? `+ ${riepilogo.al_banco_mese.toFixed(2).replace('.', ',')} € di prodotti al banco` : undefined },
+              { etichetta: 'Prodotti venduti nel mese', valore: `${(riepilogo.prodotti_mese || 0).toFixed(2).replace('.', ',')} €`,
+                nota: 'In appuntamento e al banco' },
               { etichetta: 'Appuntamenti oggi', valore: String(riepilogo.appuntamenti_oggi) },
               { etichetta: 'Scontrino medio', valore: `${riepilogo.ticket_medio.toFixed(2).replace('.', ',')} €` },
               { etichetta: 'Clienti in anagrafica', valore: String(riepilogo.clienti_totali) }
@@ -166,6 +169,7 @@ export default function PaginaReport() {
                 <div className={`text-2xl font-playfair font-bold tabular-nums ${t.accento ? 'text-fuchsia-600' : 'text-zinc-900'}`}>
                   {t.valore}
                 </div>
+                {(t as any).nota && <div className="text-[11px] text-zinc-500 mt-1">{(t as any).nota}</div>}
               </div>
             ))}
           </div>

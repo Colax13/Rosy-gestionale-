@@ -12,6 +12,14 @@
  * Impostazioni per mostrare il conto: un solo posto dove cambiare i prezzi.
  */
 
+/**
+ * L'addebito al salone è spento: manca ancora come incassare (partita IVA,
+ * Stripe, fattura elettronica). Il server conta lo stesso ogni domanda, così
+ * quando si accende lo storico c'è già; finché è false la pagina mostra solo
+ * quante domande si sono fatte, senza prezzi né importi.
+ */
+export const ADDEBITO_ATTIVO = false;
+
 /** Domande gratuite al mese per salone. */
 export const DOMANDE_GRATUITE = 100;
 /** Prezzo al salone per ogni domanda oltre la quota, in euro. */

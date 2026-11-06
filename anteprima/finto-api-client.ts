@@ -112,6 +112,8 @@ export const reportApi = {
     return {
       overview: {
         incasso_mensile: 3480,
+        prodotti_mese: 214.5,
+        al_banco_mese: 62,
         appuntamenti_oggi: appuntamenti.length,
         ticket_medio: 36.25,
         clienti_totali: clienti.length,
@@ -429,12 +431,25 @@ const prodotti: any[] = [
   { id: 'p2', nome: 'Maschera nutriente', marca: 'Davines', categoria: 'Maschere', prezzo: 32, giacenza: 1, scorta_minima: 2 },
   { id: 'p3', nome: 'Olio per punte', marca: 'Moroccanoil', categoria: 'Olio', prezzo: 38, giacenza: 0 },
 ];
+const movimenti: any[] = [
+  { id: 'm0', prodottoId: 'p1', nome: 'Shampoo ristrutturante 250 ml', tipo: 'carico', quantita: 6, quando: '2026-11-02T09:10:00Z', mese: '2026-11', chi: 'Rosanna' },
+];
 const ascoltatoriProdotti = new Set<(p: any[]) => void>();
 const avvisaProdotti = () => setTimeout(() => ascoltatoriProdotti.forEach(f => f([...prodotti])), 0);
 export const prodottiApi = {
   ascolta: (cb: (p: any[]) => void) => { ascoltatoriProdotti.add(cb); setTimeout(() => cb([...prodotti]), 0); return () => { ascoltatoriProdotti.delete(cb); }; },
   create: async (dati: any) => { const p = { id: `p${prodotti.length + 1}-${Math.random().toString(36).slice(2, 5)}`, ...dati }; prodotti.push(p); avvisaProdotti(); return { id: p.id }; },
   update: async (id: string, dati: any) => { const i = prodotti.findIndex(p => p.id === id); if (i >= 0) prodotti[i] = { id, ...dati }; avvisaProdotti(); return { id }; },
-  muovi: async (id: string, n: number) => { const p = prodotti.find(x => x.id === id); if (p) p.giacenza += n; avvisaProdotti(); },
+  muovi: async (prod: any, tipo: string, n: number, extra: any = {}) => {
+    const p = prodotti.find(x => x.id === prod.id);
+    const v = tipo === 'carico' || tipo === 'reso' ? n : -n;
+    if (p) p.giacenza += v;
+    movimenti.unshift({ id: `m${movimenti.length}`, prodottoId: prod.id, nome: prod.nome, tipo, quantita: n, ...extra, quando: new Date().toISOString(), mese: new Date().toISOString().slice(0, 7), chi: 'Rosanna' });
+    avvisaProdotti();
+  },
+  vendiDalConto: async (appId: string, diff: any[]) => { for (const d of diff) await prodottiApi.muovi({ id: d.prodottoId, nome: d.nome }, d.quantita > 0 ? 'vendita' : 'reso', Math.abs(d.quantita), { appuntamentoId: appId }); },
+  getAll: async () => eco(prodotti),
+  movimenti: async (id: string) => eco(movimenti.filter(m => m.prodottoId === id)),
+  movimentiDelMese: async () => eco(movimenti),
   delete: async (id: string) => { const i = prodotti.findIndex(p => p.id === id); if (i >= 0) prodotti.splice(i, 1); avvisaProdotti(); },
 };

@@ -17,7 +17,19 @@ export interface RigaPreconto {
   daCatalogo: boolean;
   /** Se finisce sul conto. Si può togliere quello che non è stato fatto. */
   scelta: boolean;
+  /** Solo per i prodotti venduti: quale prodotto del magazzino. */
+  prodottoId?: string;
+  /** Quanti pezzi (solo prodotti; i servizi valgono 1). `prezzo` è quello di un pezzo. */
+  quantita?: number;
 }
+
+/** Quanti pezzi conta la riga: i servizi sempre 1. */
+export const pezziDi = (r: Pick<RigaPreconto, 'quantita'>) =>
+  Math.max(1, Math.trunc(Number(r.quantita) || 1));
+
+/** Quanto pesa la riga sul conto: prezzo per pezzi. */
+export const importoRiga = (r: Pick<RigaPreconto, 'prezzo' | 'quantita'>) =>
+  (Number(r.prezzo) || 0) * pezziDi(r);
 
 /** Confronto fra nomi indulgente: maiuscole, accenti e spazi non contano. */
 function normalizza(nome: string): string {
@@ -62,7 +74,7 @@ export function righeDaAppuntamento(app: any, catalogo: any[]): RigaPreconto[] {
 export function contiPreconto(righe: RigaPreconto[], sconto: unknown) {
   const totale = righe
     .filter(r => r.scelta)
-    .reduce((acc, r) => acc + (Number(r.prezzo) || 0), 0);
+    .reduce((acc, r) => acc + importoRiga(r), 0);
   const scontoVero = Math.min(Math.max(0, aNumero(sconto)), totale);
   return {
     totale,
@@ -74,4 +86,19 @@ export function contiPreconto(righe: RigaPreconto[], sconto: unknown) {
 /** "45,00 €" — come si scrive su un conto in Italia. */
 export function euro(valore: number): string {
   return `${(Number(valore) || 0).toFixed(2).replace('.', ',')} €`;
+}
+
+/** Quanto del conto è servizi e quanto prodotti (prima dello sconto). */
+export function totaliPerTipo(righe: RigaPreconto[]) {
+  const scelte = righe.filter(r => r.scelta);
+  const prodotti = scelte.filter(r => r.prodottoId).reduce((t, r) => t + importoRiga(r), 0);
+  const servizi = scelte.filter(r => !r.prodottoId).reduce((t, r) => t + importoRiga(r), 0);
+  return { servizi, prodotti };
+}
+
+/** La riga come si salva sull'appuntamento: i prodotti portano anche id e pezzi. */
+export function rigaDaSalvare(r: RigaPreconto) {
+  return r.prodottoId
+    ? { nome: r.nome, prezzo: r.prezzo, prodottoId: r.prodottoId, quantita: pezziDi(r) }
+    : { nome: r.nome, prezzo: r.prezzo };
 }
