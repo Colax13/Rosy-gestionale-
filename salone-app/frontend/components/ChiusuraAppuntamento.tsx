@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check, Plus, Printer, Trash2, ArrowLeft, CheckCircle2, AlertCircle, Receipt } from 'lucide-react';
-import { catalogoApi, clientiApi, appuntamentiApi, precontoApi } from '@/lib/api-client';
-import { righeDaAppuntamento, contiPreconto, prezzoDiListino, euro, RigaPreconto } from '@/lib/preconto';
+import { X, Check, Plus, Minus, Printer, Trash2, ArrowLeft, CheckCircle2, AlertCircle, Receipt, Package } from 'lucide-react';
+import { catalogoApi, clientiApi, appuntamentiApi, precontoApi, prodottiApi } from '@/lib/api-client';
+import { righeDaAppuntamento, contiPreconto, prezzoDiListino, euro, RigaPreconto, pezziDi, importoRiga, totaliPerTipo, rigaDaSalvare } from '@/lib/preconto';
+import { differenzeMagazzino } from '@/lib/prodotti';
 import { aNumero } from '@/lib/numeri';
 import { noteDaMostrare } from '@/lib/cliente';
 
@@ -49,9 +50,19 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
   const [noteCliente, setNoteCliente] = useState('');
   const [noteCaricate, setNoteCaricate] = useState(false);
 
-  // Aggiunta di un servizio fuori programma
+  // Aggiunta di un servizio fuori programma, o di un prodotto venduto
   const [aggiuntaAperta, setAggiuntaAperta] = useState(false);
   const [cercaServizio, setCercaServizio] = useState('');
+  const [prodotti, setProdotti] = useState<any[]>([]);
+  const [avvisoMagazzino, setAvvisoMagazzino] = useState<string | null>(null);
+
+  // I prodotti del magazzino, per venderli dal conto. Se non si leggono
+  // (regole non ancora pubblicate, permessi) il conto funziona lo stesso.
+  useEffect(() => {
+    prodottiApi.getAll()
+      .then(p => setProdotti((p || []).filter((x: any) => x.attivo !== false)))
+      .catch(() => setProdotti([]));
+  }, []);
 
   useEffect(() => {
     catalogoApi.getAll()
@@ -63,8 +74,9 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
               id: `salvata-${i}`,
               nome: r.nome,
               prezzo: aNumero(r.prezzo),
-              daCatalogo: prezzoDiListino(r.nome, attivi) !== null,
-              scelta: true
+              daCatalogo: r.prodottoId ? true : prezzoDiListino(r.nome, attivi) !== null,
+              scelta: true,
+              ...(r.prodottoId ? { prodottoId: r.prodottoId, quantita: pezziDi(r) } : {})
             }))
           : righeDaAppuntamento(app, attivi));
       })
@@ -91,6 +103,41 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
   const serviziAggiungibili = catalogo.filter(s =>
     s.nome.toLowerCase().includes(cercaServizio.toLowerCase())
   );
+  const prodottiAggiungibili = prodotti.filter(p =>
+    [p.nome, p.marca, p.categoria, p.codice].some((v: any) => (v || '').toLowerCase().includes(cercaServizio.toLowerCase()))
+  ).slice(0, 30);
+
+  const aggiungiProdotto = (p: any) => {
+    setRighe(prev => {
+      const gia = prev.find(r => r.prodottoId === p.id);
+      if (gia) return prev.map(r => r === gia ? { ...r, scelta: true, quantita: pezziDi(r) + 1 } : r);
+      return [...prev, {
+        id: `prod-${p.id}-${Date.now()}`,
+        nome: p.nome,
+        prezzo: Number(p.prezzo) || 0,
+        daCatalogo: true,
+        scelta: true,
+        prodottoId: p.id,
+        quantita: 1
+      }];
+    });
+    setAggiuntaAperta(false);
+    setCercaServizio('');
+  };
+
+  const cambiaPezzi = (id: string, delta: number) =>
+    setRighe(prev => prev.map(r => r.id === id ? { ...r, quantita: Math.max(1, pezziDi(r) + delta) } : r));
+
+  // Quanti pezzi di quel prodotto ci sono in magazzino, contando quelli già
+  // scalati con questo stesso conto (se lo si sta correggendo).
+  const disponibili = (prodottoId: string) => {
+    const p = prodotti.find(x => x.id === prodottoId);
+    if (!p) return null;
+    const giaScalati = (app?.preconto?.righe || [])
+      .filter((r: any) => r.prodottoId === prodottoId)
+      .reduce((t: number, r: any) => t + pezziDi(r), 0);
+    return (Number(p.giacenza) || 0) + giaScalati;
+  };
 
   const spunta = (id: string) =>
     setRighe(prev => prev.map(r => r.id === id ? { ...r, scelta: !r.scelta } : r));
@@ -156,13 +203,16 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
     setErrore(null);
     try {
       const scelte = righe.filter(r => r.scelta);
+      const perTipo = totaliPerTipo(righe);
       await appuntamentiApi.update(app.id, {
         stato: 'completato',
         prezzo_finale: conti.daPagare,
         colori_utilizzati: colori,
         preconto: {
-          righe: scelte.map(r => ({ nome: r.nome, prezzo: r.prezzo })),
+          righe: scelte.map(rigaDaSalvare),
           totale: conti.totale,
+          totale_servizi: perTipo.servizi,
+          totale_prodotti: perTipo.prodotti,
           sconto: conti.sconto,
           totale_finale: conti.daPagare,
           note: notePreconto,
@@ -175,6 +225,19 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
       const idCliente = app?.id_cliente || app?.clienti?.id;
       if (idCliente && noteCaricate) {
         await clientiApi.update(idCliente, { note: noteCliente });
+      }
+
+      // I prodotti venduti escono dal magazzino. Se riapro un conto già chiuso
+      // si scala solo la differenza. Se il magazzino non si aggiorna
+      // l'appuntamento resta chiuso lo stesso: si avvisa e basta.
+      const differenze = differenzeMagazzino(app?.preconto?.righe, scelte.map(rigaDaSalvare));
+      if (differenze.length) {
+        try {
+          await prodottiApi.vendiDalConto(app.id, differenze);
+        } catch (err: any) {
+          setAvvisoMagazzino(`Appuntamento chiuso, ma il magazzino non è stato aggiornato (${err?.message || 'errore'}): sistema i pezzi dalla pagina Prodotti.`);
+          return;
+        }
       }
 
       onCompletato();
@@ -216,6 +279,13 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
         {errore && (
           <div className="mx-6 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2 shrink-0">
             <AlertCircle size={16} className="shrink-0 mt-0.5" /> <span>{errore}</span>
+          </div>
+        )}
+
+        {avvisoMagazzino && (
+          <div className="mx-6 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2 shrink-0">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{avvisoMagazzino} <button onClick={onCompletato} className="underline font-semibold">Ho capito</button></span>
           </div>
         )}
 
@@ -263,7 +333,26 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
                           {!riga.daCatalogo && (
                             <div className="text-[11px] text-amber-700">Non è a listino: scrivi tu il prezzo</div>
                           )}
+                          {riga.prodottoId && (() => {
+                            const restano = disponibili(riga.prodottoId);
+                            const troppi = restano !== null && riga.scelta && pezziDi(riga) > restano;
+                            return (
+                              <div className={`text-[11px] flex items-center gap-1 ${troppi ? 'text-amber-700' : 'text-zinc-500'}`}>
+                                <Package size={11} /> Prodotto
+                                {pezziDi(riga) > 1 ? ` · ${pezziDi(riga)} × ${euro(riga.prezzo)} = ${euro(importoRiga(riga))}` : ''}
+                                {troppi ? ` · in magazzino ne risultano ${restano}` : ''}
+                              </div>
+                            );
+                          })()}
                         </div>
+
+                        {riga.prodottoId && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => cambiaPezzi(riga.id, -1)} disabled={pezziDi(riga) <= 1} className="p-1 rounded-md border border-zinc-200 text-zinc-600 disabled:opacity-40" aria-label="Un pezzo in meno"><Minus size={12} /></button>
+                            <span className="w-6 text-center text-sm tabular-nums">{pezziDi(riga)}</span>
+                            <button onClick={() => cambiaPezzi(riga.id, 1)} className="p-1 rounded-md border border-zinc-200 text-zinc-600" aria-label="Un pezzo in più"><Plus size={12} /></button>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-1 shrink-0">
                           <input
@@ -292,7 +381,7 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
                       onClick={() => setAggiuntaAperta(true)}
                       className="mt-3 px-3 py-2 text-sm font-semibold text-fuchsia-600 hover:bg-fuchsia-50 rounded-lg transition-colors flex items-center gap-1.5"
                     >
-                      <Plus size={16} /> Aggiungi un servizio
+                      <Plus size={16} /> Aggiungi un servizio{prodotti.length ? ' o un prodotto' : ''}
                     </button>
                   ) : (
                     <div className="mt-3 border border-zinc-200 rounded-xl overflow-hidden">
@@ -300,7 +389,7 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
                         autoFocus
                         value={cercaServizio}
                         onChange={e => setCercaServizio(e.target.value)}
-                        placeholder="Cerca nel listino, o scrivi una voce nuova…"
+                        placeholder={prodotti.length ? 'Cerca un servizio o un prodotto, o scrivi una voce nuova…' : 'Cerca nel listino, o scrivi una voce nuova…'}
                         className="w-full p-3 text-sm outline-none border-b border-zinc-100"
                       />
                       <div className="max-h-44 overflow-y-auto">
@@ -314,7 +403,22 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
                             <span className="text-zinc-500 tabular-nums shrink-0">{euro(aNumero(s.prezzo_base ?? s.prezzo))}</span>
                           </button>
                         ))}
-                        {cercaServizio.trim() && serviziAggiungibili.length === 0 && (
+                        {prodottiAggiungibili.length > 0 && (
+                          <div className="px-3 pt-2 pb-1 text-[11px] font-bold text-zinc-400 uppercase tracking-widest border-t border-zinc-100">Prodotti</div>
+                        )}
+                        {prodottiAggiungibili.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => aggiungiProdotto(p)}
+                            className="w-full px-3 py-2.5 text-left hover:bg-zinc-50 flex items-center justify-between gap-3 text-sm"
+                          >
+                            <span className="truncate flex items-center gap-1.5"><Package size={13} className="text-zinc-400 shrink-0" /> {p.nome}</span>
+                            <span className="text-zinc-500 tabular-nums shrink-0">
+                              {euro(Number(p.prezzo) || 0)} · <span className={(Number(p.giacenza) || 0) > 0 ? '' : 'text-red-600'}>{Number(p.giacenza) || 0} pz</span>
+                            </span>
+                          </button>
+                        ))}
+                        {cercaServizio.trim() && serviziAggiungibili.length === 0 && prodottiAggiungibili.length === 0 && (
                           <button
                             onClick={aggiungiLibero}
                             className="w-full px-3 py-2.5 text-left hover:bg-zinc-50 text-sm text-fuchsia-600 font-medium"
@@ -461,8 +565,8 @@ export default function ChiusuraAppuntamento({ app, nomeSalone, onChiudi, onComp
           <tbody>
             {righe.filter(r => r.scelta).map(r => (
               <tr key={r.id}>
-                <td>{r.nome}</td>
-                <td className="cifra">{euro(r.prezzo)}</td>
+                <td>{r.nome}{pezziDi(r) > 1 ? ` × ${pezziDi(r)}` : ''}</td>
+                <td className="cifra">{euro(importoRiga(r))}</td>
               </tr>
             ))}
           </tbody>

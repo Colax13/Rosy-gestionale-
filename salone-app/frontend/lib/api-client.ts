@@ -1,10 +1,12 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, deleteField, increment } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, serverTimestamp, onSnapshot, deleteField, increment, writeBatch } from 'firebase/firestore';
 import { aData } from './tempo';
 import { idSalone } from './sessione';
 import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita } from './vetrina';
 import { chiaviCliente } from './importa';
 import { ordinaOperatori } from './operatori';
 import { unisciConsensi } from './privacy';
+import { TipoMovimento, variazione, incassoProdotti } from './prodotti';
+import { meseDi } from './consumi-ia';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -149,8 +151,19 @@ export const reportApi = {
       ? completatiMese.reduce((acc, a) => acc + incassoDi(a), 0) / completatiMese.length
       : 0;
 
+    // I prodotti del mese: quelli venduti negli appuntamenti più quelli al
+    // banco. Se il registro non si legge si contano solo gli appuntamenti.
+    const meseQui = meseDi(adesso);
+    const movimentiMese = await prodottiApi.movimentiDelMese(meseQui).catch(() => []);
+    const prodottiMese = incassoProdotti(appuntamenti, movimentiMese, meseQui, iso => meseDi(new Date(iso)));
+    const alBancoMese = movimentiMese
+      .filter((m: any) => m.tipo === 'vendita_banco')
+      .reduce((t: number, m: any) => t + (Number(m.importo) || 0), 0);
+
     return {
       overview: {
+        prodotti_mese: prodottiMese,
+        al_banco_mese: Math.round(alBancoMese * 100) / 100,
         incasso_mensile: incassoMensile,
         appuntamenti_oggi: appuntamentiOggi,
         ticket_medio: ticketMedio,
@@ -1073,10 +1086,62 @@ export const prodottiApi = {
     await setDoc(ref, { ...dati, userId: getUserId(), createdAt: vecchi.createdAt || serverTimestamp(), updatedAt: serverTimestamp() });
     return { id };
   },
-  /** Carico (+) o scarico (−) di pezzi, senza toccare il resto. */
-  muovi: async (id: string, quanti: number) => {
-    const ref = doc(db, 'prodotti', id);
-    await updateDoc(ref, { giacenza: increment(Math.trunc(quanti)), updatedAt: serverTimestamp() });
+  /**
+   * Cambia i pezzi di un prodotto e lo scrive nel registro, tutto insieme:
+   * o vanno a buon fine tutti e due, o nessuno.
+   */
+  muovi: async (prodotto: { id: string; nome: string }, tipo: TipoMovimento, quantita: number, extra: { importo?: number; appuntamentoId?: string } = {}) => {
+    const q = Math.abs(Math.trunc(Number(quantita) || 0));
+    if (!q) return;
+    const uid = getUserId();
+    const adesso = new Date();
+    const lotto = writeBatch(db);
+    lotto.update(doc(db, 'prodotti', prodotto.id), { giacenza: increment(variazione(tipo, q)), updatedAt: serverTimestamp() });
+    lotto.set(doc(collection(db, 'movimenti_prodotti')), {
+      userId: uid,
+      prodottoId: prodotto.id,
+      nome: (prodotto.nome || '').slice(0, 120),
+      tipo,
+      quantita: q,
+      ...(extra.importo != null ? { importo: Math.round(extra.importo * 100) / 100 } : {}),
+      ...(extra.appuntamentoId ? { appuntamentoId: extra.appuntamentoId } : {}),
+      quando: adesso.toISOString(),
+      mese: meseDi(adesso),
+      chi: auth.currentUser?.displayName || auth.currentUser?.email || '',
+      createdAt: serverTimestamp()
+    });
+    await lotto.commit();
+  },
+  /**
+   * Chiudendo un appuntamento: scala dal magazzino i prodotti venduti nel
+   * conto, o rimette quelli tolti se lo si riapre per correggerlo. Prende le
+   * differenze già calcolate (`differenzeMagazzino`).
+   */
+  vendiDalConto: async (appuntamentoId: string, differenze: { prodottoId: string; nome: string; quantita: number; prezzo: number }[]) => {
+    for (const d of differenze) {
+      await prodottiApi.muovi(
+        { id: d.prodottoId, nome: d.nome },
+        d.quantita > 0 ? 'vendita' : 'reso',
+        Math.abs(d.quantita),
+        { appuntamentoId, ...(d.quantita > 0 ? { importo: d.prezzo * d.quantita } : {}) }
+      );
+    }
+  },
+  /** I prodotti una volta sola (per il preconto). */
+  getAll: async (): Promise<any[]> => {
+    const snap = await getDocs(query(collection(db, 'prodotti'), where('userId', '==', getUserId())));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  /** Il registro di un prodotto, dal più recente. */
+  movimenti: async (prodottoId: string): Promise<any[]> => {
+    const snap = await getDocs(query(collection(db, 'movimenti_prodotti'), where('userId', '==', getUserId()), where('prodottoId', '==', prodottoId)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => (b.quando || '').localeCompare(a.quando || ''));
+  },
+  /** I movimenti di un mese ("2026-11"): servono al report. */
+  movimentiDelMese: async (mese: string): Promise<any[]> => {
+    const snap = await getDocs(query(collection(db, 'movimenti_prodotti'), where('userId', '==', getUserId()), where('mese', '==', mese)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'prodotti', id));

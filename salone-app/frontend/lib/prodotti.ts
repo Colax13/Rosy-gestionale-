@@ -127,3 +127,98 @@ export function filtraProdotti(prodotti: Prodotto[], testo: string): Prodotto[] 
   return ordinati.filter(p =>
     [p.nome, p.marca, p.categoria, p.codice].some(v => (v || '').toLowerCase().includes(q)));
 }
+
+// ---------------------------------------------------------------------------
+// I movimenti del magazzino
+// ---------------------------------------------------------------------------
+
+/**
+ * Ogni volta che i pezzi cambiano resta una riga in `movimenti_prodotti`: chi
+ * ha caricato, che cosa si è venduto e in quale appuntamento. Le righe non si
+ * modificano e non si cancellano: sono il registro.
+ */
+export type TipoMovimento = 'carico' | 'scarico' | 'vendita' | 'vendita_banco' | 'reso';
+
+export const NOME_MOVIMENTO: Record<TipoMovimento, string> = {
+  carico: 'Carico',
+  scarico: 'Scarico',
+  vendita: 'Venduto in appuntamento',
+  vendita_banco: 'Venduto al banco',
+  reso: 'Tolto dal conto'
+};
+
+export interface Movimento {
+  id?: string;
+  prodottoId: string;
+  nome: string;
+  tipo: TipoMovimento;
+  /** Pezzi, sempre positivo: il verso lo dice il tipo. */
+  quantita: number;
+  /** Incasso della vendita, in euro (solo vendite). */
+  importo?: number;
+  appuntamentoId?: string;
+  quando: string;
+  /** "2026-11": per sommare le vendite del mese senza indici. */
+  mese: string;
+}
+
+/** Di quanto cambiano i pezzi in magazzino per quel movimento. */
+export function variazione(tipo: TipoMovimento, quantita: number): number {
+  const q = Math.abs(Math.trunc(Number(quantita) || 0));
+  return tipo === 'carico' || tipo === 'reso' ? q : -q;
+}
+
+interface RigaVenduta { prodottoId?: string; nome?: string; quantita?: number; prezzo?: number }
+
+/**
+ * Quando si chiude (o si richiude) un appuntamento: che cosa cambia nel
+ * magazzino rispetto al conto salvato prima. Così, riaprendo un conto per
+ * correggerlo, si scala solo la differenza e non tutto un'altra volta.
+ * Positivo = pezzi venduti in più, negativo = pezzi tolti dal conto.
+ */
+export function differenzeMagazzino(prima: RigaVenduta[] | null | undefined, dopo: RigaVenduta[]): { prodottoId: string; nome: string; quantita: number; prezzo: number }[] {
+  const conta = (righe: RigaVenduta[] | null | undefined) => {
+    const m = new Map<string, { nome: string; quantita: number; prezzo: number }>();
+    for (const r of righe || []) {
+      if (!r?.prodottoId) continue;
+      const q = Math.max(1, Math.trunc(Number(r.quantita) || 1));
+      const v = m.get(r.prodottoId) || { nome: r.nome || '', quantita: 0, prezzo: Number(r.prezzo) || 0 };
+      v.quantita += q;
+      m.set(r.prodottoId, v);
+    }
+    return m;
+  };
+  const a = conta(prima), b = conta(dopo);
+  const ids = new Set([...a.keys(), ...b.keys()]);
+  const risultato: { prodottoId: string; nome: string; quantita: number; prezzo: number }[] = [];
+  ids.forEach(id => {
+    const delta = (b.get(id)?.quantita || 0) - (a.get(id)?.quantita || 0);
+    if (delta !== 0) {
+      const info = b.get(id) || a.get(id)!;
+      risultato.push({ prodottoId: id, nome: info.nome, quantita: delta, prezzo: info.prezzo });
+    }
+  });
+  return risultato;
+}
+
+/**
+ * Quanto si è incassato dai prodotti in un mese: quelli venduti negli
+ * appuntamenti chiusi in quel mese più quelli venduti al banco.
+ */
+export function incassoProdotti(appuntamenti: any[], movimenti: Pick<Movimento, 'tipo' | 'importo' | 'mese'>[], mese: string, meseDi: (iso: string) => string): number {
+  const daAppuntamenti = (appuntamenti || [])
+    .filter(a => a?.stato === 'completato' && a?.preconto?.righe && a.data_ora && meseDi(a.data_ora) === mese)
+    .reduce((t, a) => t + (a.preconto.righe as any[])
+      .filter(r => r?.prodottoId)
+      .reduce((s, r) => s + (Number(r.prezzo) || 0) * Math.max(1, Math.trunc(Number(r.quantita) || 1)), 0), 0);
+  const alBanco = (movimenti || [])
+    .filter(m => m.tipo === 'vendita_banco' && m.mese === mese)
+    .reduce((t, m) => t + (Number(m.importo) || 0), 0);
+  return arrotonda(daAppuntamenti + alBanco);
+}
+
+/** Le categorie usate, per i filtri della pagina. */
+export function categorieDi(prodotti: Prodotto[]): string[] {
+  return [...new Set(prodotti.map(p => (p.categoria || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'it'));
+}

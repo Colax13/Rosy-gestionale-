@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Tag, Plus, Search, X, Pencil, Loader2, AlertTriangle, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
+import { Tag, Plus, Search, X, Pencil, Loader2, AlertTriangle, PackagePlus, PackageMinus, Trash2, ShoppingBag, History } from 'lucide-react';
 import { prodottiApi } from '@/lib/api-client';
 import {
   Prodotto, ModuloProdotto, moduloVuoto, moduloDa, validaProdotto,
-  statoScorta, riepilogoMagazzino, filtraProdotti
+  statoScorta, riepilogoMagazzino, filtraProdotti, categorieDi, Movimento, NOME_MOVIMENTO, variazione, TipoMovimento
 } from '@/lib/prodotti';
 
 const euro = (n: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(n) || 0);
@@ -24,6 +24,8 @@ export default function ProdottiPage() {
   const [errore, setErrore] = useState<string | null>(null);
   const [cerca, setCerca] = useState('');
   const [aperto, setAperto] = useState<Prodotto | 'nuovo' | null>(null);
+  const [categoria, setCategoria] = useState('');
+  const [soloDaRiordinare, setSoloDaRiordinare] = useState(false);
 
   useEffect(() => {
     try {
@@ -38,7 +40,12 @@ export default function ProdottiPage() {
     }
   }, []);
 
-  const elenco = useMemo(() => filtraProdotti(prodotti || [], cerca), [prodotti, cerca]);
+  const categorie = useMemo(() => categorieDi(prodotti || []), [prodotti]);
+  const elenco = useMemo(() => filtraProdotti(prodotti || [], cerca)
+    .filter(p => !categoria || (p.categoria || '').trim() === categoria)
+    .filter(p => !soloDaRiordinare || (p.attivo !== false && statoScorta(p) !== 'ok')),
+  [prodotti, cerca, categoria, soloDaRiordinare]);
+  const filtriAttivi = !!(cerca || categoria || soloDaRiordinare);
   const riepilogo = useMemo(() => riepilogoMagazzino(prodotti || []), [prodotti]);
   // Il pannello mostra sempre la versione aggiornata del prodotto aperto.
   const inModifica = aperto && aperto !== 'nuovo' ? (prodotti || []).find(p => p.id === aperto.id) || aperto : aperto;
@@ -74,10 +81,14 @@ export default function ProdottiPage() {
           { etichetta: 'Valore (prezzo di vendita)', valore: euro(riepilogo.valore_vendita) },
           { etichetta: 'Da riordinare', valore: String(riepilogo.da_riordinare), avviso: riepilogo.da_riordinare > 0 }
         ].map(k => (
-          <div key={k.etichetta} className="bg-white border border-zinc-200 rounded-xl p-4">
+          <button
+            key={k.etichetta}
+            onClick={() => k.avviso && setSoloDaRiordinare(true)}
+            className={`text-left bg-white border border-zinc-200 rounded-xl p-4 ${k.avviso ? 'hover:border-amber-300 cursor-pointer' : 'cursor-default'}`}
+          >
             <p className="text-xs text-zinc-500">{k.etichetta}</p>
             <p className={`text-2xl font-bold mt-1 ${k.avviso ? 'text-amber-600' : 'text-zinc-900'}`}>{k.valore}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -92,13 +103,37 @@ export default function ProdottiPage() {
         />
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => setSoloDaRiordinare(v => !v)}
+          className={`px-3 py-1.5 text-xs font-medium rounded-full border ${soloDaRiordinare ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+        >
+          Solo da riordinare
+        </button>
+        {categorie.length > 0 && <span className="w-px bg-zinc-200 mx-1" />}
+        {categorie.map(c => (
+          <button
+            key={c}
+            onClick={() => setCategoria(v => (v === c ? '' : c))}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border ${categoria === c ? 'bg-fuchsia-600 border-fuchsia-600 text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+          >
+            {c}
+          </button>
+        ))}
+        {filtriAttivi && (
+          <button onClick={() => { setCerca(''); setCategoria(''); setSoloDaRiordinare(false); }} className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-900">
+            Togli i filtri
+          </button>
+        )}
+      </div>
+
       {prodotti === null && !errore ? (
         <p className="text-sm text-zinc-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carico i prodotti…</p>
       ) : elenco.length === 0 ? (
         <div className="bg-white border border-dashed border-zinc-300 rounded-xl p-10 flex flex-col items-center gap-2 text-center">
           <div className="p-3 bg-zinc-100 rounded-full text-zinc-400"><Tag size={22} /></div>
-          <p className="text-sm font-medium text-zinc-700">{cerca ? 'Nessun prodotto trovato' : 'Ancora nessun prodotto'}</p>
-          {!cerca && <p className="text-xs text-zinc-500 max-w-sm">Aggiungi i prodotti che vendi o usi in salone con "Nuovo prodotto".</p>}
+          <p className="text-sm font-medium text-zinc-700">{filtriAttivi ? 'Nessun prodotto trovato' : 'Ancora nessun prodotto'}</p>
+          {!filtriAttivi && <p className="text-xs text-zinc-500 max-w-sm">Aggiungi i prodotti che vendi o usi in salone con "Nuovo prodotto".</p>}
         </div>
       ) : (
         <div className="bg-white border border-zinc-200 rounded-xl divide-y divide-zinc-100">
@@ -122,7 +157,7 @@ export default function ProdottiPage() {
                   onClick={() => setAperto(p)}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5"
                 >
-                  <Pencil size={13} /> Modifica
+                  <Pencil size={13} /> Apri
                 </button>
               </div>
             );
@@ -177,14 +212,32 @@ function PannelloProdotto({ prodotto, onClose }: { prodotto: Prodotto | null; on
     }
   };
 
-  const muovi = async (segno: 1 | -1) => {
+  // Il registro del prodotto: carichi, scarichi e vendite.
+  const [movimenti, setMovimenti] = useState<Movimento[] | null>(null);
+  const caricaMovimenti = () => {
+    if (!prodotto) return;
+    prodottiApi.movimenti(prodotto.id).then(m => setMovimenti(m as Movimento[])).catch(() => setMovimenti([]));
+  };
+  useEffect(caricaMovimenti, [prodotto?.id]);
+  const [avviso, setAvviso] = useState<string | null>(null);
+
+  const muovi = async (tipo: TipoMovimento) => {
     if (!prodotto) return;
     const n = Math.trunc(Number(quanti));
     if (!Number.isFinite(n) || n <= 0) { setErrori(['Scrivi quanti pezzi (un numero intero).']); return; }
-    if (segno < 0 && n > prodotto.giacenza) { setErrori([`In magazzino ce ne sono solo ${prodotto.giacenza}.`]); return; }
+    if (variazione(tipo, n) < 0 && n > prodotto.giacenza) { setErrori([`In magazzino ce ne sono solo ${prodotto.giacenza}.`]); return; }
     setErrori([]);
+    setAvviso(null);
     setSalvo(true);
-    try { await prodottiApi.muovi(prodotto.id, segno * n); setQuanti('1'); }
+    try {
+      const importo = tipo === 'vendita_banco' ? prodotto.prezzo * n : undefined;
+      await prodottiApi.muovi(prodotto, tipo, n, importo != null ? { importo } : {});
+      setAvviso(tipo === 'vendita_banco'
+        ? `${n === 1 ? 'Venduto 1 pezzo' : `Venduti ${n} pezzi`}: incasso ${euro(importo!)}.`
+        : `${NOME_MOVIMENTO[tipo]} di ${n} ${n === 1 ? 'pezzo' : 'pezzi'} registrato.`);
+      setQuanti('1');
+      caricaMovimenti();
+    }
     catch (e: any) { setErrori([`Non sono riuscito ad aggiornare i pezzi: ${e?.message || 'errore'}`]); }
     finally { setSalvo(false); }
   };
@@ -210,7 +263,7 @@ function PannelloProdotto({ prodotto, onClose }: { prodotto: Prodotto | null; on
       <div className="absolute inset-0 bg-zinc-900/30" onClick={() => !salvo && onClose()} />
       <div className="relative w-full max-w-md h-full bg-white shadow-2xl flex flex-col">
         <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-zinc-900">{prodotto ? 'Modifica prodotto' : 'Nuovo prodotto'}</h2>
+          <h2 className="text-lg font-bold text-zinc-900">{prodotto ? prodotto.nome : 'Nuovo prodotto'}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-100 text-zinc-500" aria-label="Chiudi"><X size={18} /></button>
         </div>
 
@@ -218,8 +271,8 @@ function PannelloProdotto({ prodotto, onClose }: { prodotto: Prodotto | null; on
           {prodotto && (
             <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl">
               <p className="text-sm font-semibold text-zinc-900 mb-1">Magazzino: {prodotto.giacenza} pezzi</p>
-              <p className="text-xs text-zinc-500 mb-3">Carica i pezzi arrivati, scarica quelli venduti o usati.</p>
-              <div className="flex items-center gap-2">
+              <p className="text-xs text-zinc-500 mb-3">Vendi al banco (senza appuntamento), carica i pezzi arrivati, scarica quelli usati in salone o rotti.</p>
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -228,13 +281,17 @@ function PannelloProdotto({ prodotto, onClose }: { prodotto: Prodotto | null; on
                   className="w-20 bg-white border border-zinc-300 rounded-lg px-3 py-2 text-sm text-zinc-900 outline-none focus:border-fuchsia-500"
                   aria-label="Quanti pezzi"
                 />
-                <button onClick={() => muovi(1)} disabled={salvo} className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 disabled:opacity-50">
+                <button onClick={() => muovi('vendita_banco')} disabled={salvo || prodotto.attivo === false} className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-fuchsia-600 hover:bg-fuchsia-700 text-white flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  <ShoppingBag size={15} /> Vendi
+                </button>
+                <button onClick={() => muovi('carico')} disabled={salvo} className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 disabled:opacity-50">
                   <PackagePlus size={15} /> Carica
                 </button>
-                <button onClick={() => muovi(-1)} disabled={salvo} className="flex-1 px-3 py-2 text-sm font-medium rounded-lg border border-zinc-300 text-zinc-800 hover:bg-white flex items-center justify-center gap-1.5 disabled:opacity-50">
+                <button onClick={() => muovi('scarico')} disabled={salvo} className="flex-1 px-3 py-2 text-sm font-medium rounded-lg border border-zinc-300 text-zinc-800 hover:bg-white flex items-center justify-center gap-1.5 disabled:opacity-50">
                   <PackageMinus size={15} /> Scarica
                 </button>
               </div>
+              {avviso && <p className="text-xs text-emerald-700 mt-2">{avviso}</p>}
             </div>
           )}
 
@@ -261,6 +318,32 @@ function PannelloProdotto({ prodotto, onClose }: { prodotto: Prodotto | null; on
           {errori.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 space-y-1">
               {errori.map(e => <p key={e}>{e}</p>)}
+            </div>
+          )}
+
+          {prodotto && (
+            <div>
+              <p className="text-sm font-semibold text-zinc-900 mb-2 flex items-center gap-2"><History size={15} className="text-zinc-500" /> Movimenti</p>
+              {movimenti === null ? (
+                <p className="text-xs text-zinc-500">Carico…</p>
+              ) : movimenti.length === 0 ? (
+                <p className="text-xs text-zinc-500">Ancora nessun movimento.</p>
+              ) : (
+                <div className="border border-zinc-200 rounded-lg divide-y divide-zinc-100 max-h-56 overflow-y-auto">
+                  {movimenti.slice(0, 50).map((m, i) => {
+                    const v = variazione(m.tipo, m.quantita);
+                    return (
+                      <div key={m.id || i} className="px-3 py-2 flex items-center gap-3 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-zinc-800 font-medium">{NOME_MOVIMENTO[m.tipo] || m.tipo}{m.importo ? ` · ${euro(m.importo)}` : ''}</p>
+                          <p className="text-zinc-500">{new Date(m.quando).toLocaleString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{(m as any).chi ? ` · ${(m as any).chi}` : ''}</p>
+                        </div>
+                        <span className={`font-semibold tabular-nums ${v > 0 ? 'text-emerald-600' : 'text-zinc-800'}`}>{v > 0 ? `+${v}` : v}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
