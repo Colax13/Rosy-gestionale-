@@ -16,6 +16,8 @@ process.env.TZ = 'Europe/Rome';
 
 import { database, chiEntra, saloneDi } from './_firebase';
 import { MODELLI_GEMINI, riserve, Riserva } from './_gemini';
+import { FieldValue } from 'firebase-admin/firestore';
+import { tokenDi, costoChiamata, meseDi, idConsumo, consumoVuoto, ConsumoMese } from '../salone-app/frontend/lib/consumi-ia';
 import { richiestaPerOpenAI, rispostaDaOpenAI } from './_traduttore';
 import { chiediARosy, ErroreGemini, spiegaErroreGemini, Dati, MessaggioChat, ChiamaGemini } from './_rosy';
 
@@ -124,7 +126,16 @@ const passeggero = (e: Esito) => e.stato === 500 || e.stato === 502 || e.stato =
  * Groq che trova la richiesta troppo lunga per il suo limite al minuto.
  */
 const daCambiare = (e: Esito) =>
-  passeggero(e) || e.stato === 404 || e.stato === 504 || e.stato === 429 || e.stato === 413 || rifiutaRagionamento(e);
+  passeggero(e) || e.stato === 404 || e.stato === 504 || e.stato === 429 || e.stato === 413 || rifiutaRagionamento(e)
+  || senzaCredito(e);
+/**
+ * Il fornitore vuole essere pagato: credito prepagato finito (402) o
+ * fatturazione sospesa. Non è un problema del modello: si passa subito al
+ * fornitore successivo (le riserve gratuite), senza riprovare gli altri
+ * modelli dello stesso fornitore, che hanno lo stesso conto.
+ */
+const senzaCredito = (e: Esito) =>
+  e.stato === 402 || (e.stato === 403 && /billing|credit|payment|prepay/i.test(e.json?.error?.message || ''));
 
 const aspetta = (ms: number) => new Promise(r => setTimeout(r, ms));
 const nomeScelta = (s: Scelta) => `${s.fornitore}/${s.modello} ${JSON.stringify(s.ragionamento)}`;
@@ -136,7 +147,11 @@ const nomeScelta = (s: Scelta) => `${s.fornitore}/${s.modello} ${JSON.stringify(
  * non risponde in tempo, subito al successivo. Tutti ricevono e restituiscono
  * il formato di Gemini: per le riserve traduce `_traduttore`.
  */
-export function iaVera(chiaveGemini: string, partenza: number, elencoRiserve: Riserva[] = riserve()): ChiamaGemini {
+/** Quello che una domanda ha consumato: si somma chiamata dopo chiamata. */
+export interface Contatore { chiamate: number; token_entrata: number; token_uscita: number; costo_euro: number }
+export const contatoreVuoto = (): Contatore => ({ chiamate: 0, token_entrata: 0, token_uscita: 0, costo_euro: 0 });
+
+export function iaVera(chiaveGemini: string, partenza: number, elencoRiserve: Riserva[] = riserve(), contatore?: Contatore): ChiamaGemini {
   const limiteGemini = elencoRiserve.length ? TEMPO_GEMINI_CON_RISERVE_MS : TEMPO_MASSIMO_MS;
 
   const prova = async (corpoRichiesta: any, scelta: Scelta): Promise<Esito> => {
@@ -172,6 +187,13 @@ export function iaVera(chiaveGemini: string, partenza: number, elencoRiserve: Ri
       const messaggio = grezzo?.error?.message || (typeof grezzo?.error === 'string' ? grezzo.error : '');
       console.log(`Rosy: ${nomeScelta(scelta)} ha risposto ${r.status} in ${Date.now() - inizio} ms${r.ok ? '' : ` — ${messaggio}`}`);
       if (!r.ok) return { ok: false, stato: r.status, json: { error: { message: messaggio, fornitore } } };
+      if (contatore) {
+        const t = tokenDi(grezzo);
+        contatore.chiamate += 1;
+        contatore.token_entrata += t.entrata;
+        contatore.token_uscita += t.uscita;
+        contatore.costo_euro += costoChiamata(fornitore, t.entrata, t.uscita);
+      }
       return { ok: true, stato: r.status, json: fornitore === 'gemini' ? grezzo : rispostaDaOpenAI(grezzo) };
     } catch (err: any) {
       console.error(`Rosy: ${nomeScelta(scelta)} non ha risposto in tempo (${Date.now() - inizio} ms)`, err?.name || err);
@@ -239,10 +261,59 @@ export function iaVera(chiaveGemini: string, partenza: number, elencoRiserve: Ri
       if (ultima.stato === 404 && preferito && `${preferito.fornitore}/${preferito.modello}` === chi) preferito = null;
       if (ultima.stato !== 404) perTraffico = true;
       saltati.add(chi);
+      if (senzaCredito(ultima)) {
+        if (preferito?.fornitore === scelta.fornitore) preferito = null;
+        lista.forEach(c => { if (c.fornitore === scelta.fornitore) saltati.add(`${c.fornitore}/${c.modello}`); });
+      }
       if (TEMPO_MASSIMO_MS - (Date.now() - partenza) < 4000) return ultima;
     }
     return ultima;
   };
+}
+
+/**
+ * Scrive il consumo di una domanda nel conto del mese del salone. Un conto
+ * che non si scrive non deve mai far perdere la risposta: si registra
+ * l'errore e basta.
+ */
+async function registraConsumo(salonId: string, c: Contatore): Promise<void> {
+  try {
+    const mese = meseDi();
+    await database().collection('consumi_ia').doc(idConsumo(salonId, mese)).set({
+      userId: salonId,
+      mese,
+      domande: FieldValue.increment(1),
+      chiamate: FieldValue.increment(c.chiamate),
+      token_entrata: FieldValue.increment(c.token_entrata),
+      token_uscita: FieldValue.increment(c.token_uscita),
+      costo_euro: FieldValue.increment(c.costo_euro),
+      aggiornato: FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    console.error('Rosy: consumo non registrato', err);
+  }
+}
+
+/** Gli ultimi mesi di consumo del salone, dal più recente. Sei letture. */
+async function consumiDelSalone(salonId: string, quantiMesi = 6): Promise<ConsumoMese[]> {
+  const mesi: string[] = [];
+  const d = new Date();
+  for (let i = 0; i < quantiMesi; i++) {
+    mesi.push(meseDi(new Date(d.getFullYear(), d.getMonth() - i, 15)));
+  }
+  const db = database();
+  const docs = await db.getAll(...mesi.map(m => db.collection('consumi_ia').doc(idConsumo(salonId, m))));
+  return docs.map((doc, i) => {
+    const v: any = doc.exists ? doc.data() : {};
+    return {
+      ...consumoVuoto(mesi[i]),
+      domande: Number(v.domande) || 0,
+      chiamate: Number(v.chiamate) || 0,
+      token_entrata: Number(v.token_entrata) || 0,
+      token_uscita: Number(v.token_uscita) || 0,
+      costo_euro: Number(v.costo_euro) || 0
+    };
+  });
 }
 
 /** Il nome del salone, letto una volta ogni tanto come il resto. */
@@ -262,7 +333,8 @@ export default async function handler(req: Richiesta, res: Risposta) {
 
   const partenza = Date.now();
   const chiave = (process.env.GEMINI_API_KEY || '').trim();
-  if (!chiave && !riserve().length) {
+  const richiesta = corpo(req);
+  if (!chiave && !riserve().length && !richiesta.consumi) {
     res.status(503).json({ errore: 'Rosy non è ancora accesa: manca GEMINI_API_KEY su Vercel.' });
     return;
   }
@@ -281,8 +353,15 @@ export default async function handler(req: Richiesta, res: Risposta) {
   }
 
   try {
-    const { storia, riscalda } = corpo(req);
+    const { storia, riscalda, consumi } = richiesta;
     const salonId = await saloneDi(chi.uid);
+
+    // Il conto dell'IA per la pagina Impostazioni.
+    if (consumi) {
+      res.status(200).json({ mesi: await consumiDelSalone(salonId) });
+      return;
+    }
+
     const nomeSalone = await nomeDelSalone(salonId);
     const dati = datiDelSalone(salonId, nomeSalone);
 
@@ -301,7 +380,9 @@ export default async function handler(req: Richiesta, res: Risposta) {
           .map((m: any) => ({ ruolo: m.ruolo, testo: m.testo }))
       : [];
 
-    const risposta = await chiediARosy(messaggi, dati, iaVera(chiave, partenza));
+    const contatore = contatoreVuoto();
+    const risposta = await chiediARosy(messaggi, dati, iaVera(chiave, partenza, riserve(), contatore));
+    await registraConsumo(salonId, contatore);
     console.log(`Rosy: risposta pronta in ${Date.now() - partenza} ms`);
     res.status(200).json(risposta);
   } catch (err: any) {

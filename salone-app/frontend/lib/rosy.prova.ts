@@ -231,6 +231,22 @@ const dati: Dati = {
   try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), riserveFinte), adesso); }
   catch (e) { tuttiGiu = e; }
   check('catena: tutti giù → messaggio chiaro', true, tuttiGiu instanceof ErroreGemini && /sovraccarichi/.test(spiegaErroreGemini(tuttiGiu)));
+
+  // --- credito Gemini finito (402): subito alle riserve, un solo tentativo
+  const tentativi: string[] = [];
+  (globalThis as any).fetch = async (url: string) => {
+    tentativi.push(url.includes('groq') ? 'groq' : 'gemini');
+    const risposta = (status: number, j: any) => ({ ok: status === 200, status, json: async () => j });
+    if (url.includes('googleapis')) return risposta(402, { error: { message: 'Your prepayment credits are depleted.' } });
+    return risposta(200, { choices: [{ message: { content: 'Ciao da Groq' } }] });
+  };
+  const senzaCredito = await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), riserveFinte), adesso);
+  check('credito finito: risponde la riserva', 'Ciao da Groq', senzaCredito.testo);
+  check('credito finito: Gemini provato una volta sola', 1, tentativi.filter(x => x === 'gemini').length);
+  let nessunaRiserva: any = null;
+  try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), []), adesso); }
+  catch (e) { nessunaRiserva = e; }
+  check('credito finito senza riserve: spiega cosa fare', true, nessunaRiserva instanceof ErroreGemini && /credito .* finito/.test(spiegaErroreGemini(nessunaRiserva)));
   (globalThis as any).fetch = fetchVero;
 
   console.log(`\n${ok} ok, ${ko} ko`);
