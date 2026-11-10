@@ -2,6 +2,7 @@ import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { saloneDelDominio } from '@/lib/domini';
 import { caricaPezzo } from '@/lib/caricaPezzo';
+import Paracadute from '@/components/Paracadute';
 import './index.css';
 
 // Si scarica solo la parte che serve: la cliente che prenota non riceve il
@@ -27,8 +28,11 @@ function Attesa() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Suspense fallback={<Attesa />}>
-      <Pagine />
-    </Suspense>
+    {/* L'ultima rete: se cade tutto, niente schermo bianco. */}
+    <Paracadute livello="programma">
+      <Suspense fallback={<Attesa />}>
+        <Pagine />
+      </Suspense>
+    </Paracadute>
   </StrictMode>,
 );

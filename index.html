@@ -31,6 +31,143 @@
         } catch (e) {}
       })();
     </script>
+    <!-- Riempiti da Vercel alla pubblicazione, se le variabili ci sono.
+         Senza variabili restano così e la sentinella qui sotto li ignora. -->
+    <meta name="rosy-riserva" content="%VITE_URL_RISERVA%" />
+    <meta name="rosy-domini-prenotazione" content="%VITE_DOMINI_PRENOTAZIONE%" />
+    <script>
+      // La sentinella. Vive qui, fuori dal programma, apposta: se il programma
+      // non si scarica o si rompe prima ancora di disegnare qualcosa, è lei a
+      // dirlo — invece di lasciare uno schermo bianco — e a proporre il
+      // gestionale di riserva. Appena il programma parte, si fa da parte.
+      (function () {
+        var ATTESA_MS = 15000;      // oltre questo tempo senza niente a schermo, si avvisa
+        var CONTO_ALLA_ROVESCIA = 12;
+
+        function meta(nome) {
+          var m = document.querySelector('meta[name="' + nome + '"]');
+          return m ? (m.getAttribute('content') || '') : '';
+        }
+
+        var riserva = meta('rosy-riserva').replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
+        if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/[^\s]*)?$/.test(riserva)) riserva = '';
+        if (riserva && riserva.replace(/^https:\/\//, '').replace(/\/.*$/, '').toLowerCase() === location.host.toLowerCase()) riserva = '';
+
+        // La cliente che prenota non va mai mandata sul gestionale di riserva.
+        var host = location.hostname.toLowerCase().replace(/^www\./, '');
+        var pubblica = /^\/[A-Za-z0-9_-]{1,128}\/(prenota|privacy)\/?$/.test(location.pathname)
+          || (',' + meta('rosy-domini-prenotazione').toLowerCase().replace(/\s+/g, '').replace(/https?:\/\//g, '') + ',').indexOf(',' + host + '=') >= 0;
+        if (pubblica) riserva = '';
+
+        var guasto = '';            // un errore vero, non semplice lentezza
+        var avviso = null, timer = null, restano = 0;
+
+        function partito() {
+          var r = document.getElementById('root');
+          return !!(r && r.childElementCount > 0);
+        }
+
+        function togli() {
+          if (timer) { clearInterval(timer); timer = null; }
+          if (avviso && avviso.parentNode) avviso.parentNode.removeChild(avviso);
+          avviso = null;
+        }
+
+        function versoRiserva() {
+          var pagina = /^\/[A-Za-z0-9\/_-]*$/.test(location.pathname) ? location.pathname : '/';
+          return riserva + pagina + '?da=principale';
+        }
+
+        function bottone(testo, pieno, azione) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = testo;
+          b.style.cssText = 'font:600 14px system-ui,sans-serif;padding:11px 16px;border-radius:12px;cursor:pointer;'
+            + (pieno ? 'background:#c026d3;color:#fff;border:1px solid #c026d3;' : 'background:#f4f4f5;color:#27272a;border:1px solid #e4e4e7;');
+          b.onclick = azione;
+          return b;
+        }
+
+        function mostra() {
+          if (avviso || partito()) return;
+          avviso = document.createElement('div');
+          avviso.setAttribute('role', 'alert');
+          avviso.id = 'rosy-sentinella';
+          avviso.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fafafa;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif;';
+
+          var scheda = document.createElement('div');
+          scheda.style.cssText = 'width:100%;max-width:460px;background:#fff;border:1px solid #e4e4e7;border-radius:18px;padding:28px;box-shadow:0 20px 50px -20px rgba(24,24,27,.25);';
+
+          var titolo = document.createElement('h1');
+          titolo.style.cssText = 'margin:0 0 8px;font:700 22px system-ui,sans-serif;color:#18181b;';
+          titolo.textContent = pubblica
+            ? (guasto ? 'La pagina non si carica' : 'Ci sta mettendo più del solito')
+            : (guasto ? 'Rosy non riesce a partire' : 'Rosy ci sta mettendo più del solito');
+
+          var testo = document.createElement('p');
+          testo.style.cssText = 'margin:0 0 18px;font:400 14px/1.55 system-ui,sans-serif;color:#52525b;';
+          testo.textContent = pubblica
+            ? 'La pagina non si è caricata. Controlla la connessione e riprova.'
+            : guasto
+              ? 'I dati sono al sicuro: clienti e appuntamenti non sono stati toccati. Riprova; se non basta, '
+                + (riserva ? 'usa il gestionale di riserva.' : 'avvisa chi segue il programma.')
+              : 'Forse la connessione è lenta. Puoi aspettare ancora, oppure riprovare.';
+
+          var conto = document.createElement('p');
+          conto.style.cssText = 'display:none;margin:0 0 18px;padding:10px 12px;border-radius:12px;background:#fdf4ff;border:1px solid #f5d0fe;font:500 14px system-ui,sans-serif;color:#701a75;';
+
+          var riga = document.createElement('div');
+          riga.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+          riga.appendChild(bottone('Riprova', true, function () { location.reload(); }));
+          if (riserva) riga.appendChild(bottone('Apri il gestionale di riserva', false, function () { location.href = versoRiserva(); }));
+
+          scheda.appendChild(titolo);
+          scheda.appendChild(testo);
+          scheda.appendChild(conto);
+          scheda.appendChild(riga);
+          avviso.appendChild(scheda);
+          (document.body || document.documentElement).appendChild(avviso);
+
+          // Alla riserva da soli si va solo per un errore vero: se è soltanto
+          // lenta la linea, cambiare indirizzo non aiuterebbe.
+          restano = guasto && riserva ? CONTO_ALLA_ROVESCIA : 0;
+          if (restano) {
+            var resta = bottone('Resta qui', false, function () { restano = 0; conto.style.display = 'none'; resta.style.display = 'none'; });
+            riga.appendChild(resta);
+            conto.style.display = 'block';
+          }
+          timer = setInterval(function () {
+            // Nel frattempo il programma è partito: come non detto.
+            if (partito()) { togli(); return; }
+            if (!restano) return;
+            restano -= 1;
+            if (restano <= 0) { clearInterval(timer); timer = null; location.href = versoRiserva(); return; }
+            conto.textContent = 'Ti porto al gestionale di riserva fra ' + restano + ' secondi.';
+          }, 1000);
+          if (restano) conto.textContent = 'Ti porto al gestionale di riserva fra ' + restano + ' secondi.';
+        }
+
+        // Un file del programma che non si scarica, o un errore prima che
+        // compaia qualcosa: si aspetta un attimo (il programma prova già da
+        // solo a ricaricarsi una volta) e poi si avvisa.
+        window.addEventListener('error', function (e) {
+          if (partito()) return;
+          var t = e && e.target;
+          if (t && t !== window && t.tagName) {
+            var indirizzo = t.src || t.href || '';
+            if (t.tagName === 'SCRIPT' && /\/(assets|src)\//.test(indirizzo)) {
+              guasto = guasto || 'non si scarica ' + indirizzo;
+              setTimeout(mostra, 3000);
+            }
+          } else if (e && e.message) {
+            guasto = guasto || String(e.message).slice(0, 200);
+            setTimeout(mostra, 3000);
+          }
+        }, true);
+
+        setTimeout(mostra, ATTESA_MS);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

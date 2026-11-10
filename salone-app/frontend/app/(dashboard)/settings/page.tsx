@@ -6,6 +6,8 @@ import { salonApi, impostazioniPrivateApi, backupApi, rosyApi } from '@/lib/api-
 import { contoDelMese, euro, ConsumoMese, DOMANDE_GRATUITE, PREZZO_DOMANDA_EURO, ADDEBITO_ATTIVO } from '@/lib/consumi-ia';
 import { auth } from '../../../../../src/lib/firebase';
 import { idSalone } from '@/lib/sessione';
+import StatoSistema from '@/components/StatoSistema';
+import Paracadute from '@/components/Paracadute';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<'generale' | 'orari' | 'foto'>('generale');
@@ -409,6 +411,10 @@ export default function Settings() {
       <ConsumiIA />
 
       <BackupDati />
+
+      <Paracadute livello="riquadro" nome="lo stato del sistema">
+        <StatoSistema />
+      </Paracadute>
 
       {showToast && (
         <div className="fixed bottom-6 right-6 bg-green-900/90 text-green-300 px-6 py-4 rounded-xl flex items-center gap-3 shadow-2xl border border-green-800 animate-in fade-in duration-300 z-50">

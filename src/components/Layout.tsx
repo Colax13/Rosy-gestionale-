@@ -13,6 +13,8 @@ import RosyLogo from './RosyLogo';
 import BottoneMenu, { MenuSchermoContext } from './BottoneMenu';
 import { linkPrenotazione } from '@/lib/domini';
 import { puoAprirePercorso, sessioneCorrente, idSalone } from '@/lib/sessione';
+import Paracadute from '@/components/Paracadute';
+import { urlPrincipale } from '@/lib/riserva';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -300,7 +302,10 @@ export default function Layout({ children }: { children: ReactNode }) {
             className="flex-1 w-full flex flex-col"
           >
             <MenuSchermoContext.Provider value={menuSchermo}>
-              {children}
+              {/* Se una pagina si rompe si ferma solo lei: menu e altre pagine restano. */}
+              <Paracadute livello="pagina" percorso={location.pathname}>
+                {children}
+              </Paracadute>
             </MenuSchermoContext.Provider>
           </motion.div>
         </div>
@@ -371,11 +376,21 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               <X size={18} />
             </button>
-            <RosyChat key={domandaIniziale || 'chat'} domandaIniziale={domandaIniziale} onChiudi={() => setIsChatOpen(false)} />
+            <Paracadute livello="riquadro" nome="la chat di Rosy">
+              <RosyChat key={domandaIniziale || 'chat'} domandaIniziale={domandaIniziale} onChiudi={() => setIsChatOpen(false)} />
+            </Paracadute>
             <div className="absolute -bottom-3 right-8 w-6 h-6 bg-white border-b border-r border-zinc-200 transform rotate-45 z-[60]"></div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Solo sulla copia di riserva: si deve capire a colpo d'occhio dove si è. */}
+      {urlPrincipale() && (
+        <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[90] max-w-[calc(100vw-1.5rem)] bg-amber-100 border border-amber-300 text-amber-900 rounded-full shadow-lg px-4 py-2 text-xs sm:text-sm font-medium flex items-center gap-2">
+          <span className="truncate">Gestionale di riserva · i dati sono gli stessi</span>
+          <a href={urlPrincipale()!} className="underline font-semibold shrink-0 hover:text-amber-950">Torna al principale</a>
+        </div>
+      )}
 
     </div>
   );
