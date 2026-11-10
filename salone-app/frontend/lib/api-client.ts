@@ -7,6 +7,7 @@ import { ordinaOperatori } from './operatori';
 import { unisciConsensi } from './privacy';
 import { TipoMovimento, variazione, incassoProdotti } from './prodotti';
 import { meseDi } from './consumi-ia';
+import { stimaPerMese, stimaPerOperatrice } from './riepilogo';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -52,11 +53,21 @@ export const reportApi = {
     const giorno = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const oggiQui = new Date();
     const inizioPeriodo = new Date(oggiQui.getFullYear(), oggiQui.getMonth() - 5, 1);
-    const [appuntamenti, clienti, dipSnap] = await Promise.all([
-      appuntamentiApi.getAgenda(undefined, giorno(inizioPeriodo), giorno(oggiQui)),
+    // Si arriva fino alla fine del mese (e almeno a una settimana da oggi):
+    // servono per "domani", per la settimana e per il previsto del mese.
+    // Gli appuntamenti futuri non sono chiusi, quindi i conti qui sotto,
+    // che guardano solo i completati, non cambiano.
+    const fineMese = new Date(oggiQui.getFullYear(), oggiQui.getMonth() + 1, 0);
+    const fraUnaSettimana = new Date(oggiQui.getFullYear(), oggiQui.getMonth(), oggiQui.getDate() + 7);
+    const finePeriodo = fineMese > fraUnaSettimana ? fineMese : fraUnaSettimana;
+    const [appuntamenti, clienti, dipSnap, catalogo] = await Promise.all([
+      appuntamentiApi.getAgenda(undefined, giorno(inizioPeriodo), giorno(finePeriodo)),
       clientiApi.getAll(),
-      getDocs(query(collection(db, 'dipendenti'), where('userId', '==', uid)))
-    ]) as [any[], any[], any];
+      getDocs(query(collection(db, 'dipendenti'), where('userId', '==', uid))),
+      // Il listino serve solo per le stime: se non si legge, il report
+      // funziona lo stesso con i prezzi che gli appuntamenti si portano dietro.
+      catalogoApi.getAll().catch(() => [] as any[])
+    ]) as [any[], any[], any, any[]];
 
     const dipendenti = dipSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as any[];
 
@@ -102,9 +113,31 @@ export const reportApi = {
       riga.totale_incassato += incassoDi(a);
     });
 
+    // Gli appuntamenti passati ma mai chiusi con il conto: valgono il listino,
+    // come stima. Stanno in colonne a parte, l'incassato vero non si tocca.
+    const stimeOperatrici = stimaPerOperatrice(appuntamenti, catalogo, adesso);
+    Object.keys(stimeOperatrici).forEach(id => {
+      if (perOperatore.has(id)) return;
+      const esempio = appuntamenti.find(a => (a.id_dipendente || a.idDipendente || a.dipendenti?.id || 'unassigned') === id);
+      perOperatore.set(id, {
+        id,
+        nome: esempio?.dipendenti?.nome || 'Non assegnato',
+        cognome: esempio?.dipendenti?.cognome || '',
+        numero_appuntamenti: 0,
+        totale_incassato: 0
+      });
+    });
     const totaliOperatori = Array.from(perOperatore.values())
-      .filter(r => r.numero_appuntamenti > 0)
-      .sort((a, b) => b.totale_incassato - a.totale_incassato);
+      .map(r => ({
+        ...r,
+        non_chiusi: stimeOperatrici[r.id]?.appuntamenti || 0,
+        stimato: stimeOperatrici[r.id]?.stima || 0
+      }))
+      .filter(r => r.numero_appuntamenti > 0 || r.non_chiusi > 0)
+      .sort((a, b) => (b.totale_incassato + b.stimato) - (a.totale_incassato + a.stimato));
+
+    const stimeMesi = stimaPerMese(appuntamenti, catalogo, adesso);
+    const mesiConStima = mesi.map(m => ({ ...m, stimato: stimeMesi[chiaveMese(new Date(m.mese))] || 0 }));
 
     // --- clienti acquisiti questo mese e da dove arrivano ---
     const meseCorrente = chiaveMese(adesso);
@@ -165,15 +198,24 @@ export const reportApi = {
         prodotti_mese: prodottiMese,
         al_banco_mese: Math.round(alBancoMese * 100) / 100,
         incasso_mensile: incassoMensile,
+        stimato_mese: mesiConStima[0].stimato,
         appuntamenti_oggi: appuntamentiOggi,
         ticket_medio: ticketMedio,
         clienti_totali: clienti.length
       },
-      incassi: mesi,
+      incassi: mesiConStima,
       dipendenti: totaliOperatori,
       clienti_report: {
         acquisiti_questo_mese: acquisiti,
         conteggio_per_canale: conteggioCanali
+      },
+      // Quello che serve alla pagina per il riepilogo di oggi, della
+      // settimana e del mese: i conti li fa `lib/riepilogo`.
+      giornata: {
+        appuntamenti,
+        catalogo,
+        operatrici: dipendenti.map(d => ({ id: d.id, nome: d.nome || '', cognome: d.cognome || '' })),
+        nascite_clienti: clienti.map(c => aData(c.createdAt)?.toISOString() || null).filter(Boolean) as string[]
       }
     };
   },

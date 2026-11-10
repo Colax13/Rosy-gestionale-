@@ -902,3 +902,30 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   "numero non verificato".
 - **Sul tablet:** togliere Traccar da risparmio/ottimizzazione batteria e,
   se Android avvisa che "sta inviando molti SMS", scegliere Consenti sempre.
+
+## 10 novembre — sul ramo di lavoro, da provare prima di pubblicare
+- **Paracadute.** Un errore non lascia più lo schermo bianco: si ferma solo
+  il riquadro o la pagina che si è rotta, il resto del gestionale continua.
+  Se cade tutto il programma, o non parte proprio, una schermata lo dice e
+  manda al gestionale di riserva. I problemi restano annotati sul computer
+  (Impostazioni → Stato del sistema).
+- **Gestionale di riserva.** Ramo `stabile` = ultima versione collaudata, da
+  pubblicare su un secondo progetto Vercel: stesso database, stessi dati.
+  **Da fare, una volta sola:** i quattro passi di `docs/RISERVA.md`
+  (secondo progetto Vercel, dominio autorizzato su Firebase, due variabili).
+- **Stato del sistema** in Impostazioni: spie verde / gialla / rossa per
+  server, Rosy IA, SMS, promemoria e riserva, con scritto che cosa manca e
+  il tasto "Copia per l'assistenza".
+- **Report senza fatica.** In cima al Report c'è il Riepilogo: Oggi / Ieri /
+  Settimana / Mese. Si calcola da solo dall'agenda. Gli appuntamenti chiusi
+  con il conto valgono l'incasso vero; quelli passati e non chiusi valgono il
+  listino, segnati con ≈ (stima); quelli ancora da fare sono il "previsto".
+  Per operatrice, clienti nuove, e che cosa c'è in agenda domani. La stima
+  compare anche nel grafico dei mesi e nei totali per operatore, in chiaro,
+  senza toccare l'incassato vero. Non si scrive niente sul database.
+  Logica in `lib/riepilogo.ts`, prove `npm run prova:riepilogo`.
+- **Consigliato, su Firebase:** piano Blaze con avviso di spesa (finito il
+  limite gratuito il gestionale resta fermo fino al mattino dopo, riserva
+  compresa) e backup automatici. Vedi `docs/RISERVA.md`.
+- **Da capire:** perché Rosy IA dà errore in salone. Si legge in
+  Impostazioni → Stato del sistema, appena questa versione è pubblicata.

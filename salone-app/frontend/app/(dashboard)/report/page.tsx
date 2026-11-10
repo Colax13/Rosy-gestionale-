@@ -14,10 +14,14 @@ import {
 } from 'recharts';
 import { Download, Users, TrendingUp, Sparkles, Mail, Phone, BarChart3 } from 'lucide-react';
 import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
+import RiepilogoPeriodo, { DatiGiornata } from '@/components/RiepilogoPeriodo';
+import Paracadute from '@/components/Paracadute';
 
 interface IncassoMese {
   mese: string;
   totale_incassato: number;
+  /** Stima dal listino degli appuntamenti passati e mai chiusi con il conto. */
+  stimato?: number;
 }
 
 interface TotaleDipendente {
@@ -26,6 +30,9 @@ interface TotaleDipendente {
   cognome: string;
   numero_appuntamenti: number;
   totale_incassato: number;
+  /** Appuntamenti passati senza conto, e quanto valgono a listino. */
+  non_chiusi?: number;
+  stimato?: number;
 }
 
 interface ClienteAcquisito {
@@ -52,7 +59,8 @@ export default function PaginaReport() {
   const [incassi, setIncassi] = useState<IncassoMese[]>([]);
   const [dipendenti, setDipendenti] = useState<TotaleDipendente[]>([]);
   const [clientiReport, setClientiReport] = useState<ClientiReport | null>(null);
-  const [riepilogo, setRiepilogo] = useState<{ incasso_mensile: number; appuntamenti_oggi: number; ticket_medio: number; clienti_totali: number; prodotti_mese?: number; al_banco_mese?: number } | null>(null);
+  const [riepilogo, setRiepilogo] = useState<{ incasso_mensile: number; appuntamenti_oggi: number; ticket_medio: number; clienti_totali: number; prodotti_mese?: number; al_banco_mese?: number; stimato_mese?: number } | null>(null);
+  const [giornata, setGiornata] = useState<DatiGiornata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +87,7 @@ export default function PaginaReport() {
       setDipendenti(data.dipendenti);
       setRiepilogo(data.overview);
       setClientiReport(data.clienti_report || null);
+      setGiornata((data as any).giornata || null);
     } catch (err: any) {
       setError(err.message || 'Errore durante il caricamento del report');
     } finally {
@@ -152,12 +161,22 @@ export default function PaginaReport() {
 
       <div className="w-full max-w-[1400px] mx-auto px-4 md:px-6 flex-1">
 
+        {/* Oggi, ieri, la settimana, il mese: si calcola da solo dall'agenda. */}
+        {giornata && (
+          <Paracadute livello="riquadro" nome="il riepilogo">
+            <RiepilogoPeriodo dati={giornata} />
+          </Paracadute>
+        )}
+
         {/* Riepilogo del mese */}
         {riepilogo && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
             {[
               { etichetta: 'Incassato questo mese', valore: `${riepilogo.incasso_mensile.toFixed(2).replace('.', ',')} €`, accento: true,
-                nota: riepilogo.al_banco_mese ? `+ ${riepilogo.al_banco_mese.toFixed(2).replace('.', ',')} € di prodotti al banco` : undefined },
+                nota: [
+                  riepilogo.al_banco_mese ? `+ ${riepilogo.al_banco_mese.toFixed(2).replace('.', ',')} € di prodotti al banco` : '',
+                  riepilogo.stimato_mese ? `+ ≈ ${riepilogo.stimato_mese.toFixed(2).replace('.', ',')} € stimati da appuntamenti non chiusi` : ''
+                ].filter(Boolean).join(' · ') || undefined },
               { etichetta: 'Prodotti venduti nel mese', valore: `${(riepilogo.prodotti_mese || 0).toFixed(2).replace('.', ',')} €`,
                 nota: 'In appuntamento e al banco' },
               { etichetta: 'Appuntamenti oggi', valore: String(riepilogo.appuntamenti_oggi) },
@@ -184,7 +203,14 @@ export default function PaginaReport() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="card bg-white p-6 rounded-xl shadow-sm border border-zinc-200"
         >
-          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Incassi ultimi mesi</h2>
+          <h2 className="text-xl font-playfair text-zinc-900 mb-6">Incassi ultimi mesi
+            {incassi.some(m => (m.stimato || 0) > 0) && (
+              <span className="block text-xs font-sans text-zinc-500 mt-1">
+                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#d946ef] mr-1 align-middle" />incassato
+                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#f0abfc] ml-3 mr-1 align-middle" />≈ stima degli appuntamenti non chiusi
+              </span>
+            )}
+          </h2>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={incassi} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
@@ -205,10 +231,13 @@ export default function PaginaReport() {
                 <Tooltip 
                   cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                   contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e4e4e7', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.12)' }}
-                  formatter={(value: number) => [`€${value.toFixed(2)}`, 'Incassato']}
+                  formatter={(value: number, name: string) => [`€${Number(value).toFixed(2)}`, name]}
                   labelStyle={{ color: '#18181b', fontWeight: 600, marginBottom: '4px' }}
                 />
-                <Bar dataKey="totale_incassato" fill="#d946ef" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="totale_incassato" name="Incassato" stackId="mese" fill="#d946ef" radius={incassi.some(m => (m.stimato || 0) > 0) ? [0, 0, 0, 0] : [4, 4, 0, 0]} maxBarSize={50} />
+                {incassi.some(m => (m.stimato || 0) > 0) && (
+                  <Bar dataKey="stimato" name="≈ Stima non chiusi" stackId="mese" fill="#f0abfc" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -242,6 +271,11 @@ export default function PaginaReport() {
                     </td>
                     <td className="py-4 px-4 text-right font-medium text-zinc-900">
                       €{d.totale_incassato.toFixed(2)}
+                      {(d.stimato || 0) > 0 && (
+                        <div className="text-[11px] font-normal text-zinc-500">
+                          + ≈ €{(d.stimato || 0).toFixed(2)} da {d.non_chiusi} non {d.non_chiusi === 1 ? 'chiuso' : 'chiusi'}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )) : (

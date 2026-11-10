@@ -32,7 +32,10 @@
     "prova:cerca-clienti": "tsx salone-app/frontend/lib/cerca-clienti.prova.ts",
     "prova:consumi-ia": "tsx salone-app/frontend/lib/consumi-ia.prova.ts",
     "prova:recupero": "tsx salone-app/frontend/lib/recupero.prova.ts",
-    "prova:prodotti": "tsx salone-app/frontend/lib/prodotti.prova.ts"
+    "prova:prodotti": "tsx salone-app/frontend/lib/prodotti.prova.ts",
+    "prova:riepilogo": "tsx salone-app/frontend/lib/riepilogo.prova.ts",
+    "prova:riserva": "tsx salone-app/frontend/lib/riserva.prova.ts",
+    "prova:stato-sistema": "tsx salone-app/frontend/lib/stato-sistema.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

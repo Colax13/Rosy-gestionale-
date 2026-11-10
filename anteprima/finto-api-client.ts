@@ -109,8 +109,29 @@ export const reportApi = {
       const d = new Date(oggi.getFullYear(), oggi.getMonth() - i, 1);
       return d.toISOString();
     };
+    // Per il riepilogo: qualche appuntamento di ieri e di domani, oltre a oggi.
+    const giorno = (delta: number, ora: number) => {
+      const d = new Date(oggi);
+      d.setDate(d.getDate() + delta);
+      d.setHours(ora, 0, 0, 0);
+      return d.toISOString();
+    };
+    const intorno = [
+      { id: 'r1', id_cliente: 'c2', data_ora: giorno(-1, 10), stato: 'completato', prezzo_finale: 60, id_dipendente: 'd1', dipendenti: dipendenti[0], righe_appuntamento: [{ servizi_catalogo: catalogo[0] }, { servizi_catalogo: catalogo[1] }] },
+      { id: 'r2', id_cliente: 'c3', data_ora: giorno(-1, 15), stato: 'confermato', id_dipendente: 'd2', dipendenti: dipendenti[1], righe_appuntamento: [{ servizi_catalogo: catalogo[3] }] },
+      { id: 'r3', id_cliente: 'c4', data_ora: giorno(1, 9), stato: 'confermato', id_dipendente: 'd1', dipendenti: dipendenti[0], righe_appuntamento: [{ servizi_catalogo: catalogo[2] }] },
+      { id: 'r4', id_cliente: 'c5', data_ora: giorno(1, 11), stato: 'confermato', id_dipendente: 'd2', dipendenti: dipendenti[1], righe_appuntamento: [{ servizi_catalogo: catalogo[0] }, { servizi_catalogo: catalogo[1] }] },
+      { id: 'r5', id_cliente: 'c6', data_ora: giorno(1, 16), stato: 'in_attesa', id_dipendente: 'd2', dipendenti: dipendenti[1], righe_appuntamento: [{ servizi_catalogo: catalogo[1] }] },
+    ];
     return {
+      giornata: {
+        appuntamenti: [...appuntamenti, ...appuntamentiVecchi, ...intorno],
+        catalogo,
+        operatrici: dipendenti.map(d => ({ id: d.id, nome: d.nome, cognome: d.cognome })),
+        nascite_clienti: clienti.map((c: any) => c.createdAt).filter(Boolean),
+      },
       overview: {
+        stimato_mese: 310,
         incasso_mensile: 3480,
         prodotti_mese: 214.5,
         al_banco_mese: 62,
@@ -119,8 +140,8 @@ export const reportApi = {
         clienti_totali: clienti.length,
       },
       incassi: [
-        { mese: mese(0), totale_incassato: 3480 },
-        { mese: mese(1), totale_incassato: 4120 },
+        { mese: mese(0), totale_incassato: 3480, stimato: 310 },
+        { mese: mese(1), totale_incassato: 4120, stimato: 95 },
         { mese: mese(2), totale_incassato: 2890 },
         { mese: mese(3), totale_incassato: 3660 },
         { mese: mese(4), totale_incassato: 3010 },
@@ -128,7 +149,7 @@ export const reportApi = {
       ],
       dipendenti: [
         { id: 'd1', nome: 'Rosanna', cognome: 'Di Michele', numero_appuntamenti: 41, totale_incassato: 1780 },
-        { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    numero_appuntamenti: 33, totale_incassato: 1180 },
+        { id: 'd2', nome: 'Giulia',  cognome: 'Ferraro',    numero_appuntamenti: 33, totale_incassato: 1180, non_chiusi: 6, stimato: 185 },
         { id: 'd3', nome: 'Martina', cognome: '',  numero_appuntamenti: 22, totale_incassato: 520 },
       ],
       clienti_report: {
