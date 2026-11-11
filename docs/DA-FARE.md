@@ -953,3 +953,25 @@ Controllate tutte le pagine a misura di telefono (390 e 320 pixel).
 - **Restano:** la tabella "Turni e orari" sul telefono si scorre di lato; gli
   appuntamenti sul telefono non si trascinano (si spostano da Modifica).
 
+## 11 novembre — agenda sul telefono, rifatta (stesso ramo di lavoro)
+La versione "colonne che si scorrono di lato" non convinceva: sul telefono
+l'agenda adesso è fatta come i calendari che si usano ogni giorno. **Solo
+sotto i 768 pixel**: da computer intestazione, avvisi e colonne sono quelli
+di sempre.
+- **In alto:** il mese (si tocca e si apre il calendario del mese), il tasto
+  con il numero di oggi, Giorno / Sett. / Mese.
+- **Striscia della settimana:** si tocca un giorno; strisciando si cambia
+  settimana. Strisciando sul calendario si passa al giorno prima o dopo.
+- **Pallini delle operatrici:** "Tutte" le mostra affiancate; toccando un
+  nome si vede solo lei, a tutto schermo. Vale anche per settimana e mese.
+- **Avvisi piccoli in alto:** richieste dal sito, SMS non partiti,
+  appuntamenti senza operatrice. Si toccano e si apre il dettaglio. (Prima,
+  sul telefono, le richieste dal sito dall'agenda non si raggiungevano.)
+- **Il calendario** riempie lo schermo fino in fondo e scorre solo lui.
+- **+ tondo** in basso a destra per il nuovo appuntamento (se si sta
+  guardando un'operatrice, nasce già per lei).
+- **Settimana:** un elenco dei sette giorni con i soli appuntamenti, invece
+  della griglia ora per ora ripetuta sette volte.
+- File: `agenda/BarraTelefono.tsx`, `lib/telefono.ts`; in `agenda/page.tsx`
+  le parti per il telefono sono segnate `md:hidden` / `max-md:`.
+

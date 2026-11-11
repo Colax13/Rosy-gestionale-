@@ -34,6 +34,8 @@ import {
 
 import { Link } from 'react-router-dom';
 import { nomeOperatore, inizialiOperatore } from '@/lib/operatori';
+import { useTelefono } from '@/lib/telefono';
+import BarraTelefono from './BarraTelefono';
 
 interface Appuntamento {
   id: string;
@@ -246,6 +248,12 @@ export default function PaginaAgenda() {
   // legge la cliente, quindi servono anche qui e non solo in Impostazioni.
   const [dettagliSalone, setDettagliSalone] = useState<any>({});
   const [selectedDipendenteId, setSelectedDipendenteId] = useState<string>('tutti');
+  // Sul telefono l'agenda ha un'altra testa (BarraTelefono) e nella giornata
+  // si può guardare una sola operatrice alla volta. Da computer vale false e
+  // non cambia niente.
+  const telefono = useTelefono();
+  const [avvisoTelefono, setAvvisoTelefono] = useState<'sms' | 'senza' | null>(null);
+  const toccoAgenda = useRef<{ x: number; y: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -1033,8 +1041,13 @@ export default function PaginaAgenda() {
     // Solo gli operatori veri, nell'ordine scelto dal salone. La vecchia
     // colonna "Non assegnato" restava sempre vuota: gli appuntamenti senza
     // operatore, se capitano, si segnalano sopra il calendario.
-    const staff = dipendenti;
-    const idStaff = new Set(staff.map(d => d.id));
+    // Sul telefono, scelta un'operatrice dai pallini in alto, si vede solo
+    // la sua colonna a tutto schermo.
+    const unaSola = telefono && selectedDipendenteId !== 'tutti' ? dipendenti.filter(d => d.id === selectedDipendenteId) : [];
+    const staff = unaSola.length ? unaSola : dipendenti;
+    // "Senza operatore" si decide su tutte le operatrici, non su quella che
+    // si sta guardando: altrimenti gli appuntamenti delle altre sembrerebbero orfani.
+    const idStaff = new Set(dipendenti.map(d => d.id));
     const giornoScelto = getLocalDateString(selectedDate);
     const senzaOperatore = appuntamenti.filter(app =>
       app.stato !== 'annullato'
@@ -1207,10 +1220,8 @@ export default function PaginaAgenda() {
         .filter(([tipo]) => !(app as any).messaggi?.[tipo])
         .map(([tipo, errore]) => ({ app, tipo, motivo: errore?.motivo || '' })));
 
-    return (
-      <>
-      {smsNonPartiti.length > 0 && (
-        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-900 flex flex-col gap-2">
+    const bloccoSms = smsNonPartiti.length > 0 ? (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-900 flex flex-col gap-2">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle size={16} className="shrink-0" />
             <span className="flex-1">
@@ -1233,9 +1244,9 @@ export default function PaginaAgenda() {
             })}
           </ul>
         </div>
-      )}
-      {senzaOperatore.length > 0 && (
-        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex flex-col gap-2">
+    ) : null;
+    const bloccoSenza = senzaOperatore.length > 0 ? (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex flex-col gap-2">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle size={16} className="shrink-0" />
             {senzaOperatore.length === 1 ? '1 appuntamento senza operatore' : `${senzaOperatore.length} appuntamenti senza operatore`}: non compare in nessuna colonna, assegnalo.
@@ -1253,7 +1264,7 @@ export default function PaginaAgenda() {
                   <select
                     defaultValue=""
                     onChange={e => {
-                      const dip = staff.find(x => x.id === e.target.value);
+                      const dip = dipendenti.find(x => x.id === e.target.value);
                       if (dip) spostaAppuntamento(app.id, dip, minuti);
                       e.target.value = '';
                     }}
@@ -1261,33 +1272,68 @@ export default function PaginaAgenda() {
                     aria-label={`Assegna l'appuntamento delle ${ora}`}
                   >
                     <option value="" disabled>Assegna a…</option>
-                    {staff.map(x => <option key={x.id} value={x.id}>{nomeOperatore(x)}</option>)}
+                    {dipendenti.map(x => <option key={x.id} value={x.id}>{nomeOperatore(x)}</option>)}
                   </select>
                 </li>
               );
             })}
           </ul>
         </div>
+    ) : null;
+
+    return (
+      <>
+      {/* Da computer gli avvisi stanno sopra il calendario, come sempre. */}
+      {bloccoSms && <div className="mb-3 max-md:hidden">{bloccoSms}</div>}
+      {bloccoSenza && <div className="mb-3 max-md:hidden">{bloccoSenza}</div>}
+
+      {/* Sul telefono sono due tasti piccoli in alto: il calendario resta in
+          vista, e toccandoli si apre il dettaglio. */}
+      {(bloccoSms || bloccoSenza) && (
+        <div className="md:hidden shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto scrollbar-none bg-white border-b border-zinc-200">
+          {bloccoSms && (
+            <button onClick={() => setAvvisoTelefono('sms')} className="shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-full bg-red-50 border border-red-200 text-red-800 text-[13px] font-semibold active:bg-red-100">
+              <AlertTriangle size={14} /> {smsNonPartiti.length} SMS non {smsNonPartiti.length === 1 ? 'partito' : 'partiti'}
+            </button>
+          )}
+          {bloccoSenza && (
+            <button onClick={() => setAvvisoTelefono('senza')} className="shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[13px] font-semibold active:bg-amber-100">
+              <AlertTriangle size={14} /> {senzaOperatore.length} senza operatrice
+            </button>
+          )}
+        </div>
+      )}
+      {avvisoTelefono && (avvisoTelefono === 'sms' ? bloccoSms : bloccoSenza) && (
+        <div className="md:hidden fixed inset-0 z-[96] bg-black/50 flex items-start justify-center p-3 pt-16 animate-in fade-in duration-150" onClick={() => setAvvisoTelefono(null)}>
+          <div className="w-full max-w-md max-h-[75dvh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-3 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+            {avvisoTelefono === 'sms' ? bloccoSms : bloccoSenza}
+            <button onClick={() => setAvvisoTelefono(null)} className="w-full py-2.5 rounded-xl bg-zinc-100 active:bg-zinc-200 text-zinc-800 text-sm font-semibold">Chiudi</button>
+          </div>
+        </div>
       )}
       <div
-        className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden max-md:rounded-none max-md:border-0 max-md:shadow-none max-md:!h-auto max-md:!min-h-0 max-md:flex-1"
         // 95 px per l'intestazione dell'agenda, più la barra in alto (che a
         // schermo pieno non c'è) e gli avvisi sopra il calendario, se ci sono.
         style={{ height: `calc(100dvh - 95px - var(--altezza-barra, 73px) - ${(senzaOperatore.length ? 60 + 40 * senzaOperatore.length : 0) + (smsNonPartiti.length ? 60 + 40 * smsNonPartiti.length : 0)}px)`, minHeight: 360 }}
       >
-        {/* Sul telefono ogni operatrice ha una colonna larga abbastanza da
-            leggere nomi e servizi: se non stanno tutte nello schermo si scorre
-            di lato, e la colonna degli orari resta ferma. Da computer non
-            cambia niente: tutte le colonne visibili, larghe uguali. */}
-        <div ref={scorrimentoAgenda} className="overflow-y-auto overflow-x-auto md:overflow-x-hidden overscroll-x-contain flex-1 relative scroll-smooth">
-          <div
-            className="w-full max-md:min-w-[calc(3.5rem+var(--colonne)*7.25rem)]"
-            style={{ ['--colonne' as any]: staff.length }}
-          >
+        {/* Sul telefono, strisciando di lato si passa al giorno prima o dopo. */}
+        <div
+          ref={scorrimentoAgenda}
+          className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth"
+          onTouchStart={telefono ? (e => { toccoAgenda.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }) : undefined}
+          onTouchEnd={telefono ? (e => {
+            const da = toccoAgenda.current; toccoAgenda.current = null;
+            if (!da) return;
+            const dx = e.changedTouches[0].clientX - da.x, dy = e.changedTouches[0].clientY - da.y;
+            if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2) cambiaPeriodo(dx < 0 ? 1 : -1);
+          }) : undefined}
+        >
+          <div className="w-full">
 
             {/* Intestazione colonne operatori */}
             <div className="flex border-b border-zinc-200 bg-white sticky top-0 z-30 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white max-md:sticky max-md:left-0 max-md:z-10 flex items-center justify-center text-[10px] uppercase tracking-wider font-semibold text-zinc-500 font-mono">
+              <div className="w-14 shrink-0 border-r border-zinc-200 flex items-center justify-center text-[10px] uppercase tracking-wider font-semibold text-zinc-500 font-mono">
                 Ora
               </div>
               {staff.map((dip, idx) => {
@@ -1335,7 +1381,7 @@ export default function PaginaAgenda() {
               )}
 
               {/* Colonna orari */}
-              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col md:relative max-md:sticky max-md:left-0 z-20">
+              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col relative z-20">
                 {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
                   <div
                     key={i}
@@ -1522,6 +1568,39 @@ export default function PaginaAgenda() {
         days.push(d);
     }
 
+    // Sul telefono la settimana è un elenco: i sette giorni uno sotto
+    // l'altro, ognuno con i soli appuntamenti. La griglia ora per ora, sette
+    // volte di fila, era lunga decine di schermate.
+    if (telefono) {
+      return (
+        <div className="flex flex-col divide-y divide-zinc-200 -mx-3 -mt-3 bg-white">
+          {days.map(d => {
+            const dateStr = getLocalDateString(d);
+            const apps = (appuntamentiRaggruppati[dateStr] || [])
+              .filter(a => isAppuntementoDiOperatore(a, selectedDipendenteId))
+              .sort((x, y) => new Date(x.data_ora).getTime() - new Date(y.data_ora).getTime());
+            const isOggi = dateStr === getLocalDateString(new Date());
+            const apriGiorno = () => { setSelectedDate(d); setViewMode('giorno'); };
+            return (
+              <div key={dateStr} className="flex gap-3 px-3 py-3">
+                <button onClick={apriGiorno} className="w-11 shrink-0 flex flex-col items-center gap-0.5 self-start" aria-label={`Apri ${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
+                  <span className={`text-[11px] font-semibold uppercase ${isOggi ? 'text-fuchsia-600' : 'text-zinc-400'}`}>{d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '')}</span>
+                  <span className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] tabular-nums ${isOggi ? 'bg-fuchsia-600 text-white font-bold' : 'text-zinc-800 font-medium'}`}>{d.getDate()}</span>
+                </button>
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                  {apps.length === 0 ? (
+                    <button onClick={() => apriAggiungiSidebar(d)} className="text-left text-sm text-zinc-400 py-2">Nessun appuntamento</button>
+                  ) : apps.map((app, idx) => (
+                    <MicroAppCard key={app.id} app={app} getStatoBadge={getStatoBadge} formattaOrario={formattaOrario} durata={calcolaDurataTotale(app.righe_appuntamento || [])} onDelete={handleElimina} onEdit={handleEdit} onComplete={handleCompleteClick} idx={idx} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-3 mt-6 animate-in fade-in zoom-in-[0.98] duration-300">
         {days.map((d, i) => {
@@ -1602,15 +1681,29 @@ export default function PaginaAgenda() {
   };
 
   return (
-    <div className="p-3 md:p-4 w-full h-full flex flex-col">
+    // Sul telefono l'agenda occupa tutto lo schermo sotto la barra di ricerca,
+    // senza margini: la testa resta ferma e scorre solo il calendario.
+    <div className="p-3 md:p-4 w-full h-full flex flex-col max-md:-m-4 max-md:p-0 max-md:w-[calc(100%+2rem)] max-md:h-[calc(100dvh-var(--altezza-barra,73px))] max-md:shrink-0">
       
+      <BarraTelefono
+        giorno={selectedDate}
+        vista={viewMode}
+        operatrici={dipendenti}
+        operatrice={selectedDipendenteId}
+        coloreDi={getColoreDipendente}
+        richieste={richieste.length}
+        onGiorno={d => { setSlideDirection(d.getTime() >= selectedDate.getTime() ? 'left' : 'right'); setSelectedDate(d); }}
+        onVista={setViewMode}
+        onOggi={oggi}
+        onOperatrice={setSelectedDipendenteId}
+        onRichieste={() => setPannelloRichieste(true)}
+      />
+
       {/* Orizzontal layout for Agenda header and KPI / Banner */}
-      <div className="flex flex-col mb-4 gap-2">
+      <div className="flex flex-col mb-4 gap-2 max-md:mb-0 max-md:gap-0 max-md:flex-1 max-md:min-h-0">
         {/* Intestazione e Controlli Data. A menu chiuso, a sinistra c'è il
             quadratino per riaprirlo, largo come la colonna degli orari. */}
-        {/* Sul telefono l'intestazione è alta un terzo dello schermo: non
-            resta attaccata in alto, altrimenti copre i nomi delle operatrici. */}
-        <div className="flex items-center gap-2 relative md:sticky md:top-4 z-40">
+        <div className="flex items-center gap-2 sticky top-4 z-40 max-md:hidden">
         <BottoneMenu className="w-14 h-14 self-center" />
         <div className="flex-1 min-w-0 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
           <div>
@@ -1803,7 +1896,7 @@ export default function PaginaAgenda() {
 
       {/* Barra filtri operatori (visibile solo in settimana o mese) */}
       {viewMode !== 'giorno' && (
-        <div className="flex items-center gap-3 px-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-30">
+        <div className="max-md:hidden flex items-center gap-3 px-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-30">
           <span className="text-sm font-medium text-zinc-500">Filtra:</span>
           <div className="relative shrink-0">
              <div
@@ -1934,7 +2027,7 @@ export default function PaginaAgenda() {
           </aside>
         )}
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 max-md:min-h-0 max-md:flex max-md:flex-col max-md:overflow-y-auto">
       {error ? (
         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg mb-6 flex flex-col items-start gap-2">
           <p>{error}</p>
@@ -1954,7 +2047,7 @@ export default function PaginaAgenda() {
              animate={{ opacity: 1, x: 0 }}
              exit={{ opacity: 0, x: slideDirection === 'left' ? -20 : 20 }}
              transition={{ duration: 0.25, ease: "easeInOut" }}
-             className="w-full"
+             className={`w-full ${viewMode === 'giorno' ? 'max-md:flex-1 max-md:min-h-0 max-md:flex max-md:flex-col' : 'max-md:p-3'}`}
           >
             {viewMode === 'giorno' ? (
               renderDayView()
@@ -1969,6 +2062,16 @@ export default function PaginaAgenda() {
 
         </div>
       </div>
+
+      {/* Sul telefono "Nuovo appuntamento" è il + tondo in basso a destra. */}
+      <button
+        // Se si sta guardando un'operatrice, l'appuntamento nasce già per lei.
+        onClick={() => apriAggiungiSidebar(undefined, undefined, selectedDipendenteId !== 'tutti' ? selectedDipendenteId : undefined)}
+        aria-label="Nuovo appuntamento"
+        className={`md:hidden fixed right-6 bottom-24 z-[35] w-14 h-14 rounded-full bg-fuchsia-600 active:bg-fuchsia-700 text-white shadow-[0_8px_24px_rgba(192,38,211,0.45)] flex items-center justify-center ${isSidebarOpen ? 'hidden' : ''}`}
+      >
+        <Plus size={26} strokeWidth={2.5} />
+      </button>
 
       {/* Richieste di appuntamento arrivate dal sito */}
       {pannelloRichieste && (
