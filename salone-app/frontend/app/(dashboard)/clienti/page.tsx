@@ -106,7 +106,35 @@ export default function GestioneClienti() {
       ) : loading ? (
          <div className="text-center py-12 text-zinc-500">Caricamento clienti...</div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
+        <>
+        {/* Sul telefono la tabella non ci sta (si tagliava, e la freccia per
+            aprire la scheda finiva fuori dallo schermo): qui ogni cliente è
+            una riga intera da toccare. */}
+        <ul className="md:hidden bg-white rounded-xl shadow-sm border border-zinc-200 divide-y divide-zinc-200 overflow-hidden">
+          {filteredClienti.map(cliente => (
+            <li key={cliente.id}>
+              <Link to={`/clienti/${cliente.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-zinc-100 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-700 font-medium shrink-0">
+                  {(cliente.nome || '').charAt(0)}{(cliente.cognome || '').charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-zinc-900 font-medium truncate">{cliente.nome} {cliente.cognome}</div>
+                  <div className="text-sm text-zinc-500 truncate">
+                    {cliente.telefono || cliente.email || <span className="italic text-zinc-400">Nessun contatto</span>}
+                  </div>
+                  {noteDaMostrare(cliente) && (
+                    <div className="text-xs text-zinc-400 truncate mt-0.5">{noteDaMostrare(cliente)}</div>
+                  )}
+                </div>
+                <ChevronRight size={18} className="text-zinc-400 shrink-0" />
+              </Link>
+            </li>
+          ))}
+          {filteredClienti.length === 0 && (
+            <li className="text-center py-12 text-zinc-500 italic">Nessun cliente trovato.</li>
+          )}
+        </ul>
+        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-zinc-100/40 border-b border-zinc-200 text-zinc-500 text-xs font-semibold uppercase tracking-wider">
@@ -176,6 +204,7 @@ export default function GestioneClienti() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Modal Form Cliente */}

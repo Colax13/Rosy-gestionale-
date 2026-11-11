@@ -266,14 +266,14 @@ export default function GestioneCatalogo() {
                    </button>
                    <button 
                      onClick={() => handleOpenCatModal(cat)}
-                     className="p-1.5 text-zinc-500 hover:text-zinc-700 transition-colors"
+                     className="p-1.5 max-md:p-2.5 text-zinc-500 hover:text-zinc-700 transition-colors"
                      title="Rinomina categoria"
                    >
                      <Edit2 size={14}/>
                    </button>
                    <button 
                      onClick={() => setDeleteConfirmDialog({ tipo: 'categoria', id: cat, nome: cat })}
-                     className="p-1.5 text-zinc-500 hover:text-red-500 transition-colors"
+                     className="p-1.5 max-md:p-2.5 text-zinc-500 hover:text-red-500 transition-colors"
                      title="Elimina categoria"
                    >
                      <Trash2 size={14}/>
@@ -281,7 +281,45 @@ export default function GestioneCatalogo() {
                  </div>
                </div>
                
-               <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
+               {/* Sul telefono la tabella si tagliava a metà e Modifica ed
+                   Elimina restavano fuori dallo schermo. */}
+               <ul className="md:hidden bg-white rounded-xl shadow-sm border border-zinc-200 divide-y divide-zinc-200 overflow-hidden">
+                 {servizi.filter(s => s.categoria === cat).map(servizio => (
+                   <li key={servizio.id} className={`flex items-center gap-2 pl-4 pr-2 py-3 ${!servizio.attivo ? 'opacity-50' : ''}`}>
+                     <div className="min-w-0 flex-1">
+                       <div className="flex items-center gap-2">
+                         <span className="text-zinc-900 font-medium text-sm truncate">{servizio.nome}</span>
+                         {!servizio.attivo && (
+                           <span className="px-2 py-0.5 bg-zinc-500/10 text-zinc-500 text-[10px] uppercase font-bold rounded-full tracking-wider shrink-0">Inattivo</span>
+                         )}
+                       </div>
+                       <div className="text-xs text-zinc-500 mt-0.5">
+                         {servizio.durata_minuti} min
+                         {(servizio.tempo_posa_minuti || 0) > 0 ? ` · posa ${servizio.tempo_posa_minuti} min` : ''}
+                       </div>
+                     </div>
+                     <span className="text-zinc-900 font-semibold text-sm tabular-nums shrink-0">€{Number(servizio.prezzo_base || 0).toFixed(2)}</span>
+                     <button
+                       onClick={() => handleOpenModal(cat, servizio)}
+                       className="w-10 h-10 flex items-center justify-center text-zinc-500 active:bg-zinc-100 rounded-lg shrink-0"
+                       aria-label={`Modifica ${servizio.nome}`}
+                     >
+                       <Edit2 size={17} />
+                     </button>
+                     <button
+                       onClick={() => setDeleteConfirmDialog({ tipo: 'servizio', id: servizio.id, nome: servizio.nome })}
+                       className="w-10 h-10 flex items-center justify-center text-zinc-500 active:bg-red-500/10 active:text-red-500 rounded-lg shrink-0"
+                       aria-label={`Elimina ${servizio.nome}`}
+                     >
+                       <Trash2 size={17} />
+                     </button>
+                   </li>
+                 ))}
+                 {servizi.filter(s => s.categoria === cat).length === 0 && (
+                   <li className="text-center py-8 text-zinc-500 text-sm italic">Nessun servizio in questa categoria.</li>
+                 )}
+               </ul>
+               <div className="hidden md:block bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
                  <table className="w-full text-left border-collapse">
                    <thead>
                      <tr className="bg-zinc-100/40 border-b border-zinc-200 text-zinc-500 text-xs font-semibold uppercase tracking-wider">

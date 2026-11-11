@@ -329,7 +329,10 @@ export default function PaginaReport() {
               <div className="space-y-5">
                 {clientiReport.conteggio_per_canale.map((c, idx) => {
                   const maxVal = Math.max(...clientiReport.conteggio_per_canale.map(o => o.quantita)) || 1;
-                  const percentuale = (c.quantita / (clientiReport.acquisiti_questo_mese.length || 1)) * 100;
+                  // Il conto per canale è su tutte le clienti in anagrafica:
+                  // diviso per le sole nuove del mese dava anche "900%".
+                  const totaleCanali = clientiReport.conteggio_per_canale.reduce((t, o) => t + o.quantita, 0) || 1;
+                  const percentuale = Math.min(100, (c.quantita / totaleCanali) * 100);
                   
                   // Colori associati a ciascun canale per un design super-curato
                   let barColor = "bg-zinc-200";

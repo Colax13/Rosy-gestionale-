@@ -929,3 +929,27 @@ codice si vede cliccando, insieme a "Segna come usato". Vedi
   compresa) e backup automatici. Vedi `docs/RISERVA.md`.
 - **Da capire:** perché Rosy IA dà errore in salone. Si legge in
   Impostazioni → Stato del sistema, appena questa versione è pubblicata.
+
+## 11 novembre — giro sul telefono (stesso ramo di lavoro)
+Controllate tutte le pagine a misura di telefono (390 e 320 pixel).
+- **Clienti:** la tabella si tagliava e la freccia per aprire la scheda
+  finiva fuori dallo schermo. Sul telefono ora è un elenco: si tocca la riga.
+- **Servizi:** Modifica ed Elimina erano fuori dallo schermo. Sul telefono
+  ogni servizio è una riga con prezzo, durata e i due tasti.
+- **Agenda:** ogni operatrice ha una colonna larga abbastanza da leggere; se
+  non stanno tutte si scorre di lato, e la colonna degli orari resta ferma.
+  L'intestazione non resta più attaccata in alto (copriva i nomi). Nella
+  vista mese spariscono le scritte "Libero / Schedulati", che non ci stavano.
+- **Scheda cliente:** "Cliente dal Invalid Date" → "Cliente da ottobre 2025"
+  (si leggeva il campo sbagliato; valeva anche da computer).
+- **Report:** le percentuali dei canali superavano il 100% (erano divise per
+  le sole clienti nuove del mese); ora sono sul totale.
+- **Barra dei pulsanti in basso:** una riga sola, non più due o tre.
+- **Linguette** di Operatori e Impostazioni: stanno nello schermo.
+- **iPhone:** le caselle si scrivono a 16 px (Safari non ingrandisce più la
+  pagina a ogni tocco) e l'altezza è quella vera dello schermo (`dvh`: la
+  barra di Safari non copre più il fondo). **Da provare su un iPhone vero.**
+- Da computer non cambia niente: stesse tabelle, stessa agenda.
+- **Restano:** la tabella "Turni e orari" sul telefono si scorre di lato; gli
+  appuntamenti sul telefono non si trascinano (si spostano da Modifica).
+

@@ -202,7 +202,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="flex h-screen bg-transparent font-sans relative overflow-hidden">
+    // h-dvh: l'altezza che si vede davvero. Con 100vh, su iPhone la barra di
+    // Safari copriva il fondo della pagina (pulsanti in basso compresi).
+    <div className="flex h-dvh bg-transparent font-sans relative overflow-hidden">
       
       {/* Mobile Drawer Overlay */}
       {isMobileMenuOpen && (
@@ -253,7 +255,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             {!isMainDashboard && (
               <>
                 <button 
-                  className="md:hidden text-zinc-500 hover:text-zinc-900 focus:outline-none"
+                  className="md:hidden text-zinc-500 hover:text-zinc-900 focus:outline-none p-2.5 -m-2.5"
+                  aria-label="Apri il menu"
                   onClick={() => setIsMobileMenuOpen(true)}
                 >
                   <Menu size={24} />
@@ -368,7 +371,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: 40 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed bottom-24 right-5 sm:right-6 w-[calc(100vw-2.5rem)] sm:w-[400px] h-[600px] max-h-[calc(100vh-8rem)] bg-white border border-zinc-200 rounded-3xl z-[100] shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-24 right-5 sm:right-6 w-[calc(100vw-2.5rem)] sm:w-[400px] h-[600px] max-h-[calc(100dvh-8rem)] bg-white border border-zinc-200 rounded-3xl z-[100] shadow-2xl flex flex-col overflow-hidden"
           >
             <button 
               onClick={() => setIsChatOpen(false)}

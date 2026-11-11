@@ -101,10 +101,10 @@ function MonthDayCell({
       {apps.length > 0 ? (
         <div className="mt-2 text-center pb-2">
           <div className="text-xl font-playfair text-fuchsia-400 font-bold">{apps.length}</div>
-          <div className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mt-0.5">Schedulati</div>
+          <div className="max-sm:hidden text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mt-0.5">Schedulati</div>
         </div>
       ) : (
-        <div className="text-[10px] text-zinc-400 uppercase tracking-wider text-center mt-auto pb-2 font-medium">Libero</div>
+        <div className="max-sm:hidden text-[10px] text-zinc-400 uppercase tracking-wider text-center mt-auto pb-2 font-medium">Libero</div>
       )}
 
       {apps.length > 0 && (
@@ -1273,14 +1273,21 @@ export default function PaginaAgenda() {
         className="bg-white rounded-xl shadow-sm border border-zinc-200 flex flex-col overflow-hidden"
         // 95 px per l'intestazione dell'agenda, più la barra in alto (che a
         // schermo pieno non c'è) e gli avvisi sopra il calendario, se ci sono.
-        style={{ height: `calc(100vh - 95px - var(--altezza-barra, 73px) - ${(senzaOperatore.length ? 60 + 40 * senzaOperatore.length : 0) + (smsNonPartiti.length ? 60 + 40 * smsNonPartiti.length : 0)}px)`, minHeight: 360 }}
+        style={{ height: `calc(100dvh - 95px - var(--altezza-barra, 73px) - ${(senzaOperatore.length ? 60 + 40 * senzaOperatore.length : 0) + (smsNonPartiti.length ? 60 + 40 * smsNonPartiti.length : 0)}px)`, minHeight: 360 }}
       >
-        <div ref={scorrimentoAgenda} className="overflow-y-auto overflow-x-hidden flex-1 relative scroll-smooth">
-          <div className="w-full">
+        {/* Sul telefono ogni operatrice ha una colonna larga abbastanza da
+            leggere nomi e servizi: se non stanno tutte nello schermo si scorre
+            di lato, e la colonna degli orari resta ferma. Da computer non
+            cambia niente: tutte le colonne visibili, larghe uguali. */}
+        <div ref={scorrimentoAgenda} className="overflow-y-auto overflow-x-auto md:overflow-x-hidden overscroll-x-contain flex-1 relative scroll-smooth">
+          <div
+            className="w-full max-md:min-w-[calc(3.5rem+var(--colonne)*7.25rem)]"
+            style={{ ['--colonne' as any]: staff.length }}
+          >
 
             {/* Intestazione colonne operatori */}
             <div className="flex border-b border-zinc-200 bg-white sticky top-0 z-30 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-              <div className="w-14 shrink-0 border-r border-zinc-200 flex items-center justify-center text-[10px] uppercase tracking-wider font-semibold text-zinc-500 font-mono">
+              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white max-md:sticky max-md:left-0 max-md:z-10 flex items-center justify-center text-[10px] uppercase tracking-wider font-semibold text-zinc-500 font-mono">
                 Ora
               </div>
               {staff.map((dip, idx) => {
@@ -1328,7 +1335,7 @@ export default function PaginaAgenda() {
               )}
 
               {/* Colonna orari */}
-              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col relative z-20">
+              <div className="w-14 shrink-0 border-r border-zinc-200 bg-white flex flex-col md:relative max-md:sticky max-md:left-0 z-20">
                 {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
                   <div
                     key={i}
@@ -1601,7 +1608,9 @@ export default function PaginaAgenda() {
       <div className="flex flex-col mb-4 gap-2">
         {/* Intestazione e Controlli Data. A menu chiuso, a sinistra c'è il
             quadratino per riaprirlo, largo come la colonna degli orari. */}
-        <div className="flex items-center gap-2 sticky top-4 z-40">
+        {/* Sul telefono l'intestazione è alta un terzo dello schermo: non
+            resta attaccata in alto, altrimenti copre i nomi delle operatrici. */}
+        <div className="flex items-center gap-2 relative md:sticky md:top-4 z-40">
         <BottoneMenu className="w-14 h-14 self-center" />
         <div className="flex-1 min-w-0 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-zinc-200 shadow-sm ">
           <div>

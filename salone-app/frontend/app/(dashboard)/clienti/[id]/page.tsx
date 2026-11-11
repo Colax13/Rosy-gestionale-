@@ -6,6 +6,7 @@ import { clientiApi, appuntamentiApi } from '@/lib/api-client';
 import { Edit2, Save, X, Phone, Mail, Calendar, Clock, FileText, Paintbrush, Trash2, ShieldCheck } from 'lucide-react';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { CAMPI_EXTRA_CLIENTE, haAltriDati, mostra, noteDaMostrare } from '@/lib/cliente';
+import { aData } from '@/lib/tempo';
 
 interface Cliente {
   id: string;
@@ -197,9 +198,13 @@ export default function SchedaCliente() {
                   <h1 className="text-2xl font-playfair text-zinc-900 leading-tight">
                     {cliente.nome} {cliente.cognome}
                   </h1>
-                  <p className="text-sm text-zinc-500 mt-1">
-                    Cliente dal {new Date(cliente.created_at).toLocaleDateString('it-IT', { year: 'numeric', month: 'long' })}
-                  </p>
+                  {/* La data sta in `createdAt` (un Timestamp): letta dal campo
+                      sbagliato dava "Cliente dal Invalid Date". Se manca, niente riga. */}
+                  {aData(cliente.createdAt ?? cliente.created_at) && (
+                    <p className="text-sm text-zinc-500 mt-1">
+                      Cliente da {aData(cliente.createdAt ?? cliente.created_at)!.toLocaleDateString('it-IT', { year: 'numeric', month: 'long' })}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">

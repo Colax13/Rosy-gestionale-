@@ -149,19 +149,19 @@ export default function Settings() {
       <div className="flex items-center gap-2 border-b border-zinc-200 overflow-x-auto pb-1 mb-2">
         <button 
           onClick={() => setActiveTab('generale')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'generale' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
+          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 max-sm:text-sm border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'generale' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <Store size={18} /> Generali
         </button>
         <button 
           onClick={() => setActiveTab('orari')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'orari' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
+          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 max-sm:text-sm border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'orari' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <Clock size={18} /> Orari
         </button>
         <button 
           onClick={() => setActiveTab('foto')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'foto' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
+          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 max-sm:text-sm border-b-2 font-medium whitespace-nowrap transition-colors ${activeTab === 'foto' ? 'border-fuchsia-500 text-fuchsia-400' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}
         >
           <ImageIcon size={18} /> Foto e sede
         </button>

@@ -486,3 +486,18 @@ body {
     margin: 6mm;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Telefono
+   ---------------------------------------------------------------------------
+   Su iPhone, toccando una casella scritta più piccola di 16 px Safari
+   ingrandisce tutta la pagina e la lascia ingrandita: bisogna rimpicciolire a
+   mano ogni volta. Sui telefoni le caselle si scrivono quindi a 16 px; da
+   computer restano com'erano. */
+@media (max-width: 767px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

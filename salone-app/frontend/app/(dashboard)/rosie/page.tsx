@@ -128,7 +128,7 @@ export default function RosyHub() {
 
         <div className="flex flex-col gap-6">
           {/* Rosy Banner */}
-          <div className="relative overflow-hidden rounded-3xl bg-zinc-50/40 border border-zinc-200/80 p-8 flex flex-col md:flex-row items-center gap-6 shadow-[0_8px_30px_rgb(0,0,0,0.5)] shadow-black/40 backdrop-blur-sm group">
+          <div className="relative overflow-hidden rounded-3xl bg-zinc-50/40 border border-zinc-200/80 p-5 sm:p-8 flex flex-col md:flex-row items-center gap-6 shadow-[0_8px_30px_rgb(0,0,0,0.5)] shadow-black/40 backdrop-blur-sm group">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-tr from-[#00D8FF]/10 via-[#6B5CFF]/10 to-[#D400FF]/10 blur-[100px] rounded-full pointer-events-none translate-x-1/2 -translate-y-1/2 transition-opacity group-hover:opacity-70 opacity-40"></div>
              
             <div className="w-20 h-20 rounded-[24px] relative flex items-center justify-center flex-shrink-0 bg-white border border-zinc-300/50 shadow-2xl overflow-hidden">
@@ -155,7 +155,7 @@ export default function RosyHub() {
                </p>
             </div>
 
-            <div className="flex items-center justify-end gap-3 w-full md:w-auto relative z-10 mt-4 md:mt-0">
+            <div className="flex max-sm:flex-col max-sm:items-stretch items-center justify-end gap-3 w-full md:w-auto relative z-10 mt-4 md:mt-0 [&>button]:whitespace-nowrap [&>button]:justify-center">
                <button
                  onClick={() => setInviaAperto(true)}
                  disabled={dormienti.length === 0}
@@ -220,13 +220,13 @@ export default function RosyHub() {
 
           {/* KPI Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-4">
-            <div className="bg-zinc-50/40 rounded-2xl p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-[#D400FF]/30 transition-all">
+            <div className="bg-zinc-50/40 rounded-2xl p-4 sm:p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-[#D400FF]/30 transition-all">
                <div className="absolute right-0 bottom-0 top-0 w-32 bg-gradient-to-l from-[#D400FF]/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="flex items-center gap-3 mb-4">
+               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 mb-4">
                  <div className="w-10 h-10 rounded-[14px] bg-white border border-[#D400FF]/20 flex items-center justify-center text-[#D400FF] shadow-[0_0_15px_rgba(212,0,255,0.1)]">
                    <CalendarIcon size={18} />
                  </div>
-                 <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Appuntamenti</h4>
+                 <h4 className="text-xs sm:text-sm font-semibold text-zinc-700 tracking-wide uppercase">Appuntamenti</h4>
                </div>
                <div className="flex items-baseline gap-2">
                  <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">{appuntamenti.length}</div>
@@ -234,13 +234,13 @@ export default function RosyHub() {
                </div>
             </div>
 
-            <div className="bg-zinc-50/40 rounded-2xl p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-[#00D8FF]/30 transition-all">
+            <div className="bg-zinc-50/40 rounded-2xl p-4 sm:p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-[#00D8FF]/30 transition-all">
                <div className="absolute right-0 bottom-0 top-0 w-32 bg-gradient-to-l from-[#00D8FF]/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="flex items-center gap-3 mb-4">
+               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 mb-4">
                  <div className="w-10 h-10 rounded-[14px] bg-white border border-[#00D8FF]/20 flex items-center justify-center text-[#00D8FF] shadow-[0_0_15px_rgba(0,216,255,0.1)]">
                    <Scissors size={18} />
                  </div>
-                 <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Servizi</h4>
+                 <h4 className="text-xs sm:text-sm font-semibold text-zinc-700 tracking-wide uppercase">Servizi</h4>
                </div>
                <div className="flex items-baseline gap-2">
                  <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">
@@ -250,13 +250,13 @@ export default function RosyHub() {
                </div>
             </div>
 
-            <div className="bg-zinc-50/40 rounded-2xl p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+            <div className="bg-zinc-50/40 rounded-2xl p-4 sm:p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-emerald-500/30 transition-all">
                <div className="absolute right-0 bottom-0 top-0 w-32 bg-gradient-to-l from-emerald-400/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="flex items-center gap-3 mb-4">
+               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 mb-4">
                  <div className="w-10 h-10 rounded-[14px] bg-white border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.1)]">
                    <Users size={18} />
                  </div>
-                 <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Nuovi clienti</h4>
+                 <h4 className="text-xs sm:text-sm font-semibold text-zinc-700 tracking-wide uppercase">Nuovi clienti</h4>
                </div>
                <div className="flex items-baseline gap-2">
                  <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">{nuoviSettimana}</div>
@@ -264,13 +264,13 @@ export default function RosyHub() {
                </div>
             </div>
 
-            <div className="bg-zinc-50/40 rounded-2xl p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-amber-400/30 transition-all">
+            <div className="bg-zinc-50/40 rounded-2xl p-4 sm:p-6 border border-zinc-200/80 shadow-lg relative overflow-hidden group hover:border-amber-400/30 transition-all">
                <div className="absolute right-0 bottom-0 top-0 w-32 bg-gradient-to-l from-amber-400/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="flex items-center gap-3 mb-4">
+               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 mb-4">
                  <div className="w-10 h-10 rounded-[14px] bg-white border border-amber-400/20 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.1)]">
                    <Clock size={18} />
                  </div>
-                 <h4 className="text-sm font-semibold text-zinc-700 tracking-wide uppercase">Slot liberi</h4>
+                 <h4 className="text-xs sm:text-sm font-semibold text-zinc-700 tracking-wide uppercase">Slot liberi</h4>
                </div>
                <div className="flex items-baseline gap-2">
                  <div className="text-4xl font-playfair font-black text-zinc-900 tracking-tight">{slotLiberi}</div>

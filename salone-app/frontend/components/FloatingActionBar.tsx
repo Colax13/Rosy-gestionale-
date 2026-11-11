@@ -15,7 +15,9 @@ export default function FloatingActionBar({ children }: { children: ReactNode })
   if (!mainElement) return null;
 
   return createPortal(
-    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 bg-white border border-zinc-200 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.18)] p-1.5 flex items-center gap-1.5">
+    // Sul telefono le scritte andavano a capo su due o tre righe e la barra
+    // copriva mezza pagina: restano su una riga, con i pulsanti più stretti.
+    <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-1rem)] bg-white border border-zinc-200 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.18)] p-1.5 flex items-center gap-1.5 [&_button]:whitespace-nowrap [&_button]:shrink-0 max-sm:[&_button]:px-3 max-sm:[&_button]:gap-1.5 max-sm:[&_button]:text-[13px]">
       {children}
     </div>,
     mainElement

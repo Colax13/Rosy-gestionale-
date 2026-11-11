@@ -75,7 +75,7 @@ export default function RicercaGlobale() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca cliente o appuntamento (es. Giulia o Taglio)..."
+          placeholder={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'Cerca cliente o appuntamento…' : 'Cerca cliente o appuntamento (es. Giulia o Taglio)...'}
           className="w-full pl-10 pr-10 py-2 bg-zinc-100/50 border border-zinc-200 rounded-full focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 text-sm font-sans placeholder-zinc-500/80 shadow-sm transition-all"
         />
         {query && (

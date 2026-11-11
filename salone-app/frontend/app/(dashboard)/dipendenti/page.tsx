@@ -155,7 +155,7 @@ export default function GestioneDipendenti() {
                 <User className="text-fuchsia-500" size={28} />
                 Operatori
               </h1>
-          <div className="flex gap-6 mt-2">
+          <div className="flex gap-4 sm:gap-6 mt-2 overflow-x-auto scrollbar-none [&>button]:whitespace-nowrap [&>button]:shrink-0 max-sm:text-[15px]">
             <button 
               onClick={() => setActiveTab('elenco')}
               className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'elenco' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
@@ -166,7 +166,7 @@ export default function GestioneDipendenti() {
               onClick={() => setActiveTab('turni')}
               className={`font-medium pb-2 transition-colors border-b-2 ${activeTab === 'turni' ? 'text-fuchsia-400 border-fuchsia-500' : 'text-zinc-500 border-transparent hover:text-zinc-700'}`}
             >
-              Turni e orari
+              Turni<span className="max-sm:hidden"> e orari</span>
             </button>
             <button
               onClick={() => setActiveTab('servizi')}
