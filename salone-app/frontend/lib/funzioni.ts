@@ -15,6 +15,8 @@
 // stesso identico controllo: senza quelle, uno che sa scrivere l'indirizzo a
 // mano nella barra leggerebbe comunque i dati.
 
+import { eAccendibile } from './abbonamento';
+
 /** Le pagine che non sono per tutti. */
 export type ChiaveFunzione = 'buoni' | 'messaggi_automatici' | 'buoni_dal_foglio';
 
@@ -68,13 +70,26 @@ export function normalizzaEmail(email?: string | null): string {
 }
 
 /**
- * True se quella funzione è accesa per il salone di quell'indirizzo.
- * Senza indirizzo la risposta è no: una funzione riservata sta spenta finché
- * non si sa con certezza di chi è il salone.
+ * True se quella funzione è accesa per quel salone.
+ *
+ * Due strade, e ne basta una:
+ * 1. l'indirizzo del titolare è nell'elenco qui sopra (la strada di sempre:
+ *    RD Salon continua a passare di qui, anche se il suo abbonamento non c'è
+ *    o non si legge);
+ * 2. la funzione è accesa nell'abbonamento del salone (`funzioniSalone`), che
+ *    si cambia dal pannello senza toccare il codice. Vale solo per le
+ *    funzioni che si possono accendere da lì (vedi `lib/abbonamento.ts`).
+ *
+ * Senza né l'uno né l'altro la risposta è no: una funzione riservata sta
+ * spenta finché non si sa con certezza che quel salone ce l'ha.
  */
-export function funzioneAccesa(chiave: string, emailSalone?: string | null): boolean {
+export function funzioneAccesa(
+  chiave: string,
+  emailSalone?: string | null,
+  funzioniSalone?: Record<string, unknown> | null
+): boolean {
   if (!eRiservata(chiave)) return true;
   const email = normalizzaEmail(emailSalone);
-  if (!email) return false;
-  return FUNZIONI_RISERVATE[chiave].saloni.map(normalizzaEmail).includes(email);
+  if (email && FUNZIONI_RISERVATE[chiave].saloni.map(normalizzaEmail).includes(email)) return true;
+  return eAccendibile(chiave) && !!funzioniSalone && funzioniSalone[chiave] === true;
 }

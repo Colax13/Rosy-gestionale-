@@ -9,7 +9,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Zap, MessageSquare, CheckCircle2, AlertTriangle, Send, X, Clock, Bell } from 'lucide-react';
-import { registroSmsApi, VoceRegistroSms } from '@/lib/api-client';
+import { registroSmsApi, VoceRegistroSms, abbonamentoApi } from '@/lib/api-client';
+import { statoSms, StatoSms } from '@/lib/abbonamento';
 import { NOME_MESSAGGIO } from '@/lib/messaggi';
 
 const PERCORSO = [
@@ -34,6 +35,14 @@ export default function AutomazioniPage() {
   const [soloErrori, setSoloErrori] = useState(parametri.get('vista') === 'registro');
   const [aperta, setAperta] = useState<VoceRegistroSms | null>(null);
   const [prova, setProva] = useState<{ telefono: string; invio: boolean; esito?: { mandato: boolean; a?: string; motivo?: string } } | null>(null);
+  // Quanti SMS sono partiti questo mese (li conta il server). Se non si
+  // riesce a leggere, il riquadro semplicemente non compare.
+  const [consumo, setConsumo] = useState<StatoSms | null>(null);
+  useEffect(() => {
+    abbonamentoApi.mio()
+      .then(a => { if (a.letto || a.sms.mandati > 0) setConsumo(statoSms(a.sms.mandati, a.sms_inclusi)); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let smetti: (() => void) | undefined;
@@ -76,6 +85,32 @@ export default function AutomazioniPage() {
         </h1>
         <p className="text-zinc-500 mt-1 text-sm">I messaggi che partono da soli, e il registro di ogni SMS.</p>
       </header>
+
+      {/* Il consumo del mese */}
+      {consumo && (
+        <section className="mb-8 bg-white border border-zinc-200 rounded-xl p-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400">SMS di {new Date().toLocaleDateString('it-IT', { month: 'long' })}</span>
+            <span className="text-2xl font-playfair font-bold text-zinc-900 tabular-nums">{consumo.mandati}</span>
+            {consumo.inclusi > 0 && <span className="text-sm text-zinc-500">su {consumo.inclusi} compresi nel piano</span>}
+          </div>
+          {consumo.inclusi > 0 && (
+            <>
+              <div className="mt-3 h-2 rounded-full bg-zinc-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${consumo.livello === 'oltre' ? 'bg-red-500' : consumo.livello === 'quasi' ? 'bg-amber-500' : 'bg-fuchsia-500'}`}
+                  style={{ width: `${Math.min(100, (consumo.mandati / consumo.inclusi) * 100)}%` }}
+                />
+              </div>
+              <p className={`text-xs mt-2 ${consumo.livello === 'oltre' ? 'text-red-700' : consumo.livello === 'quasi' ? 'text-amber-700' : 'text-zinc-500'}`}>
+                {consumo.livello === 'oltre'
+                  ? `${consumo.extra} oltre quelli compresi.`
+                  : `Ne restano ${consumo.restano}.`}
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Il percorso dei messaggi, in sola lettura */}
       <section className="mb-8">

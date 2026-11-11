@@ -14,6 +14,9 @@ const AutomazioniPage = lazy(caricaPezzo(() => import('@/app/(dashboard)/automaz
 const BuoniSpa = lazy(caricaPezzo(() => import('@/app/(dashboard)/buoni-spa/page')));
 const DashboardHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/hub/page')));
 const RosyHub = lazy(caricaPezzo(() => import('@/app/(dashboard)/rosie/page')));
+// Il pannello di chi gestisce Rosy: la pagina è di tutti, i dati li dà il
+// server solo agli amministratori (vedi api/admin.ts).
+const PannelloSaloni = lazy(caricaPezzo(() => import('@/app/(dashboard)/admin/page')));
 import Onboarding from './components/Onboarding';
 import SchermataAccesso from './components/SchermataAccesso';
 import { useEffect, useState, lazy, Suspense } from 'react';
@@ -207,6 +210,7 @@ export default function App() {
           <Route path="/prodotti" element={<Protetta percorso="/prodotti"><ProdottiPage /></Protetta>} />
           <Route path="/automazioni" element={<Protetta percorso="/automazioni"><AutomazioniPage /></Protetta>} />
           <Route path="/buoni-spa" element={<Protetta percorso="/buoni-spa"><BuoniSpa /></Protetta>} />
+          <Route path="/admin" element={<PannelloSaloni />} />
         </Routes>
         </Suspense>
       </Layout>

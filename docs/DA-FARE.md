@@ -975,3 +975,20 @@ di sempre.
 - File: `agenda/BarraTelefono.tsx`, `lib/telefono.ts`; in `agenda/page.tsx`
   le parti per il telefono sono segnate `md:hidden` / `max-md:`.
 
+## 11 novembre — fondamenta per più saloni (ramo di lavoro, NON pubblicato)
+Primo passo per vendere Rosy ad altri saloni. Tutto in `docs/PIU-SALONI.md`.
+- **Abbonamento per salone** (`abbonamenti/{salone}`): piano, funzioni
+  accese, SMS compresi, note. Lo scrive solo il server.
+- **Pannello `/admin`**: elenco dei saloni con piano e consumi, e Modifica.
+  Solo per gli indirizzi in `ADMIN_EMAILS` su Vercel, entrati con Google.
+- **Contatore SMS** per salone e per mese; si vede nel pannello e in
+  Automazioni. Per ora conta e basta.
+- **Buoni accendibili dal pannello** per gli altri saloni; RD Salon resta
+  com'è, legato al suo indirizzo.
+- **Da fare per accenderle:** `ADMIN_EMAILS` su Vercel + Redeploy,
+  ripubblicare le regole di Firestore.
+- **Non fatto apposta:** gli SMS automatici per gli altri saloni. Il postino
+  è ancora il tablet di RD Salon: va prima scelto il fornitore.
+- Piani e prezzi in `lib/abbonamento.ts` sono una proposta (29 € / 35 € con
+  150 SMS), da decidere.
+

@@ -474,3 +474,37 @@ export const prodottiApi = {
   movimentiDelMese: async () => eco(movimenti),
   delete: async (id: string) => { const i = prodotti.findIndex(p => p.id === id); if (i >= 0) prodotti.splice(i, 1); avvisaProdotti(); },
 };
+
+// --- Abbonamento e pannello di chi gestisce Rosy (finti) ---------------------
+import { leggiAbbonamento as rimettiInForma, smsInclusi as smsCompresi, PIANI as pianiFinti } from '../salone-app/frontend/lib/abbonamento';
+
+const meseFinto = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}`;
+export const abbonamentoApi = {
+  mio: async () => eco({
+    abbonamento: rimettiInForma({ piano: 'messaggi' }), sms_inclusi: 150,
+    sms: { mese: meseFinto, mandati: 127, falliti: 2 }, letto: true
+  })
+};
+
+const saloniFinti: any[] = [
+  { id: 's1', nome: 'RD Salon', email: 'rdsalon.ceccano@gmail.com', creato: giorniFa(160), abbonamento: rimettiInForma({ piano: 'messaggi', note: 'Primo salone. Tablet con SIM loro.' }), sms: { mese: meseFinto, mandati: 412, falliti: 3 }, domande_ia: 38, fisse: { buoni: true, messaggi_automatici: true } },
+  { id: 's2', nome: 'Hair Studio Bellavista', email: 'bellavista.hair@example.it', creato: giorniFa(21), abbonamento: rimettiInForma({ piano: 'messaggi', funzioni: { buoni: true }, sms_inclusi: 200 }), sms: { mese: meseFinto, mandati: 168, falliti: 0 }, domande_ia: 12, fisse: { buoni: false, messaggi_automatici: false } },
+  { id: 's3', nome: 'Barber Lab', email: 'barberlab@example.it', creato: giorniFa(9), abbonamento: rimettiInForma({ piano: 'base', note: 'Paga con bonifico, rinnovo a marzo.' }), sms: { mese: meseFinto, mandati: 0, falliti: 0 }, domande_ia: 4, fisse: { buoni: false, messaggi_automatici: false } },
+  { id: 's4', nome: '', email: 'estetica.luna@example.it', creato: giorniFa(2), abbonamento: rimettiInForma(null), sms: { mese: meseFinto, mandati: 0, falliti: 0 }, domande_ia: 0, fisse: { buoni: false, messaggi_automatici: false } },
+].map(s => ({ ...s, sms_inclusi: smsCompresi(s.abbonamento) }));
+
+export const adminApi = {
+  elenco: async () => {
+    if (new URLSearchParams(location.search).get('admin') === 'no') {
+      const e: any = new Error('Questa pagina è riservata a chi gestisce Rosy.'); e.stato = 403; throw e;
+    }
+    return eco({ mese: meseFinto, saloni: saloniFinti, piani: pianiFinti, chi: 'tu@esempio.it' });
+  },
+  salva: async (salonId: string, abbonamento: any) => {
+    const nuovo = rimettiInForma({ ...abbonamento, aggiornato: new Date().toISOString(), aggiornato_da: 'tu@esempio.it' });
+    const s = saloniFinti.find(x => x.id === salonId);
+    if (s) { s.abbonamento = nuovo; s.sms_inclusi = smsCompresi(nuovo); }
+    return nuovo;
+  }
+};
+

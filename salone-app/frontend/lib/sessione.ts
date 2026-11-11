@@ -14,6 +14,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../src/lib/firebase';
 import { funzioneAccesa } from './funzioni';
+import { COLLEZIONE_ABBONAMENTI, leggiAbbonamento } from './abbonamento';
 
 /** Le pagine su cui si può dare o togliere l'accesso. */
 export const PAGINE = [
@@ -42,7 +43,7 @@ export const PAGINE_CONCEDIBILI = PAGINE.filter(p => !('soloTitolare' in p && p.
  */
 export function pagineConcedibili() {
   const email = corrente?.emailSalone;
-  return PAGINE_CONCEDIBILI.filter(p => funzioneAccesa(p.chiave, email));
+  return PAGINE_CONCEDIBILI.filter(p => funzioneAccesa(p.chiave, email, corrente?.funzioni));
 }
 
 export type ChiavePagina = typeof PAGINE[number]['chiave'];
@@ -85,9 +86,28 @@ export interface Sessione {
    * titolare e per chi lavora con lui, che deve vedere le stesse pagine.
    */
   emailSalone: string | null;
+  /**
+   * Le funzioni accese nell'abbonamento del salone (dal pannello). Se manca
+   * o non si è letto, valgono solo quelle legate all'indirizzo del titolare.
+   */
+  funzioni?: Record<string, boolean>;
 }
 
 let corrente: Sessione | null = null;
+
+/**
+ * Le funzioni accese nell'abbonamento di quel salone. Se il documento non
+ * c'è, o non si legge (regole non ancora ripubblicate, rete giù), si torna
+ * a mani vuote: niente si rompe, restano le funzioni di sempre.
+ */
+async function funzioniDelSalone(salonId: string): Promise<Record<string, boolean>> {
+  try {
+    const abbonamento = await getDoc(doc(db, COLLEZIONE_ABBONAMENTI, salonId));
+    return abbonamento.exists() ? (leggiAbbonamento(abbonamento.data()).funzioni as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * L'indirizzo del titolare di quel salone, letto dalla sua scheda.
@@ -142,6 +162,8 @@ export async function apriSessione(uid: string, nome: string, emailAccesso?: str
     console.warn('Non sono riuscito a leggere il profilo: proseguo come titolare.', err);
   }
 
+  sessione.funzioni = await funzioniDelSalone(sessione.salonId);
+
   corrente = sessione;
   return sessione;
 }
@@ -175,7 +197,7 @@ export function idSalone(): string | null {
  */
 export function puoVedere(chiave: ChiavePagina): boolean {
   if (!corrente) return false;
-  if (!funzioneAccesa(chiave, corrente.emailSalone)) return false;
+  if (!funzioneAccesa(chiave, corrente.emailSalone, corrente.funzioni)) return false;
   if (corrente.permessi === null) return true;
   return corrente.permessi.includes(chiave);
 }

@@ -98,7 +98,10 @@ export default async function handler(_req: unknown, res: Risposta) {
     return [nome, i >= 0 ? statiRiserve[i] : spenta];
   }));
 
-  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio, rosy_ia: gemini, rosy_ia_riserve: rosyRiserve };
+  // Il pannello dei saloni (/admin): si apre solo se c'è l'elenco di chi può entrare.
+  const pannello = (process.env.ADMIN_EMAILS || '').trim() ? 'acceso' : 'spento (manca ADMIN_EMAILS)';
+
+  const base = { servizio: 'rosy', ora: new Date().toISOString(), email, sms, promemoria, buoni_dal_foglio: buoniDalFoglio, rosy_ia: gemini, rosy_ia_riserve: rosyRiserve, pannello };
 
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     res.status(503).json({

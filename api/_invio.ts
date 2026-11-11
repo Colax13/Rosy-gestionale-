@@ -7,6 +7,8 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { componi, mandaEmail, mandaSms, TipoMessaggio, EsitoInvio, Messaggio } from './_messaggi';
 import { funzioneAccesa } from '../salone-app/frontend/lib/funzioni';
+import { COLLEZIONE_CONSUMI_SMS, idConsumoSms } from '../salone-app/frontend/lib/abbonamento';
+import { meseDi } from '../salone-app/frontend/lib/consumi-ia';
 import { avvisoNuovaRichiesta, giornoDelSalone } from '../salone-app/frontend/lib/messaggi';
 import { numeroInternazionale } from '../salone-app/frontend/lib/contatti';
 
@@ -41,6 +43,27 @@ export async function registra(db: Firestore, voce: VoceRegistro): Promise<void>
   } catch (err) {
     // Il registro non deve mai fermare un invio.
     console.error('Registro SMS non scritto:', err);
+  }
+  await contaSms(db, voce);
+}
+
+/**
+ * Il contatore del mese: quanti SMS ha mandato quel salone. Un numero solo
+ * per salone e per mese, così per sapere il consumo non si rilegge tutto il
+ * registro. Come il registro, non deve mai fermare un invio.
+ */
+async function contaSms(db: Firestore, voce: VoceRegistro): Promise<void> {
+  if (!voce.userId) return;
+  try {
+    const mese = meseDi();
+    await db.collection(COLLEZIONE_CONSUMI_SMS).doc(idConsumoSms(voce.userId, mese)).set({
+      userId: voce.userId,
+      mese,
+      [voce.esito === 'consegnato' ? 'mandati' : 'falliti']: FieldValue.increment(1),
+      aggiornato: FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    console.error('Contatore SMS non aggiornato:', err);
   }
 }
 

@@ -8,6 +8,7 @@ import { unisciConsensi } from './privacy';
 import { TipoMovimento, variazione, incassoProdotti } from './prodotti';
 import { meseDi } from './consumi-ia';
 import { stimaPerMese, stimaPerOperatrice } from './riepilogo';
+import { COLLEZIONE_ABBONAMENTI, COLLEZIONE_CONSUMI_SMS, Abbonamento, ConsumoSms, Piano, leggiAbbonamento, leggiConsumoSms, idConsumoSms, smsInclusi } from './abbonamento';
 import { db, auth } from '../../../src/lib/firebase';
 
 /**
@@ -1187,5 +1188,72 @@ export const prodottiApi = {
   },
   delete: async (id: string) => {
     await deleteDoc(doc(db, 'prodotti', id));
+  }
+};
+
+/**
+ * L'abbonamento del salone, visto dal salone: che piano ha e quanti SMS ha
+ * usato questo mese. Solo lettura: lo cambia chi gestisce Rosy, dal pannello.
+ * Se non si riesce a leggere (regole non ancora ripubblicate, nessun SMS
+ * mandato nel mese) si risponde con quello che si sa, senza errori.
+ */
+export const abbonamentoApi = {
+  mio: async (): Promise<{ abbonamento: Abbonamento; sms_inclusi: number; sms: ConsumoSms; letto: boolean }> => {
+    const uid = getUserId();
+    const mese = meseDi();
+    let abbonamento = leggiAbbonamento(null);
+    let letto = false;
+    try {
+      const snap = await getDoc(doc(db, COLLEZIONE_ABBONAMENTI, uid));
+      abbonamento = leggiAbbonamento(snap.exists() ? snap.data() : null);
+      letto = true;
+    } catch { /* regole vecchie: resta quello di partenza */ }
+    let sms = leggiConsumoSms(null, mese);
+    try {
+      const snap = await getDoc(doc(db, COLLEZIONE_CONSUMI_SMS, idConsumoSms(uid, mese)));
+      if (snap.exists()) sms = leggiConsumoSms(snap.data(), mese);
+    } catch { /* nessun SMS questo mese, o regole vecchie: zero */ }
+    return { abbonamento, sms_inclusi: smsInclusi(abbonamento), sms, letto };
+  }
+};
+
+export interface SaloneNelPannello {
+  id: string;
+  nome: string;
+  email: string;
+  creato: string | null;
+  abbonamento: Abbonamento;
+  sms_inclusi: number;
+  sms: ConsumoSms;
+  domande_ia: number;
+  /** Funzioni che il salone ha perché il suo indirizzo è scritto nel codice. */
+  fisse: { buoni: boolean; messaggi_automatici: boolean };
+}
+
+/** Il pannello di chi gestisce Rosy: passa tutto dal server, che controlla chi chiama. */
+export const adminApi = {
+  chiama: async (corpo: Record<string, unknown>): Promise<any> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('Non risulti collegato: esci e rientra.');
+    const risposta = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(corpo)
+    });
+    const dati = await risposta.json().catch(() => ({}));
+    if (!risposta.ok) {
+      const errore: any = new Error(dati?.errore || `Il server non ha risposto (errore ${risposta.status}).`);
+      errore.stato = risposta.status;
+      throw errore;
+    }
+    return dati;
+  },
+  elenco: async (): Promise<{ mese: string; saloni: SaloneNelPannello[]; piani: Piano[]; chi: string }> => {
+    const dati = await adminApi.chiama({ azione: 'elenco' });
+    return { mese: dati.mese || '', saloni: Array.isArray(dati.saloni) ? dati.saloni : [], piani: Array.isArray(dati.piani) ? dati.piani : [], chi: dati.chi || '' };
+  },
+  salva: async (salonId: string, abbonamento: Pick<Abbonamento, 'piano' | 'funzioni' | 'sms_inclusi' | 'note'>): Promise<Abbonamento> => {
+    const dati = await adminApi.chiama({ azione: 'salva', salonId, abbonamento });
+    return leggiAbbonamento(dati.abbonamento);
   }
 };

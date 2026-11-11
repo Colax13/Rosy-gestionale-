@@ -23,6 +23,7 @@ import SettingsPage from '@/app/(dashboard)/settings/page';
 import ProdottiPage from '@/app/(dashboard)/prodotti/page';
 import AutomazioniPage from '@/app/(dashboard)/automazioni/page';
 import BuoniSpa from '@/app/(dashboard)/buoni-spa/page';
+import PannelloSaloni from '@/app/(dashboard)/admin/page';
 import PrenotazionePubblica from '@/app/(public)/[salonId]/prenota/page';
 
 // ?tema=scuro apre direttamente in modalità scura. Si passa dalla memoria del
@@ -109,6 +110,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/prodotti" element={<ProdottiPage />} />
               <Route path="/automazioni" element={<AutomazioniPage />} />
               <Route path="/buoni-spa" element={<BuoniSpa />} />
+              <Route path="/admin" element={<PannelloSaloni />} />
             </Routes>
           </Layout>
         } />

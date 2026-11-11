@@ -35,7 +35,8 @@
     "prova:prodotti": "tsx salone-app/frontend/lib/prodotti.prova.ts",
     "prova:riepilogo": "tsx salone-app/frontend/lib/riepilogo.prova.ts",
     "prova:riserva": "tsx salone-app/frontend/lib/riserva.prova.ts",
-    "prova:stato-sistema": "tsx salone-app/frontend/lib/stato-sistema.prova.ts"
+    "prova:stato-sistema": "tsx salone-app/frontend/lib/stato-sistema.prova.ts",
+    "prova:abbonamento": "tsx salone-app/frontend/lib/abbonamento.prova.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

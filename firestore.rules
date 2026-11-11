@@ -94,10 +94,19 @@ service cloud.firestore {
         : '';
     }
 
+    /** I Buoni accesi dal pannello: stanno nell'abbonamento del salone, che
+        scrive solo il server. È la strada per i saloni nuovi, senza dover
+        aggiungere indirizzi qui sopra e ripubblicare. */
+    function buoniAccesiDalPannello(userId) {
+      return exists(/databases/$(database)/documents/abbonamenti/$(userId))
+        && get(/databases/$(database)/documents/abbonamenti/$(userId)).data.get('funzioni', {}).get('buoni', false) == true;
+    }
+
     /** True se quel salone ha la pagina dei Buoni. */
     function haIBuoni(userId) {
       return emailAbilitataAiBuoni(emailDiChiEntra())
-        || emailAbilitataAiBuoni(emailDelSalone(userId));
+        || emailAbilitataAiBuoni(emailDelSalone(userId))
+        || buoniAccesiDalPannello(userId);
     }
 
 
@@ -399,6 +408,25 @@ service cloud.firestore {
                     && incoming().salonId == resource.data.salonId
                     && incoming().permessi is list && incoming().permessi.size() <= 20;
       allow delete: if isSignedIn() && request.auth.uid == resource.data.salonId;
+    }
+
+    // L'abbonamento del salone: piano, funzioni accese, SMS compresi.
+    // Chi lavora nel salone lo legge (serve a sapere quali pagine mostrare);
+    // lo scrive SOLO il server, dal pannello di chi gestisce Rosy. Se il
+    // titolare potesse scriverlo si accenderebbe da solo le funzioni a
+    // pagamento.
+    match /abbonamenti/{salonId} {
+      allow get: if nelSalone(salonId);
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // Il contatore degli SMS del mese (un documento per salone e per mese).
+    // Lo scrive solo il server a ogni invio; nel salone si legge.
+    match /consumi_sms/{consumoId} {
+      allow get: if nelSalone(resource.data.userId);
+      allow list: if false;
+      allow write: if false;
     }
 
     // Impostazioni private del salone (per ora: il cellulare per gli avvisi).
