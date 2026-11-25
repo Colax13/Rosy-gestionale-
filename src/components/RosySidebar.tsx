@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Calendar as CalendarIcon, MessageSquare, ChevronRight, Inbox, Users, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, MessageSquare, ChevronRight, Inbox, Users, Sparkles, Euro, Package } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import RosyLogo from './RosyLogo';
 
@@ -69,6 +69,22 @@ export default function RosySidebar({ daRecuperare, spaziLiberi, appuntamentiOgg
       descrizione: `${appuntamentiOggi} appuntamenti oggi`,
       colore: 'text-[#FF3EF7]',
       azione: () => chiedi('Chi ho in agenda oggi?'),
+      spento: false
+    },
+    {
+      icon: Euro,
+      titolo: 'Quanto ho incassato?',
+      descrizione: 'Oggi e questa settimana',
+      colore: 'text-emerald-600',
+      azione: () => chiedi('Quanto ho incassato oggi e questa settimana?'),
+      spento: false
+    },
+    {
+      icon: Package,
+      titolo: 'Cosa devo riordinare?',
+      descrizione: 'I prodotti finiti o quasi',
+      colore: 'text-amber-600',
+      azione: () => chiedi('Quali prodotti devo riordinare?'),
       spento: false
     },
   ];

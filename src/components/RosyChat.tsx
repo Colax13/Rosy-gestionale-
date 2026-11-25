@@ -37,8 +37,10 @@ interface Messaggio {
 
 const SUGGERIMENTI = [
   'Chi ho in agenda domani?',
-  'Orari liberi sabato per una piega',
-  "Quand'è venuta l'ultima volta Maria Rossi?"
+  'Quanto ho incassato questa settimana?',
+  'Chi devo richiamare?',
+  'Cosa devo riordinare?',
+  'Orari liberi sabato per una piega'
 ];
 
 /** Gemini scrive in markdown: qui basta togliere gli asterischi e tenere gli elenchi. */
@@ -55,7 +57,7 @@ export default function RosyChat({ onChiudi, domandaIniziale }: { onChiudi?: () 
     id: 1,
     ruolo: 'rosy',
     saluto: true,
-    testo: `Ciao${nome ? ` ${nome}` : ''}! Sono Rosy. Posso dirti chi hai in agenda, cercare una cliente, trovarti un orario libero e prepararti un appuntamento da confermare.`
+    testo: `Ciao${nome ? ` ${nome}` : ''}! Sono Rosy. Posso dirti chi hai in agenda, quanto hai incassato, chi richiamare e cosa riordinare, e prepararti un appuntamento da confermare.`
   }]);
   const [testo, setTesto] = useState('');
   const [penso, setPenso] = useState(false);
