@@ -6,6 +6,7 @@
 
 import { VERSIONE_INFORMATIVA } from '../salone-app/frontend/lib/privacy';
 import { cellulareValido } from '../salone-app/frontend/lib/contatti';
+import { pulisciEtichetta } from '../salone-app/frontend/lib/provenienza';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 export const DURATA_CODICE_MS = 10 * 60 * 1000;   // il codice vale 10 minuti
@@ -119,6 +120,9 @@ export interface Prenotazione {
    * mette il server: quella del telefono non fa fede.
    */
   consensi: { informativa_letta_il: string; versione_informativa: string; marketing: boolean; marketing_il: string };
+  /** Da dove è arrivata la cliente (instagram, google, sito…): lo capisce la pagina. */
+  provenienza?: string;
+  provenienza_da?: string;
 }
 
 const testo = (v: any, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -176,7 +180,9 @@ export function pulisciPrenotazione(dati: any, adesso: number): { ok: true; app:
         versione_informativa: VERSIONE_INFORMATIVA,
         marketing: dati?.marketing === true,
         marketing_il: ora
-      }
+      },
+      ...(pulisciEtichetta(dati?.provenienza) ? { provenienza: pulisciEtichetta(dati.provenienza) } : {}),
+      ...(testo(dati?.provenienza_da, 60) ? { provenienza_da: testo(dati.provenienza_da, 60) } : {})
     }
   };
 }

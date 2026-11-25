@@ -11,6 +11,7 @@ import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { componi, NOME_MESSAGGIO } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
 import GiornataSpeciale from '@/components/GiornataSpeciale';
+import { nomeProvenienza } from '@/lib/provenienza';
 import OrdinaOperatori from '@/components/OrdinaOperatori';
 import BottoneMenu from '../../../../../src/components/BottoneMenu';
 import { puoAprirePercorso } from '@/lib/sessione';
@@ -2124,9 +2125,11 @@ export default function PaginaAgenda() {
                       </div>
                     </div>
 
-                    {(telefono || r.dipendenti?.nome) && (
+                    {(telefono || r.dipendenti?.nome || r.provenienza) && (
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
                         {r.dipendenti?.nome && <span>Con {r.dipendenti.nome}</span>}
+                        {/* Da quale link è arrivata: lo capisce la pagina di prenotazione. */}
+                        {r.provenienza && <span className="px-1.5 py-0.5 rounded bg-fuchsia-50 text-fuchsia-700 font-semibold">da {nomeProvenienza(r.provenienza)}</span>}
                         {telefono && <span className="font-mono">{telefono}</span>}
                         {/* Il codice SMS non è partito (tablet spento?) e la
                             cliente ha prenotato lo stesso: il numero va

@@ -53,6 +53,8 @@ interface ConteggioCanale {
 interface ClientiReport {
   acquisiti_questo_mese: ClienteAcquisito[];
   conteggio_per_canale: ConteggioCanale[];
+  /** Da quale link sono arrivate le prenotazioni online (ultimi 6 mesi). */
+  provenienze?: { provenienza: string; nome: string; quante: number }[];
 }
 
 export default function PaginaReport() {
@@ -366,6 +368,32 @@ export default function PaginaReport() {
                   );
                 })}
               </div>
+
+              {/* Da quale link arrivano le prenotazioni online: lo capisce
+                  da sola la pagina di prenotazione. Sola lettura. */}
+              {!!clientiReport.provenienze?.length && (() => {
+                const elenco = clientiReport.provenienze!;
+                const totale = elenco.reduce((t, p) => t + p.quante, 0) || 1;
+                return (
+                  <div className="mt-8 pt-6 border-t border-zinc-200">
+                    <h4 className="text-sm font-semibold text-zinc-900">Da dove arrivano le prenotazioni online</h4>
+                    <p className="text-xs text-zinc-500 mb-4">Ultimi 6 mesi · {totale} prenotazioni dal link.</p>
+                    <div className="space-y-2.5">
+                      {elenco.map(p => (
+                        <div key={p.provenienza}>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-zinc-700">{p.nome}</span>
+                            <span className="text-zinc-500"><strong className="text-zinc-900">{p.quante}</strong> ({Math.round((p.quante / totale) * 100)}%)</span>
+                          </div>
+                          <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden mt-1">
+                            <div className="h-full rounded-full bg-fuchsia-500" style={{ width: `${(p.quante / totale) * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
 
             {/* Lista Ultimi Clienti Acquisiti */}
