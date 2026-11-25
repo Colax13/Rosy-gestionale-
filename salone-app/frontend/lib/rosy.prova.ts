@@ -2,7 +2,7 @@
 // Si prova che gli strumenti leggano bene e che la proposta sia giusta.
 process.env.TZ = 'Europe/Rome';
 
-import { chiediARosy, istruzioni, contestoGiornata, eseguiStrumento, cercaClienti, trovaServizio, spiegaErroreGemini, ErroreGemini, Maschera, STRUMENTI, Dati, Proposta } from '../../../api/_rosy';
+import { chiediARosy, istruzioni, contestoGiornata, eseguiStrumento, cercaClienti, clientiSimili, trovaServizio, spiegaErroreGemini, ErroreGemini, Maschera, STRUMENTI, Dati, Proposta } from '../../../api/_rosy';
 import { richiestaPerOpenAI, rispostaDaOpenAI } from '../../../api/_traduttore';
 import { iaVera } from '../../../api/rosy';
 
@@ -184,6 +184,22 @@ const dati: Dati = {
   check('privacy: il numero non è mai partito', false, visti.some(v => /999 ?8888/.test(JSON.stringify(v))));
   check('privacy: la proposta ha il numero vero', '320 999 8888', conNumero.proposte[0]?.cliente.telefono);
   check('privacy: la risposta mostra il numero vero', 'Fatto: la richiamo al 320 999 8888.', conNumero.testo);
+
+  // --- nomi simili: errori di battitura e nomi a metà
+  const rubrica = [
+    { id: 'r1', nome: 'Rachele', cognome: 'Martino' },
+    { id: 'r2', nome: 'Rachelle', cognome: 'Martini' },
+    { id: 'r3', nome: 'Paola', cognome: 'Martini' },
+    { id: 'r4', nome: 'Giada', cognome: 'Bruni' }
+  ];
+  check('nessun nome identico', [], cercaClienti('Rachele Martini', rubrica).map(c => c.id));
+  check('ma ci sono le simili, le più vicine prima', ['r1', 'r2', 'r3'], clientiSimili('Rachele Martini', rubrica).map(c => c.id));
+  check('una parola sola con un errore', ['r4'], clientiSimili('Giadda', rubrica).map(c => c.id));
+  check('niente di simile', [], clientiSimili('Zelinda Quaglia', rubrica).map(c => c.id));
+  const simili = await eseguiStrumento('cerca_cliente', { testo: 'Rachele Martini' }, { ...dati, clienti: async () => rubrica, appuntamentiCliente: async () => [] }, adesso, []);
+  check('lo strumento propone le simili e lo dice', [3, true], [simili.trovate, /simile/.test(simili.nota || '')]);
+  const nienteSimile = await eseguiStrumento('cerca_cliente', { testo: 'Zelinda Quaglia' }, { ...dati, clienti: async () => rubrica }, adesso, []);
+  check('se non c\'è niente dice quante sono in rubrica', [0, 4], [nienteSimile.trovate, nienteSimile.clienti_in_rubrica]);
 
   // --- traduttore Gemini ⇄ OpenAI
   const corpoGemini = {
