@@ -5,6 +5,7 @@ import { costruisciVetrina, disponibilitaPerAppuntamento, Vetrina, Disponibilita
 import { chiaviCliente } from './importa';
 import { ordinaOperatori } from './operatori';
 import { unisciConsensi } from './privacy';
+import { contaProvenienze, canaleDaProvenienza } from './provenienza';
 import { TipoMovimento, variazione, incassoProdotti } from './prodotti';
 import { meseDi } from './consumi-ia';
 import { stimaPerMese, stimaPerOperatrice } from './riepilogo';
@@ -207,7 +208,8 @@ export const reportApi = {
       dipendenti: totaliOperatori,
       clienti_report: {
         acquisiti_questo_mese: acquisiti,
-        conteggio_per_canale: conteggioCanali
+        conteggio_per_canale: conteggioCanali,
+        provenienze: contaProvenienze(appuntamenti)
       },
       // Quello che serve alla pagina per il riepilogo di oggi, della
       // settimana e del mese: i conti li fa `lib/riepilogo`.
@@ -369,7 +371,10 @@ export const clientiApi = {
       const creato = await clientiApi.create({
         ...inArrivo,
         note: '',
-        canale_acquisizione: 'Prenotazione online',
+        // Se la pagina ha capito da dove è arrivata (Instagram, Google…)
+        // la cliente nuova entra in rubrica con quel canale, così il
+        // Report dei canali di acquisizione si riempie da solo.
+        canale_acquisizione: canaleDaProvenienza(appuntamento.provenienza),
         ...(consensi ? { consensi } : {})
       });
       clienteId = creato.id;

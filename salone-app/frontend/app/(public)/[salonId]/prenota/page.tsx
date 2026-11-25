@@ -12,6 +12,7 @@
 // distanze. E la pagina si può aggiungere alla schermata Home del telefono:
 // da lì si apre come un'app, direttamente su questo salone.
 
+import { capisciProvenienza } from '@/lib/provenienza';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -66,6 +67,20 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
   // nel percorso: lo dice l'indirizzo.
   const salonId = salonIdFisso || parametri.salonId || '';
   const linkPrivacy = salonIdFisso ? '/privacy' : `/${salonId}/privacy`;
+
+  // Da dove arriva la cliente (Instagram, Google, il sito del salone…). Si
+  // guarda una volta sola, appena apre la pagina, e si tiene per la visita:
+  // se va a leggere l'informativa e torna, l'arrivo resta quello vero.
+  const [provenienza] = useState(() => {
+    const chiave = `rosy-provenienza-${salonId}`;
+    try {
+      const salvata = sessionStorage.getItem(chiave);
+      if (salvata) return JSON.parse(salvata) as { provenienza: string; dettaglio?: string };
+    } catch { /* si ricalcola */ }
+    const trovata = capisciProvenienza({ url: window.location.href, referrer: document.referrer, userAgent: navigator.userAgent });
+    try { sessionStorage.setItem(chiave, JSON.stringify(trovata)); } catch { /* pazienza */ }
+    return trovata;
+  });
 
   const [salone, setSalone] = useState<Salone>({ nome: '', indirizzo: '', telefono: '', logo: '', descrizione: '', whatsapp: '' });
   const [catalogo, setCatalogo] = useState<Servizio[]>([]);
@@ -236,7 +251,9 @@ export default function PrenotazionePubblica({ salonIdFisso }: { salonIdFisso?: 
         servizi_catalogo: { nome: s.nome, durata_minuti: s.durata_minuti, prezzo_base: s.prezzo_base }
       })),
       privacy: privacyLetta,
-      marketing: promozioni
+      marketing: promozioni,
+      provenienza: provenienza.provenienza,
+      provenienza_da: provenienza.dettaglio || ''
     };
   };
 

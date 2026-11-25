@@ -156,6 +156,7 @@ export const reportApi = {
         acquisiti_questo_mese: clienti.slice(0, 2).map(c => ({
           ...c, canale_acquisizione: 'Passaparola', data_acquisizione: alle(10),
         })),
+        provenienze: [{ provenienza: 'instagram', nome: 'Instagram', quante: 14 }, { provenienza: 'diretto', nome: 'Link diretto (WhatsApp, SMS, digitato)', quante: 9 }, { provenienza: 'google', nome: 'Google', quante: 5 }, { provenienza: 'sito', nome: 'Sito del salone', quante: 2 }],
         conteggio_per_canale: [
           { canale: 'Passaparola', quantita: 18 },
           { canale: 'Instagram', quantita: 11 },
