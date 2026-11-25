@@ -10,6 +10,7 @@ import AggiungiCalendarioSidebar from './AggiungiCalendarioSidebar';
 import BottoneRicontatta from '@/components/BottoneRicontatta';
 import { componi, NOME_MESSAGGIO } from '@/lib/messaggi';
 import ChiusuraAppuntamento from '@/components/ChiusuraAppuntamento';
+import GiornataSpeciale from '@/components/GiornataSpeciale';
 import OrdinaOperatori from '@/components/OrdinaOperatori';
 import BottoneMenu from '../../../../../src/components/BottoneMenu';
 import { puoAprirePercorso } from '@/lib/sessione';
@@ -2028,6 +2029,14 @@ export default function PaginaAgenda() {
         )}
 
         <div className="flex-1 min-w-0 max-md:min-h-0 max-md:flex max-md:flex-col max-md:overflow-y-auto">
+      {/* Salone chiuso quel giorno, o aperto solo per quel giorno. */}
+      {viewMode === 'giorno' && !error && !loading && (
+        <GiornataSpeciale
+          data={selectedDate}
+          dipendenti={dipendenti}
+          onCambiato={() => dipendentiApi.getAll().then(setDipendenti).catch(() => {})}
+        />
+      )}
       {error ? (
         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg mb-6 flex flex-col items-start gap-2">
           <p>{error}</p>
