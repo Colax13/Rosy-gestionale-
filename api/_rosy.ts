@@ -102,6 +102,44 @@ export function cercaClienti(testo: string, clienti: any[], quante = 5): any[] {
     .map(x => x.c);
 }
 
+/** Quante lettere bisogna cambiare per passare da una parola all'altra. */
+function distanza(a: string, b: string): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  let prima = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const riga = [i];
+    for (let j = 1; j <= b.length; j++) {
+      riga[j] = Math.min(prima[j] + 1, riga[j - 1] + 1, prima[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prima = riga;
+  }
+  return prima[b.length];
+}
+
+/**
+ * Le clienti con un nome SIMILE a quello cercato, quando di uguali non ce n'è:
+ * un errore di battitura ("Martino" per "Martini", "Rachelle" per "Rachele"),
+ * oppure solo il nome o solo il cognome che corrisponde. Serve a dire "forse
+ * intendevi…" invece di "non esiste", che in rubrica è quasi sempre falso.
+ */
+export function clientiSimili(testo: string, clienti: any[], quante = 5): any[] {
+  const parole = pulito(testo).split(' ').filter(p => p.length >= 3);
+  if (!parole.length) return [];
+  const vicina = (p: string, w: string) => w === p || w.startsWith(p) || distanza(p, w) <= (p.length >= 7 ? 2 : 1);
+  return clienti
+    .map(c => {
+      const sue = pulito(`${c.nome || ''} ${c.cognome || ''}`).split(' ').filter(Boolean);
+      const trovate = parole.filter(p => sue.some(w => vicina(p, w))).length;
+      return { c, trovate };
+    })
+    // Tutte le parole (con errori di battitura), oppure almeno una se ne ha scritte due.
+    .filter(x => x.trovate === parole.length || (parole.length >= 2 && x.trovate >= 1))
+    .sort((a, b) => b.trovate - a.trovate)
+    .slice(0, quante)
+    .map(x => x.c);
+}
+
 // ---------------------------------------------------------------------------
 // Gli strumenti
 // ---------------------------------------------------------------------------
@@ -213,8 +251,17 @@ export async function eseguiStrumento(
     }
 
     case 'cerca_cliente': {
-      const trovate = cercaClienti(a.testo || '', await dati.clienti());
-      if (!trovate.length) return { trovate: 0, nota: 'Nessuna cliente con questo nome o numero.' };
+      const rubrica = await dati.clienti();
+      let trovate = cercaClienti(a.testo || '', rubrica);
+      // Niente di uguale: prima di dire "non c'è" si guardano i nomi simili.
+      const perSomiglianza = !trovate.length;
+      if (perSomiglianza) trovate = clientiSimili(a.testo || '', rubrica);
+      if (!trovate.length) {
+        return {
+          trovate: 0, clienti_in_rubrica: rubrica.length,
+          nota: 'Nessuna cliente con questo nome o numero, nemmeno simile. Chiedi di controllare come è scritta in Clienti (o se è stata aggiunta negli ultimi minuti).'
+        };
+      }
       trovate.forEach(c => {
         if (schede.length < MASSIMO_SCHEDE && !schede.some(s => s.id === c.id)) {
           schede.push({ id: c.id, nome: `${c.nome || ''} ${c.cognome || ''}`.trim() || 'Cliente' });
@@ -236,7 +283,10 @@ export async function eseguiStrumento(
           prossimo_appuntamento: prossimo ? `${quandoCorto(new Date(prossimo.data_ora))} — ${elencoScritto(serviziDi(prossimo))}` : 'nessuno'
         };
       }));
-      return { trovate: risultati.length, clienti: risultati };
+      return {
+        trovate: risultati.length, clienti: risultati,
+        ...(perSomiglianza ? { nota: 'Nessun nome identico: queste sono le clienti con il nome più simile. Dì che non hai trovato quel nome esatto e proponi queste, chiedendo quale intendeva.' } : {})
+      };
     }
 
     case 'orari_liberi': {
@@ -378,6 +428,7 @@ export function istruzioni(nomeSalone: string, adesso: Date, contesto = ''): str
     'Rispondi solo con dati veri presi dagli strumenti: non inventare appuntamenti, clienti, prezzi o orari. Se uno strumento non trova niente, dillo.',
     'Per fissare un appuntamento: trova la cliente con cerca_cliente, controlla gli orari con orari_liberi, poi usa proponi_appuntamento. L’appuntamento NON è salvato finché chi ti scrive non preme "Conferma": dillo chiaramente e non dire mai che è già fissato.',
     'Se mancano informazioni (quale cliente, quale servizio, che ora), chiedile in una frase.',
+    'Per QUALSIASI domanda su una cliente (ultima visita, prossimo appuntamento, se è in rubrica) usa sempre cerca_cliente prima di rispondere: l’agenda che vedi qui sotto è solo di oggi e domani, non dice chi è cliente. Non dire mai che una cliente non esiste senza aver usato cerca_cliente; se lo strumento propone nomi simili, proponili.',
     'Non puoi cancellare né spostare appuntamenti: per quello si usa l’agenda.',
     'Se ti chiedono come si usa il gestionale, spiegalo in due righe. Per aprire il salone in un giorno di chiusura (per esempio un lunedì solo): Agenda → vista Giorno → andare su quel giorno → in alto compare "Questo giorno il salone è chiuso" → pulsante "Apri solo questa giornata" → scegliere orario e operatrici. Vale solo per quel giorno, i turni della settimana non cambiano, e quel giorno si può prenotare anche online. I turni di tutte le settimane invece si cambiano in Operatori.',
     'Per riservatezza non vedi telefoni, email e note delle clienti: i numeri e le email scritti in chat ti arrivano come [telefono 1], [email 1]; passali agli strumenti così come sono.',
