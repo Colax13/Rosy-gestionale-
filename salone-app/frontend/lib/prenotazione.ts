@@ -2,6 +2,7 @@
 // pagina perché è la parte che, se sbaglia, fa prenotare due clienti alla
 // stessa ora: così si prova da sola.
 
+import { giornoSpeciale } from './giorni-speciali';
 import { occupata, Fascia } from './vetrina';
 
 const GIORNI_TURNI = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];
@@ -9,7 +10,7 @@ const GIORNI_TURNI = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', '
 /** Ogni quanti minuti si propone un orario. */
 export const PASSO_MINUTI = 30;
 
-export interface OperatoreConTurni { id: string; turni?: Record<string, any> }
+export interface OperatoreConTurni { id: string; turni?: Record<string, any>; giorni_speciali?: Record<string, any> }
 
 /**
  * Il turno di quell'operatrice in quel giorno.
@@ -17,6 +18,9 @@ export interface OperatoreConTurni { id: string; turni?: Record<string, any> }
  * meglio proporre orari ragionevoli che una pagina vuota.
  */
 export function turnoDelGiorno(op: OperatoreConTurni, giorno: Date) {
+  // Un'apertura di quel giorno solo vince sul turno della settimana.
+  const speciale = giornoSpeciale(op, giorno);
+  if (speciale) return speciale;
   const nome = GIORNI_TURNI[giorno.getDay()];
   if (!op.turni || Object.keys(op.turni).length === 0) {
     if (nome === 'domenica' || nome === 'lunedi') return null;

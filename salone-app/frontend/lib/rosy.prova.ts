@@ -247,6 +247,18 @@ const dati: Dati = {
   try { await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), []), adesso); }
   catch (e) { nessunaRiserva = e; }
   check('credito finito senza riserve: spiega cosa fare', true, nessunaRiserva instanceof ErroreGemini && /credito .* finito/.test(spiegaErroreGemini(nessunaRiserva)));
+  // --- IA_PRIMA=groq: risponde Groq e Gemini non si tocca
+  const ordine: string[] = [];
+  (globalThis as any).fetch = async (url: string) => {
+    ordine.push(url.includes('groq') ? 'groq' : 'gemini');
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'Ciao da Groq' } }] }) };
+  };
+  process.env.IA_PRIMA = 'groq';
+  const primaGroq = await chiediARosy([{ ruolo: 'utente', testo: 'ciao' }], dati, iaVera('chiave-gemini', Date.now(), riserveFinte), adesso);
+  delete process.env.IA_PRIMA;
+  check('prima Groq: risponde lui', 'Ciao da Groq', primaGroq.testo);
+  check('prima Groq: Gemini non viene chiamato', ['groq'], ordine);
+
   (globalThis as any).fetch = fetchVero;
 
   console.log(`\n${ok} ok, ${ko} ko`);

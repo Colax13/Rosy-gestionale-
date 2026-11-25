@@ -10,6 +10,7 @@
 //  2. TURNI — ogni dipendente ha i suoi giorni e le sue fasce orarie. Prima
 //     l'agenda usava un 9:00-18:00 fisso uguale per tutti.
 
+import { giornoSpeciale } from './giorni-speciali';
 export interface TempiServizio {
   lavorazione: number;  // prima lavorazione: operatore occupato
   posa: number;         // posa: operatore libero
@@ -268,7 +269,8 @@ const ETICHETTE: Record<string, string> = {
  */
 export function turnoDelGiorno(dipendente: any, data: Date): TurnoDelGiorno {
   const giorno = GIORNI_SETTIMANA[data.getDay()];
-  const turno = dipendente?.turni?.[giorno];
+  // Un'apertura di quel giorno solo vince sul turno della settimana.
+  const turno = giornoSpeciale(dipendente, data) || dipendente?.turni?.[giorno];
 
   if (!turno) {
     return { lavora: false, tipo: 'riposo', fasce: [], etichetta: 'Nessun turno' };

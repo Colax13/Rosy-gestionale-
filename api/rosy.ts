@@ -147,6 +147,14 @@ const nomeScelta = (s: Scelta) => `${s.fornitore}/${s.modello} ${JSON.stringify(
  * non risponde in tempo, subito al successivo. Tutti ricevono e restituiscono
  * il formato di Gemini: per le riserve traduce `_traduttore`.
  */
+/** True se alle domande devono rispondere prima Groq/OpenRouter e poi Gemini. */
+export function primaLeRiserve(): boolean {
+  const scelta = (process.env.IA_PRIMA || '').trim().toLowerCase();
+  if (scelta === 'gemini') return false;
+  if (scelta === 'groq' || scelta === 'riserve' || scelta === 'openrouter') return true;
+  return !!(process.env.GROQ_API_KEY || '').trim();
+}
+
 /** Quello che una domanda ha consumato: si somma chiamata dopo chiamata. */
 export interface Contatore { chiamate: number; token_entrata: number; token_uscita: number; costo_euro: number }
 export const contatoreVuoto = (): Contatore => ({ chiamate: 0, token_entrata: 0, token_uscita: 0, costo_euro: 0 });
@@ -217,13 +225,19 @@ export function iaVera(chiaveGemini: string, partenza: number, elencoRiserve: Ri
     a.fornitore === b.fornitore && a.modello === b.modello && JSON.stringify(a.ragionamento) === JSON.stringify(b.ragionamento);
 
   return async (corpoRichiesta) => {
-    const tutte: Scelta[] = [];
+    const diGemini: Scelta[] = [];
     if (chiaveGemini) {
       MODELLI_GEMINI().forEach(modello =>
-        ragionamentoPer(modello).forEach(ragionamento => tutte.push({ fornitore: 'gemini', modello, ragionamento })));
+        ragionamentoPer(modello).forEach(ragionamento => diGemini.push({ fornitore: 'gemini', modello, ragionamento })));
     }
+    const diRiserva: Scelta[] = [];
     elencoRiserve.forEach(r =>
-      ragionamentoPer(r.modello).forEach(ragionamento => tutte.push({ fornitore: r.fornitore, modello: r.modello, ragionamento })));
+      ragionamentoPer(r.modello).forEach(ragionamento => diRiserva.push({ fornitore: r.fornitore, modello: r.modello, ragionamento })));
+    // Chi risponde per primo. Con la chiave di Groq su Vercel risponde Groq
+    // (gratuito, e non dipende dal credito di Gemini) e Gemini resta di
+    // scorta; senza, come sempre, prima Gemini. Si forza con IA_PRIMA=gemini
+    // oppure IA_PRIMA=groq.
+    const tutte = primaLeRiserve() ? [...diRiserva, ...diGemini] : [...diGemini, ...diRiserva];
 
     const candidati: Scelta[] = [];
     const aggiungi = (c: Scelta | null) => {

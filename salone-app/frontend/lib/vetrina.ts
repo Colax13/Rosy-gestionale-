@@ -36,6 +36,7 @@ export interface OperatoreVetrina {
   fotoUrl: string;
   /** Servono a calcolare gli orari liberi: non sono dati di nessuno. */
   turni: any;
+  giorni_speciali?: any;
   /** Quali servizi sa fare. Vuoto = li fa tutti. */
   servizi: string[];
 }
@@ -70,6 +71,8 @@ export function operatorePerVetrina(d: any): OperatoreVetrina {
     cognome: String(d?.cognome || ''),
     fotoUrl: String(d?.fotoUrl || ''),
     turni: d?.turni || null,
+    // Le aperture di un giorno solo: servono a chi prenota online.
+    giorni_speciali: d?.giorni_speciali || null,
     servizi: Array.isArray(d?.servizi) ? d.servizi.map(String) : []
   };
 }
