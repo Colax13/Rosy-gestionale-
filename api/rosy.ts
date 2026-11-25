@@ -69,6 +69,7 @@ function datiDelSalone(salonId: string, nomeSalone: string): Dati {
     servizi: () => ricordato(`${salonId}:catalogo`, () => tutti('catalogo')),
     operatrici: () => ricordato(`${salonId}:dipendenti`, () => tutti('dipendenti')),
     clienti: () => ricordato(`${salonId}:clienti`, () => tutti('clienti')),
+    prodotti: () => ricordato(`${salonId}:prodotti`, () => tutti('prodotti')),
     appuntamenti: async (daIso, aIso) =>
       (await db.collection('appuntamenti')
         .where('userId', '==', salonId)

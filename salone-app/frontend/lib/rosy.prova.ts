@@ -201,6 +201,30 @@ const dati: Dati = {
   const nienteSimile = await eseguiStrumento('cerca_cliente', { testo: 'Zelinda Quaglia' }, { ...dati, clienti: async () => rubrica }, adesso, []);
   check('se non c\'è niente dice quante sono in rubrica', [0, 4], [nienteSimile.trovate, nienteSimile.clienti_in_rubrica]);
 
+  // --- incassi, recupero, magazzino
+  const conMagazzino: Dati = {
+    ...dati,
+    appuntamenti: async () => [
+      { stato: 'completato', prezzo_finale: 45, data_ora: '2026-10-09T09:00:00.000Z', dipendenti: { nome: 'Giulia' } },
+      { stato: 'completato', prezzo_finale: 55, data_ora: '2026-10-09T11:00:00.000Z', dipendenti: { nome: 'Giulia' } },
+      { stato: 'confermato', prezzo_finale: 0, data_ora: '2026-10-09T15:00:00.000Z' }
+    ],
+    prodotti: async () => [
+      { nome: 'Shampoo', marca: 'Davines', giacenza: 6, scorta_minima: 2, prezzo: 20 },
+      { nome: 'Olio', giacenza: 0, prezzo: 30 },
+      { nome: 'Vecchio', giacenza: 0, prezzo: 5, attivo: false }
+    ]
+  };
+  const inc = await eseguiStrumento('incassi', { dal: '2026-10-09' }, conMagazzino, adesso, []);
+  check('incassi: totale e scontrino', [100, 2, 50], [inc.totale, inc.appuntamenti, inc.scontrino_medio]);
+  check('incassi: troppi giorni', true, !!(await eseguiStrumento('incassi', { dal: '2026-01-01', al: '2026-12-31' }, conMagazzino, adesso, [])).errore);
+  const mag = await eseguiStrumento('magazzino', {}, conMagazzino, adesso, []);
+  check('magazzino: da riordinare, senza i disattivati', [2, ['Olio']], [mag.prodotti, mag.da_riordinare.map((x: any) => x.nome)]);
+  check('magazzino: ricerca per marca', ['Shampoo'], (await eseguiStrumento('magazzino', { cerca: 'davines' }, conMagazzino, adesso, [])).elenco.map((x: any) => x.nome));
+  check('magazzino: senza dati lo dice', true, !!(await eseguiStrumento('magazzino', {}, dati, adesso, [])).errore);
+  const rec = await eseguiStrumento('clienti_da_recuperare', {}, { ...dati, appuntamenti: async () => [] }, adesso, []);
+  check('recupero: soglia di 60 giorni e niente telefoni', [60, false], [rec.da_almeno_giorni, /\d{6,}/.test(JSON.stringify(rec))]);
+
   // --- traduttore Gemini ⇄ OpenAI
   const corpoGemini = {
     systemInstruction: { parts: [{ text: 'Sei Rosy' }] },

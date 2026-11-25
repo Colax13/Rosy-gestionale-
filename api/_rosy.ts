@@ -19,6 +19,8 @@ import { nomeOperatore, ordinaOperatori, faServizio } from '../salone-app/fronte
 import { quandoCorto, elencoScritto } from '../salone-app/frontend/lib/messaggi';
 import { ultimoAppuntamento, serviziDi } from '../salone-app/frontend/lib/storico';
 import { noteDaMostrare } from '../salone-app/frontend/lib/cliente';
+import { riepilogoIncassi, clientiDaRecuperare } from '../salone-app/frontend/lib/punto';
+import { statoScorta } from '../salone-app/frontend/lib/prodotti';
 
 // ---------------------------------------------------------------------------
 // I dati del salone, come li vede Rosy
@@ -32,6 +34,8 @@ export interface Dati {
   /** Appuntamenti fra due istanti ISO. */
   appuntamenti(daIso: string, aIso: string): Promise<any[]>;
   appuntamentiCliente(idCliente: string): Promise<any[]>;
+  /** Il magazzino dei prodotti. Facoltativo: chi non lo dà, non ha la domanda. */
+  prodotti?(): Promise<any[]>;
 }
 
 /** Una proposta di appuntamento: il gestionale la salva solo dopo "Conferma". */
@@ -191,6 +195,34 @@ export const STRUMENTI = [
     parameters: { type: 'OBJECT', properties: {} }
   },
   {
+    name: 'incassi',
+    description: "Quanto si è incassato in un periodo (al massimo 92 giorni): totale, numero di appuntamenti chiusi, scontrino medio, prodotti venduti e totale per operatrice. Usalo per 'quanto ho incassato oggi / questa settimana / a ottobre?'.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        dal: { type: 'STRING', description: 'Primo giorno, AAAA-MM-GG' },
+        al: { type: 'STRING', description: 'Ultimo giorno compreso, AAAA-MM-GG. Se manca, solo il primo giorno.' }
+      },
+      required: ['dal']
+    }
+  },
+  {
+    name: 'clienti_da_recuperare',
+    description: "Le clienti che non passano da un po' e non hanno appuntamenti in calendario, con l'ultima visita. Usalo per 'chi devo richiamare?' o 'chi non viene da tanto?'.",
+    parameters: {
+      type: 'OBJECT',
+      properties: { giorni: { type: 'NUMBER', description: 'Da quanti giorni devono mancare. Se manca, 60.' } }
+    }
+  },
+  {
+    name: 'magazzino',
+    description: "I prodotti del salone: quanti pezzi ci sono, quali sono finiti o stanno finendo. Usalo per 'cosa devo riordinare?' o 'quanti shampoo ho?'.",
+    parameters: {
+      type: 'OBJECT',
+      properties: { cerca: { type: 'STRING', description: 'Facoltativo: nome, marca o categoria del prodotto' } }
+    }
+  },
+  {
     name: 'proponi_appuntamento',
     description: "Prepara un appuntamento da far confermare: NON lo salva. Il gestionale mostra la proposta con il pulsante Conferma. Usalo solo quando cliente, servizi, giorno e ora sono chiari.",
     parameters: {
@@ -325,6 +357,52 @@ export async function eseguiStrumento(
       };
     }
 
+    case 'incassi': {
+      const dal = giorno(a.dal), al = giorno(a.al || a.dal);
+      if (!dal || !al) return { errore: 'Date non valide: usa AAAA-MM-GG.' };
+      const fine = new Date(al); fine.setDate(fine.getDate() + 1);
+      if ((fine.getTime() - dal.getTime()) / 86400000 > 93) return { errore: 'Al massimo 92 giorni per volta.' };
+      const r = riepilogoIncassi(await dati.appuntamenti(dal.toISOString(), fine.toISOString()));
+      return { dal: chiaveGiorno(dal), al: chiaveGiorno(al), ...r, nota: 'Solo appuntamenti chiusi; le vendite al banco dei prodotti non sono comprese.' };
+    }
+
+    case 'clienti_da_recuperare': {
+      const soglia = Math.min(730, Math.max(14, Math.trunc(Number(a.giorni) || 60)));
+      const da = new Date(adesso); da.setMonth(da.getMonth() - 12);
+      const al = new Date(adesso); al.setFullYear(al.getFullYear() + 1);
+      const [clienti, storico] = await Promise.all([dati.clienti(), dati.appuntamenti(da.toISOString(), al.toISOString())]);
+      const elenco = clientiDaRecuperare(clienti, storico, adesso, soglia);
+      elenco.slice(0, MASSIMO_SCHEDE).forEach(r => {
+        if (schede.length < MASSIMO_SCHEDE && !schede.some(s => s.id === r.cliente.id)) {
+          schede.push({ id: r.cliente.id, nome: `${r.cliente.nome || ''} ${r.cliente.cognome || ''}`.trim() || 'Cliente' });
+        }
+      });
+      return {
+        da_almeno_giorni: soglia,
+        totale: elenco.length,
+        clienti: elenco.slice(0, 15).map(r => ({
+          nome: `${r.cliente.nome || ''} ${r.cliente.cognome || ''}`.trim(),
+          ultima_visita: r.ultimaVisita ? `${r.giorni} giorni fa` : 'mai venuta (o più di un anno fa)',
+          ha_telefono: !!soloCifre(r.cliente.telefono)
+        })),
+        nota: 'Per scrivere a tutte c\'è il pulsante "Invia messaggi" nella pagina Rosy.'
+      };
+    }
+
+    case 'magazzino': {
+      if (!dati.prodotti) return { errore: 'Il magazzino non è disponibile.' };
+      const q = pulito(a.cerca || '');
+      const tutti = (await dati.prodotti()).filter(p => p.attivo !== false);
+      const scelti = q ? tutti.filter(p => [p.nome, p.marca, p.categoria].some(v => pulito(v).includes(q))) : tutti;
+      const riga = (p: any) => ({ nome: p.nome, marca: p.marca || '', pezzi: Number(p.giacenza) || 0, prezzo: Number(p.prezzo) || 0, stato: statoScorta(p) === 'ok' ? 'a posto' : statoScorta(p) === 'esaurito' ? 'esaurito' : 'sta finendo' });
+      const daRiordinare = scelti.filter(p => statoScorta(p) !== 'ok');
+      return {
+        prodotti: scelti.length,
+        da_riordinare: daRiordinare.map(riga),
+        elenco: (q ? scelti : scelti.slice(0, 40)).map(riga)
+      };
+    }
+
     case 'operatrici': {
       const [ops, listino] = await Promise.all([dati.operatrici(), dati.servizi()]);
       return {
@@ -430,6 +508,7 @@ export function istruzioni(nomeSalone: string, adesso: Date, contesto = ''): str
     'Se mancano informazioni (quale cliente, quale servizio, che ora), chiedile in una frase.',
     'Per QUALSIASI domanda su una cliente (ultima visita, prossimo appuntamento, se è in rubrica) usa sempre cerca_cliente prima di rispondere: l’agenda che vedi qui sotto è solo di oggi e domani, non dice chi è cliente. Non dire mai che una cliente non esiste senza aver usato cerca_cliente; se lo strumento propone nomi simili, proponili.',
     'Non puoi cancellare né spostare appuntamenti: per quello si usa l’agenda.',
+    'Sai anche dire quanto si è incassato (incassi), chi non passa da un po’ (clienti_da_recuperare) e cosa c’è in magazzino (magazzino): usa quegli strumenti, non fare conti a mente.',
     'Se ti chiedono come si usa il gestionale, spiegalo in due righe. Per aprire il salone in un giorno di chiusura (per esempio un lunedì solo): Agenda → vista Giorno → andare su quel giorno → in alto compare "Questo giorno il salone è chiuso" → pulsante "Apri solo questa giornata" → scegliere orario e operatrici. Vale solo per quel giorno, i turni della settimana non cambiano, e quel giorno si può prenotare anche online. I turni di tutte le settimane invece si cambiano in Operatori.',
     'Per riservatezza non vedi telefoni, email e note delle clienti: i numeri e le email scritti in chat ti arrivano come [telefono 1], [email 1]; passali agli strumenti così come sono.',
     'Se ti chiedono il numero, l’email, le note o altri dati di una cliente: cercala con cerca_cliente (così sotto il tuo messaggio compare il pulsante "Apri scheda") e rispondi in una frase che per riservatezza non vedi quei dati e che li trova nella scheda, con il pulsante qui sotto. Non inventare né indovinare numeri.',
